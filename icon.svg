@@ -1,0 +1,7 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <rect width="128" height="128" rx="16" fill="#1c1f26"/>
+  <rect x="26" y="58" width="56" height="14" rx="3" fill="#8a8f99"/>
+  <rect x="74" y="50" width="30" height="10" rx="3" fill="#c14b3b"/>
+  <circle cx="40" cy="78" r="9" fill="#3b6fc1"/>
+  <text x="64" y="108" font-family="monospace" font-size="13" fill="#e6e6e6" text-anchor="middle">NOT A WEAPON</text>
+</svg>

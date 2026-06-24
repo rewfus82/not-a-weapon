@@ -1,0 +1,5 @@
+* text=auto eol=lf
+*.gd text
+*.tscn text
+*.godot text
+*.svg text
