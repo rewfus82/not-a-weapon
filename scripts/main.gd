@@ -1,85 +1,173 @@
 extends Node2D
-## Graybox test chamber for "This Is Not A Weapon".
+## Zombie-wave survival graybox for "This Is Not A Weapon".
 ##
-## Everything is squares + text on purpose. The point is to feel whether the
-## combine verb is fun BEFORE any art exists. World state is plain data updated
-## in _process and drawn in _draw; the UI is built in code in _build_ui().
+## The loop: SCAVENGE/BUILD phase (loot junk, combine at the bench, equip; a
+## countdown ticks to the next wave — press SPACE to start early) -> WAVE phase
+## (zombies pour in and chase you; fight with what you built; kills drop junk) ->
+## repeat, harder. Die and you lose the run.
 ##
-## Controls:  WASD / arrows = move   ·   mouse = aim   ·   left-click = use gadget
-##   Inventory (right) -> click items into the pot (max 3) -> Combine -> it equips.
-##   Tier buttons gate which slots the "simulation" lets you edit (1 -> 3).
+## Still squares + text, deterministic Resolver (no AI). Controls: WASD move,
+## mouse aim, left-click use gadget, SPACE start wave early, R restart on death.
+
+enum Phase { BUILD, WAVE, GAME_OVER }
 
 const PANEL_W := 360.0
 const PLAY_W := 1280.0 - PANEL_W
 const PLAY_H := 720.0
 const MARGIN := 14.0
-const PLAYER_SPEED := 330.0
-const FIRE_COOLDOWN := 0.18
+const PLAYER_SPEED := 300.0
+const PLAYER_RADIUS := 14.0
+const FIRE_COOLDOWN := 0.16
+const BUILD_TIME := 20.0
+const PLAYER_MAX_HP := 100.0
+const INVULN_TIME := 0.6
 
-var _db: Dictionary               # id -> Item
-var _tier: int = 1
-var _pot: Array[Item] = []        # current combine selection (max 3)
-var _equipped: Gadget = null
-var _loot_collected: int = 0
+var _db: Dictionary
+var _phase: int = Phase.BUILD
+var _phase_timer := 0.0
+var _wave := 0
 
-# --- world state -------------------------------------------------------------
+# --- player ------------------------------------------------------------------
 var _player := Vector2(PLAY_W * 0.5, PLAY_H * 0.5)
 var _aim := Vector2.RIGHT
+var _hp := PLAYER_MAX_HP
+var _invuln := 0.0
+var _hurt_flash := 0.0
 var _fire_timer := 0.0
-var _targets: Array[Dictionary] = []
-var _dummy: Dictionary = {}
-var _loot: Array[Dictionary] = []
+var _lmb_edge := false                # left-button pressed THIS frame (for semi-auto)
+
+# --- crafting ----------------------------------------------------------------
+var _inv: Dictionary = {}             # item_id -> count
+var _pot: Array[String] = []
+var _arsenal: Array[Gadget] = []      # crafted weapons you can hold + switch between
+var _equipped_idx := 0
+var _equipped: Gadget = null          # always points at _arsenal[_equipped_idx]
+
+# --- world -------------------------------------------------------------------
+var _zombies: Array[Dictionary] = []
+var _loot: Array[Dictionary] = []     # ground pickups: {pos, id}
+var _sites: Array[Dictionary] = []    # scavenge points: {rect, label, looted}
 var _projectiles: Array[Dictionary] = []
+var _traps: Array[Dictionary] = []    # placed traps: {pos, gadget, life}
+var _melee_anim: Dictionary = {}      # transient swing visual
+var _dmg_nums: Array[Dictionary] = [] # {pos, text, life, col}
+var _particles: Array[Dictionary] = []
+var _to_spawn := 0
+var _spawn_timer := 0.0
+var _shake := 0.0
 var _log_lines: Array[String] = []
 
-# --- UI refs -----------------------------------------------------------------
+# --- ui ----------------------------------------------------------------------
+var _font: Font
+var _grid: GridContainer
 var _pot_label: Label
+var _arsenal_box: VBoxContainer
 var _equipped_label: RichTextLabel
 var _log_label: RichTextLabel
-var _tier_buttons: Array[Button] = []
-var _font: Font
 
 func _ready() -> void:
 	_font = ThemeDB.fallback_font
 	_db = ItemDB.build()
-	_equipped = Resolver.combine([], _tier)  # empty: harmless placeholder
-	_spawn_chamber()
+	_spawn_sites()
 	_build_ui()
-	_log("Welcome. You are a soldier on a real mission. Probably. (Tier 1)")
-	_log("Try: M16 + Can of Anchovies -> Combine -> click to fire.")
+	_restart()
 
 # =============================================================================
-# WORLD
+# LIFECYCLE
 # =============================================================================
 
-func _spawn_chamber() -> void:
-	_targets.clear()
-	for i in range(5):
-		var x := 120.0 + i * 150.0
-		_targets.append({
-			"rect": Rect2(x, 80.0, 70.0, 70.0),
-			"hp": 30.0, "max_hp": 30.0, "alive": true, "respawn": 0.0,
-		})
-	_dummy = {
-		"pos": Vector2(PLAY_W * 0.5, 260.0),
-		"dir": 1.0, "hp": 60.0, "max_hp": 60.0,
-		"slow": 0.0, "snare": 0.0, "alive": true, "respawn": 0.0,
-	}
-	_loot.clear()
-	for i in range(10):
-		_loot.append({
-			"pos": Vector2(80.0 + randf() * (PLAY_W - 160.0), 420.0 + randf() * 240.0),
-			"collected": false,
-		})
+func _spawn_sites() -> void:
+	_sites = [
+		{"rect": Rect2(80, 70, 120, 80),   "label": "HOUSE",   "looted": false},
+		{"rect": Rect2(PLAY_W - 220, 70, 130, 70), "label": "CAR", "looted": false},
+		{"rect": Rect2(90, PLAY_H - 170, 110, 70), "label": "DUMPSTER", "looted": false},
+		{"rect": Rect2(PLAY_W - 210, PLAY_H - 160, 120, 70), "label": "CORPSE PILE", "looted": false},
+	]
+
+func _restart() -> void:
+	_wave = 0
+	_hp = PLAYER_MAX_HP
+	_player = Vector2(PLAY_W * 0.5, PLAY_H * 0.5)
+	_zombies.clear(); _loot.clear(); _projectiles.clear()
+	_dmg_nums.clear(); _particles.clear(); _pot.clear()
+	_invuln = 0.0; _hurt_flash = 0.0; _shake = 0.0
+	_arsenal = [_starter_gadget()]
+	_equipped_idx = 0
+	_equipped = _arsenal[0]
+	_inv = {"wire_hanger": 1, "pixie_stix": 1, "potato": 1, "zip_ties": 1,
+			"ketchup": 1, "feathers": 1, "anchovies": 1, "pringles": 1}
+	_log("You wake up. Something is very wrong. (WASD move, mouse aim, click to fire.)")
+	_start_build()
+	_refresh_inventory_ui()
+	_refresh_equipped()
+	_refresh_arsenal_ui()
+
+func _equip(i: int) -> void:
+	if i < 0 or i >= _arsenal.size():
+		return
+	_equipped_idx = i
+	_equipped = _arsenal[i]
+	_refresh_equipped()
+	_refresh_arsenal_ui()
+
+func _starter_gadget() -> Gadget:
+	var g := Gadget.new()
+	g.display_name = "Rusty Pistol"
+	g.description = "Standard issue. Reliable, boring, yours."
+	g.delivery = Gadget.Delivery.PROJECTILE
+	g.add(Gadget.DAMAGE, 8.0)
+	g.projectile_speed = 720.0
+	g.color = Color(0.85, 0.82, 0.5)
+	return g
+
+func _start_build() -> void:
+	_phase = Phase.BUILD
+	_phase_timer = BUILD_TIME
+	for s in _sites:
+		s["looted"] = false
+	_log("Scavenge & build. Next wave in %ds — or press SPACE." % int(BUILD_TIME))
+
+func _start_wave() -> void:
+	_wave += 1
+	_phase = Phase.WAVE
+	_to_spawn = 5 + _wave * 3
+	_spawn_timer = 0.0
+	_log("WAVE %d. They're coming. (%d incoming)" % [_wave, _to_spawn])
+
+func _game_over() -> void:
+	_phase = Phase.GAME_OVER
+	_log("You died on wave %d. Press R to wake up again." % _wave)
+
+# =============================================================================
+# UPDATE
+# =============================================================================
 
 func _process(delta: float) -> void:
+	_fire_timer = maxf(0.0, _fire_timer - delta)
+	_invuln = maxf(0.0, _invuln - delta)
+	_hurt_flash = maxf(0.0, _hurt_flash - delta)
+	_shake = maxf(0.0, _shake - delta * 22.0)
+	if not _melee_anim.is_empty():
+		_melee_anim["life"] = float(_melee_anim["life"]) - delta
+		if _melee_anim["life"] <= 0.0:
+			_melee_anim = {}
+	_update_juice(delta)
+
+	if _phase == Phase.GAME_OVER:
+		if Input.is_key_pressed(KEY_R):
+			_restart()
+		queue_redraw()
+		return
+
 	_handle_input(delta)
-	_update_dummy(delta)
-	_update_targets(delta)
-	_update_projectiles(delta)
 	_update_loot(delta)
-	if _fire_timer > 0.0:
-		_fire_timer -= delta
+	_update_projectiles(delta)
+
+	if _phase == Phase.BUILD:
+		_update_build(delta)
+	elif _phase == Phase.WAVE:
+		_update_wave(delta)
+
 	queue_redraw()
 
 func _handle_input(delta: float) -> void:
@@ -90,227 +178,463 @@ func _handle_input(delta: float) -> void:
 	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT): move.x += 1.0
 	if move != Vector2.ZERO:
 		_player += move.normalized() * PLAYER_SPEED * delta
-	_player.x = clampf(_player.x, MARGIN + 10.0, PLAY_W - MARGIN - 10.0)
-	_player.y = clampf(_player.y, MARGIN + 10.0, PLAY_H - MARGIN - 10.0)
+	_player.x = clampf(_player.x, MARGIN + PLAYER_RADIUS, PLAY_W - MARGIN - PLAYER_RADIUS)
+	_player.y = clampf(_player.y, MARGIN + PLAYER_RADIUS, PLAY_H - MARGIN - PLAYER_RADIUS)
 
 	var mouse := get_global_mouse_position()
 	if mouse.x < PLAY_W:
 		_aim = (mouse - _player).normalized()
-		if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and _fire_timer <= 0.0:
-			_fire()
-			_fire_timer = FIRE_COOLDOWN
+		var held := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+		var want := _lmb_edge if (_equipped != null and _equipped.semi) else held
+		if want and _fire_timer <= 0.0:
+			_fire()  # sets its own cooldown per delivery
+	_lmb_edge = false  # consume the click edge each frame
+
+	if _phase == Phase.BUILD and Input.is_key_pressed(KEY_SPACE):
+		_start_wave()
+
+	# switch weapons with the number keys
+	for n in range(mini(9, _arsenal.size())):
+		if Input.is_key_pressed(KEY_1 + n):
+			_equip(n)
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			_lmb_edge = true   # consumed in _handle_input; gated by play-area position
+		elif event.button_index == MOUSE_BUTTON_WHEEL_UP and not _arsenal.is_empty():
+			_equip((_equipped_idx - 1 + _arsenal.size()) % _arsenal.size())
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and not _arsenal.is_empty():
+			_equip((_equipped_idx + 1) % _arsenal.size())
+
+func _update_build(delta: float) -> void:
+	_phase_timer -= delta
+	# walk into a scavenge site to loot it (once per build phase)
+	for s in _sites:
+		if not s["looted"] and s["rect"].has_point(_player):
+			s["looted"] = true
+			var id: String = _db.keys().pick_random()
+			_grant(id, "Scavenged %s from the %s." % [_db[id].display_name, s["label"]])
+	if _phase_timer <= 0.0:
+		_start_wave()
+
+func _update_wave(delta: float) -> void:
+	# spawn the wave over time from the edges
+	if _to_spawn > 0:
+		_spawn_timer -= delta
+		if _spawn_timer <= 0.0:
+			_spawn_zombie()
+			_to_spawn -= 1
+			_spawn_timer = maxf(0.25, 1.2 - _wave * 0.05)
+	# update zombies
+	var alive: Array[Dictionary] = []
+	for z in _zombies:
+		if z.get("dead", false):
+			continue  # killed this frame — drop it (don't re-add)
+		z["flash"] = maxf(0.0, z["flash"] - delta)
+		z["slow"] = maxf(0.0, z["slow"] - delta)
+		z["snare"] = maxf(0.0, z["snare"] - delta)
+		if float(z.get("burn_t", 0.0)) > 0.0:
+			z["burn_t"] = float(z["burn_t"]) - delta
+			z["hp"] = float(z["hp"]) - float(z.get("burn", 0.0)) * delta
+			if z["hp"] <= 0.0:
+				_on_zombie_death(z)
+				continue
+		var spd: float = z["speed"]
+		if z["snare"] > 0.0: spd = 0.0
+		elif z["slow"] > 0.0: spd *= 0.35
+		var to_player: Vector2 = (_player as Vector2) - z["pos"]
+		z["pos"] += to_player.normalized() * spd * delta + z["knock"] * delta
+		z["knock"] = z["knock"].lerp(Vector2.ZERO, 0.12)
+		# contact damage
+		if z["pos"].distance_to(_player) < PLAYER_RADIUS + 13.0 and _invuln <= 0.0:
+			_hp -= z["dmg"]
+			_invuln = INVULN_TIME
+			_hurt_flash = 0.4
+			_shake = 6.0
+			if _hp <= 0.0:
+				_game_over()
+				return
+		alive.append(z)
+	_zombies = alive
+	_update_aura(delta)
+	_update_traps(delta)
+	# wave clear?
+	if _to_spawn <= 0 and _zombies.is_empty():
+		_log("Wave %d cleared." % _wave)
+		_start_build()
+
+func _spawn_zombie() -> void:
+	var edge := randi() % 4
+	var p := Vector2.ZERO
+	match edge:
+		0: p = Vector2(randf_range(MARGIN, PLAY_W - MARGIN), MARGIN + 6)
+		1: p = Vector2(randf_range(MARGIN, PLAY_W - MARGIN), PLAY_H - MARGIN - 6)
+		2: p = Vector2(MARGIN + 6, randf_range(MARGIN, PLAY_H - MARGIN))
+		_: p = Vector2(PLAY_W - MARGIN - 6, randf_range(MARGIN, PLAY_H - MARGIN))
+	var hp := 18.0 + _wave * 6.0
+	_zombies.append({
+		"pos": p, "hp": hp, "max_hp": hp,
+		"speed": minf(70.0 + _wave * 4.0, 150.0),
+		"dmg": 8.0 + _wave, "flash": 0.0, "slow": 0.0, "snare": 0.0,
+		"knock": Vector2.ZERO, "dead": false, "burn": 0.0, "burn_t": 0.0,
+	})
+
+# --- firing / projectiles ----------------------------------------------------
 
 func _fire() -> void:
 	if _equipped == null:
 		return
-	match _equipped.category:
-		Gadget.Category.DUD:
-			_log("*click* %s does nothing. As expected." % _equipped.display_name)
-		Gadget.Category.UTILITY:
-			_log("%s is passive — loot vacuums up on its own. Just walk near it." % _equipped.display_name)
-		_:
-			_projectiles.append({
-				"pos": _player + _aim * 26.0,
-				"vel": _aim * _equipped.projectile_speed,
-				"gadget": _equipped,
-				"life": 2.2,
-			})
+	match _equipped.delivery:
+		Gadget.Delivery.PROJECTILE:
+			_fire_ranged(_equipped, false); _fire_timer = FIRE_COOLDOWN
+		Gadget.Delivery.LOBBED:
+			_fire_ranged(_equipped, true); _fire_timer = 0.5
+		Gadget.Delivery.MELEE:
+			_melee_swing(_equipped); _fire_timer = 0.2  # fast = continuous grind while held
+		Gadget.Delivery.PLACED:
+			_place_trap(_equipped); _fire_timer = 0.6
+		Gadget.Delivery.AURA:
+			_fire_timer = 0.2  # passive; aura ticks each frame
 
-func _update_dummy(delta: float) -> void:
-	if not _dummy["alive"]:
-		_dummy["respawn"] -= delta
-		if _dummy["respawn"] <= 0.0:
-			_dummy["alive"] = true
-			_dummy["hp"] = _dummy["max_hp"]
-		return
-	_dummy["slow"] = maxf(0.0, _dummy["slow"] - delta)
-	_dummy["snare"] = maxf(0.0, _dummy["snare"] - delta)
-	var speed := 140.0
-	if _dummy["snare"] > 0.0:
-		speed = 0.0
-	elif _dummy["slow"] > 0.0:
-		speed = 40.0
-	_dummy["pos"].x += _dummy["dir"] * speed * delta
-	if _dummy["pos"].x < 120.0:
-		_dummy["pos"].x = 120.0; _dummy["dir"] = 1.0
-	elif _dummy["pos"].x > PLAY_W - 120.0:
-		_dummy["pos"].x = PLAY_W - 120.0; _dummy["dir"] = -1.0
+func _fire_ranged(g: Gadget, lobbed: bool) -> void:
+	var pe := g.get_effect(Gadget.PIERCE)
+	var pierce := int(pe["count"]) if not pe.is_empty() else 0
+	_projectiles.append(_make_proj(_aim, g, lobbed, pierce, false))
+	var se := g.get_effect(Gadget.SPAWN)
+	if not se.is_empty():
+		for i in range(int(se["count"])):
+			var dir := Vector2.from_angle(_aim.angle() + randf_range(-0.5, 0.5))
+			_projectiles.append(_make_proj(dir, g, false, 0, true))
 
-func _update_targets(delta: float) -> void:
-	for t in _targets:
-		if not t["alive"]:
-			t["respawn"] -= delta
-			if t["respawn"] <= 0.0:
-				t["alive"] = true
-				t["hp"] = t["max_hp"]
+func _make_proj(dir: Vector2, g: Gadget, lobbed: bool, pierce: int, sub: bool) -> Dictionary:
+	var spd := maxf(g.projectile_speed, 300.0) * (0.6 if sub else 1.0)
+	return {"pos": _player + dir * 24.0, "vel": dir * spd, "gadget": g,
+		"life": 0.85 if lobbed else 1.8, "pierce": pierce, "hits": [], "lobbed": lobbed, "sub": sub}
+
+func _melee_swing(g: Gadget) -> void:
+	_melee_anim = {"pos": _player, "aim": _aim, "life": 0.14}
+	_shake = maxf(_shake, 3.0)
+	for z in _zombies:
+		if z.get("dead", false):
+			continue
+		var to_z: Vector2 = (z["pos"] as Vector2) - _player
+		if to_z.length() < 77.0 and to_z.normalized().dot(_aim) > 0.35:
+			_apply_onhit(g, z, z["pos"])
+
+func _place_trap(g: Gadget) -> void:
+	if _traps.size() >= 4:
+		_traps.pop_front()
+	_traps.append({"pos": _player, "gadget": g, "life": 25.0})
+	_log("Placed %s." % g.display_name)
 
 func _update_projectiles(delta: float) -> void:
-	var survivors: Array[Dictionary] = []
+	var live: Array[Dictionary] = []
 	for p in _projectiles:
 		var g: Gadget = p["gadget"]
-		if g.homing:
-			var target_pos := _nearest_enemy_pos(p["pos"])
-			if target_pos != Vector2.INF:
-				var desired := (target_pos - p["pos"]).normalized() * g.projectile_speed
-				p["vel"] = p["vel"].lerp(desired, 0.12)
+		if (g.homing or p["sub"]) and not p["lobbed"]:
+			var t := _nearest_zombie(p["pos"])
+			if t != Vector2.INF:
+				var v: Vector2 = p["vel"]
+				p["vel"] = v.lerp((t - p["pos"]).normalized() * v.length(), 0.14)
 		p["pos"] += p["vel"] * delta
 		p["life"] -= delta
-
-		var hit := _resolve_projectile_hit(p, g)
-		if hit:
+		var spent := false
+		for z in _zombies:
+			if z.get("dead", false) or p["hits"].has(z):
+				continue
+			if (p["pos"] as Vector2).distance_to(z["pos"]) < 15.0:
+				if p["lobbed"]:
+					_explode(p["pos"], g); spent = true; break
+				_apply_onhit(g, z, p["pos"])
+				p["hits"].append(z)
+				if int(p["pierce"]) <= 0:
+					spent = true; break
+				p["pierce"] = int(p["pierce"]) - 1
+		if spent:
 			continue
 		if p["life"] <= 0.0 or _out_of_play(p["pos"]):
+			if p["lobbed"]:
+				_explode(p["pos"], g)
 			continue
-		survivors.append(p)
-	_projectiles = survivors
+		live.append(p)
+	_projectiles = live
 
-func _resolve_projectile_hit(p: Dictionary, g: Gadget) -> bool:
-	# Targets
-	for t in _targets:
-		if t["alive"] and t["rect"].has_point(p["pos"]):
-			_apply_hit(p["pos"], g)
-			return true
-	# Dummy
-	if _dummy["alive"] and p["pos"].distance_to(_dummy["pos"]) < 24.0:
-		_apply_hit(p["pos"], g)
-		return true
-	return false
+func _apply_onhit(g: Gadget, z: Dictionary, at: Vector2) -> void:
+	if g.has(Gadget.EXPLODE):
+		_explode(at, g)
+	else:
+		_apply_payload(g, z, at)
 
-func _apply_hit(at: Vector2, g: Gadget) -> void:
-	if g.harmless and g.category == Gadget.Category.DAMAGE:
-		_log("%s connects. The target is unharmed but visibly unsettled." % g.display_name)
-		return
+func _apply_payload(g: Gadget, z: Dictionary, at: Vector2) -> void:
+	z["flash"] = 0.1
+	var dmg := g.amount_of(Gadget.DAMAGE)
+	if g.harmless:
+		dmg = minf(dmg, 1.0)
+	if dmg > 0.0:
+		_apply_damage(z, dmg, at)
+	var kn := g.get_effect(Gadget.KNOCKBACK)
+	if not kn.is_empty():
+		z["knock"] = ((z["pos"] as Vector2) - at).normalized() * float(kn["amount"])
+	var sl := g.get_effect(Gadget.SLOW)
+	if not sl.is_empty():
+		z["slow"] = maxf(z["slow"], float(sl["duration"]))
+	var sn := g.get_effect(Gadget.SNARE)
+	if not sn.is_empty():
+		z["snare"] = maxf(z["snare"], float(sn["duration"]))
+	var bn := g.get_effect(Gadget.BURN)
+	if not bn.is_empty():
+		z["burn"] = float(bn["amount"]); z["burn_t"] = float(bn["duration"])
 
-	if g.category == Gadget.Category.CONTROL:
-		if _dummy["alive"] and at.distance_to(_dummy["pos"]) < 60.0:
-			if g.control == "snare":
-				_dummy["snare"] = 2.2
-				_log("%s snares the dummy in place." % g.display_name)
-			else:
-				_dummy["slow"] = 3.0
-				_log("%s slows the dummy to a crawl." % g.display_name)
-		if g.damage > 0.0:
-			_damage_at(at, g.damage, g.aoe)
-		return
-
-	# DAMAGE
-	_damage_at(at, g.damage, g.aoe)
-	if g.aoe > 0.0:
-		_log("%s detonates (%d dmg, splash)." % [g.display_name, int(g.damage)])
-
-func _damage_at(at: Vector2, dmg: float, aoe: float) -> void:
-	for t in _targets:
-		if not t["alive"]:
+func _explode(at: Vector2, g: Gadget) -> void:
+	var ex := g.get_effect(Gadget.EXPLODE)
+	var r := float(ex["radius"]) if not ex.is_empty() else 80.0
+	var dmg := float(ex["amount"]) if not ex.is_empty() else g.amount_of(Gadget.DAMAGE)
+	_shake = maxf(_shake, 6.0)
+	_burst(at, Color(0.95, 0.6, 0.2))
+	for z in _zombies:
+		if z.get("dead", false):
 			continue
-		var center := t["rect"].position + t["rect"].size * 0.5
-		if t["rect"].has_point(at) or (aoe > 0.0 and center.distance_to(at) < aoe):
-			t["hp"] -= dmg
-			if t["hp"] <= 0.0:
-				t["alive"] = false
-				t["respawn"] = 3.0
-	if _dummy["alive"]:
-		if _dummy["pos"].distance_to(at) < (24.0 if aoe <= 0.0 else aoe):
-			_dummy["hp"] -= dmg
-			if _dummy["hp"] <= 0.0:
-				_dummy["alive"] = false
-				_dummy["respawn"] = 2.5
-				_log("The dummy gives up the ghost. (It'll be back.)")
+		if (z["pos"] as Vector2).distance_to(at) < r:
+			if dmg > 0.0:
+				_apply_damage(z, dmg, at)
+			z["knock"] = ((z["pos"] as Vector2) - at).normalized() * 200.0
+			var sl := g.get_effect(Gadget.SLOW)
+			if not sl.is_empty(): z["slow"] = maxf(z["slow"], float(sl["duration"]))
+			var sn := g.get_effect(Gadget.SNARE)
+			if not sn.is_empty(): z["snare"] = maxf(z["snare"], float(sn["duration"]))
+			var bn := g.get_effect(Gadget.BURN)
+			if not bn.is_empty(): z["burn"] = float(bn["amount"]); z["burn_t"] = float(bn["duration"])
 
-func _update_loot(delta: float) -> void:
-	if _equipped == null or not _equipped.auto_collect:
+func _update_aura(delta: float) -> void:
+	if _equipped == null or _equipped.delivery != Gadget.Delivery.AURA:
 		return
+	var ar := 150.0
+	var ce := _equipped.get_effect(Gadget.COLLECT)
+	if not ce.is_empty() and float(ce["radius"]) > 0.0:
+		ar = float(ce["radius"])
+	var dps := _equipped.amount_of(Gadget.DAMAGE) * 4.0
+	var has_slow := _equipped.has(Gadget.SLOW)
+	for z in _zombies:
+		if z.get("dead", false):
+			continue
+		if (z["pos"] as Vector2).distance_to(_player) < ar:
+			if dps > 0.0:
+				z["hp"] = float(z["hp"]) - dps * delta
+				z["flash"] = maxf(float(z.get("flash", 0.0)), 0.05)
+				if z["hp"] <= 0.0:
+					_on_zombie_death(z)
+			if has_slow:
+				z["slow"] = maxf(float(z["slow"]), 0.25)
+
+func _update_traps(delta: float) -> void:
+	var live: Array[Dictionary] = []
+	for t in _traps:
+		t["life"] = float(t["life"]) - delta
+		var tg: Gadget = t["gadget"]
+		var triggered := false
+		for z in _zombies:
+			if not z.get("dead", false) and (z["pos"] as Vector2).distance_to(t["pos"]) < 42.0:
+				triggered = true; break
+		if triggered:
+			_burst(t["pos"], Color(0.8, 0.5, 0.3))
+			_shake = maxf(_shake, 4.0)
+			var r := 70.0
+			var ex := tg.get_effect(Gadget.EXPLODE)
+			if not ex.is_empty(): r = float(ex["radius"])
+			for z in _zombies:
+				if not z.get("dead", false) and (z["pos"] as Vector2).distance_to(t["pos"]) < r:
+					_apply_payload(tg, z, t["pos"])
+			continue  # consumed
+		if float(t["life"]) > 0.0:
+			live.append(t)
+	_traps = live
+
+func _apply_damage(z: Dictionary, dmg: float, _from: Vector2) -> void:
+	if z.get("dead", false):
+		return
+	z["hp"] = float(z["hp"]) - dmg
+	z["flash"] = 0.12
+	_dmg_num(z["pos"], str(int(dmg)), Color(1, 0.9, 0.5))
+	if z["hp"] <= 0.0:
+		_on_zombie_death(z)
+
+func _on_zombie_death(z: Dictionary) -> void:
+	# mark dead; the WAVE update drops it next pass (avoids mutating mid-iteration)
+	z["dead"] = true
+	_burst(z["pos"], Color(0.4, 0.7, 0.4))
+	if randf() < 0.45:
+		var id: String = _db.keys().pick_random()
+		_loot.append({"pos": z["pos"], "id": id})
+
+# --- loot --------------------------------------------------------------------
+
+func _update_loot(_delta: float) -> void:
+	var auto := _equipped != null and _equipped.has(Gadget.COLLECT)
+	var ar := 200.0
+	if auto:
+		var ce := _equipped.get_effect(Gadget.COLLECT)
+		if float(ce["radius"]) > 0.0: ar = float(ce["radius"])
+	var keep: Array[Dictionary] = []
 	for l in _loot:
-		if l["collected"]:
+		var d: float = l["pos"].distance_to(_player)
+		if auto and d < ar:
+			l["pos"] = (l["pos"] as Vector2).lerp(_player, 0.12)
+			d = l["pos"].distance_to(_player)
+		if d < 22.0:
+			_grant(l["id"], "Picked up %s." % _db[l["id"]].display_name)
 			continue
-		var d := l["pos"].distance_to(_player)
-		if d < 230.0:
-			l["pos"] = l["pos"].lerp(_player, 0.10)
-			if d < 26.0:
-				l["collected"] = true
-				_loot_collected += 1
+		keep.append(l)
+	_loot = keep
 
-func _nearest_enemy_pos(from: Vector2) -> Vector2:
+func _grant(id: String, msg: String) -> void:
+	_inv[id] = int(_inv.get(id, 0)) + 1
+	_log(msg)
+	_burst(_player, Color(0.95, 0.85, 0.3))
+	_refresh_inventory_ui()
+
+# --- juice -------------------------------------------------------------------
+
+func _update_juice(delta: float) -> void:
+	var dn: Array[Dictionary] = []
+	for n in _dmg_nums:
+		n["life"] -= delta
+		n["pos"].y -= 30.0 * delta
+		if n["life"] > 0.0: dn.append(n)
+	_dmg_nums = dn
+	var pp: Array[Dictionary] = []
+	for pt in _particles:
+		pt["life"] -= delta
+		pt["pos"] += pt["vel"] * delta
+		pt["vel"] *= 0.92
+		if pt["life"] > 0.0: pp.append(pt)
+	_particles = pp
+
+func _dmg_num(pos: Vector2, text: String, col: Color) -> void:
+	_dmg_nums.append({"pos": pos + Vector2(0, -16), "text": text, "life": 0.7, "col": col})
+
+func _burst(pos: Vector2, col: Color) -> void:
+	for i in range(8):
+		var a := randf() * TAU
+		_particles.append({"pos": pos, "vel": Vector2(cos(a), sin(a)) * randf_range(40, 160),
+			"life": randf_range(0.3, 0.6), "col": col})
+
+func _nearest_zombie(from: Vector2) -> Vector2:
 	var best := Vector2.INF
-	var best_d := INF
-	if _dummy["alive"]:
-		best = _dummy["pos"]; best_d = from.distance_to(_dummy["pos"])
-	for t in _targets:
-		if not t["alive"]:
+	var bd := INF
+	for z in _zombies:
+		if z.get("dead", false):
 			continue
-		var c := t["rect"].position + t["rect"].size * 0.5
-		var d := from.distance_to(c)
-		if d < best_d:
-			best_d = d; best = c
+		var d := from.distance_to(z["pos"])
+		if d < bd: bd = d; best = z["pos"]
 	return best
 
-func _out_of_play(pos: Vector2) -> bool:
-	return pos.x < 0.0 or pos.x > PLAY_W or pos.y < 0.0 or pos.y > PLAY_H
+func _out_of_play(p: Vector2) -> bool:
+	return p.x < 0.0 or p.x > PLAY_W or p.y < 0.0 or p.y > PLAY_H
 
 # =============================================================================
 # DRAW
 # =============================================================================
 
 func _draw() -> void:
-	# Play area
-	draw_rect(Rect2(0, 0, PLAY_W, PLAY_H), Color(0.10, 0.11, 0.14))
-	draw_rect(Rect2(MARGIN, MARGIN, PLAY_W - MARGIN * 2, PLAY_H - MARGIN * 2), Color(0.16, 0.17, 0.21))
-	# Section captions
-	_text(Vector2(MARGIN + 6, MARGIN + 22), "TARGETS", Color(0.5, 0.55, 0.6), 14)
-	_text(Vector2(MARGIN + 6, 230), "MOVING DUMMY (slow / snare it)", Color(0.5, 0.55, 0.6), 14)
-	_text(Vector2(MARGIN + 6, 408), "LOOT (equip Harvester to auto-collect)", Color(0.5, 0.55, 0.6), 14)
+	var shake := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * _shake
+	draw_set_transform(shake, 0.0, Vector2.ONE)
 
-	# Loot
+	draw_rect(Rect2(0, 0, PLAY_W, PLAY_H), Color(0.09, 0.10, 0.12))
+	draw_rect(Rect2(MARGIN, MARGIN, PLAY_W - MARGIN * 2, PLAY_H - MARGIN * 2), Color(0.14, 0.15, 0.18))
+
+	# scavenge sites
+	for s in _sites:
+		var looted: bool = s["looted"]
+		draw_rect(s["rect"], Color(0.22, 0.24, 0.30) if not looted else Color(0.16, 0.16, 0.18))
+		var col := Color(0.6, 0.65, 0.7) if not looted else Color(0.35, 0.35, 0.4)
+		_text(s["rect"].position + Vector2(6, 18), s["label"], col, 13)
+
+	# loot
 	for l in _loot:
-		if not l["collected"]:
-			draw_rect(Rect2(l["pos"] - Vector2(5, 5), Vector2(10, 10)), Color(0.95, 0.82, 0.25))
+		draw_rect(Rect2(l["pos"] - Vector2(5, 5), Vector2(10, 10)), Color(0.95, 0.82, 0.25))
 
-	# Targets
-	for t in _targets:
-		if t["alive"]:
-			draw_rect(t["rect"], Color(0.55, 0.30, 0.30))
-			var frac: float = clampf(t["hp"] / t["max_hp"], 0.0, 1.0)
-			draw_rect(Rect2(t["rect"].position + Vector2(0, -8), Vector2(t["rect"].size.x * frac, 5)), Color(0.4, 0.8, 0.4))
-		else:
-			draw_rect(t["rect"], Color(0.20, 0.20, 0.24))
+	# zombies
+	for z in _zombies:
+		var zc := Color(0.40, 0.65, 0.38)
+		if z["snare"] > 0.0: zc = Color(0.6, 0.4, 0.75)
+		elif z["slow"] > 0.0: zc = Color(0.4, 0.55, 0.8)
+		if z["flash"] > 0.0: zc = Color(1, 1, 1)
+		draw_circle(z["pos"], 13.0, zc)
+		var f: float = clampf(z["hp"] / z["max_hp"], 0.0, 1.0)
+		draw_rect(Rect2(z["pos"] + Vector2(-13, -20), Vector2(26.0 * f, 4)), Color(0.8, 0.3, 0.3))
 
-	# Dummy
-	if _dummy["alive"]:
-		var col := Color(0.70, 0.65, 0.45)
-		if _dummy["snare"] > 0.0: col = Color(0.65, 0.40, 0.80)
-		elif _dummy["slow"] > 0.0: col = Color(0.40, 0.60, 0.85)
-		draw_circle(_dummy["pos"], 22.0, col)
-		var hp_frac: float = clampf(_dummy["hp"] / _dummy["max_hp"], 0.0, 1.0)
-		draw_rect(Rect2(_dummy["pos"] + Vector2(-22, -34), Vector2(44.0 * hp_frac, 5)), Color(0.4, 0.8, 0.4))
+	# traps
+	for t in _traps:
+		draw_rect(Rect2((t["pos"] as Vector2) - Vector2(8, 8), Vector2(16, 16)), Color(0.8, 0.5, 0.2))
+		draw_arc(t["pos"], 42.0, 0.0, TAU, 24, Color(0.8, 0.5, 0.2, 0.25), 1.0)
 
-	# Projectiles
+	# projectiles
 	for p in _projectiles:
 		var g: Gadget = p["gadget"]
-		var r := 6.0 if not g.homing else 8.0
-		draw_circle(p["pos"], r, g.color)
+		draw_circle(p["pos"], 6.0 if not g.homing else 8.0, g.color)
 
-	# Player + aim
-	draw_circle(_player, 14.0, Color(0.85, 0.85, 0.9))
-	draw_line(_player, _player + _aim * 30.0, Color(0.9, 0.9, 0.5), 3.0)
+	# melee swing
+	if not _melee_anim.is_empty():
+		var ma: Vector2 = _melee_anim["aim"]
+		var mc := Color(0.95, 0.95, 0.7, clampf(float(_melee_anim["life"]) * 6.0, 0.0, 1.0))
+		draw_arc(_melee_anim["pos"], 60.0, ma.angle() - 0.6, ma.angle() + 0.6, 16, mc, 4.0)
 
-	# In-world HUD
-	var hud := "TIER %d   ·   Equipped: %s [%s]   ·   Loot: %d" % [
-		_tier, _equipped.display_name, _equipped.category_name(), _loot_collected]
-	_text(Vector2(MARGIN + 6, PLAY_H - 18), hud, Color(0.8, 0.82, 0.85), 15)
-	_text(Vector2(MARGIN + 6, PLAY_H - 40), "WASD move · mouse aim · click to use", Color(0.5, 0.52, 0.55), 13)
+	# particles
+	for pt in _particles:
+		var c: Color = pt["col"]
+		c.a = clampf(pt["life"] * 2.0, 0.0, 1.0)
+		draw_rect(Rect2(pt["pos"] - Vector2(2, 2), Vector2(4, 4)), c)
+
+	# player
+	var pc := Color(0.88, 0.88, 0.92)
+	if _invuln > 0.0 and int(_invuln * 20.0) % 2 == 0: pc = Color(1, 0.5, 0.5)
+	draw_circle(_player, PLAYER_RADIUS, pc)
+	draw_line(_player, _player + _aim * 28.0, Color(0.9, 0.9, 0.5), 3.0)
+
+	# damage numbers
+	for n in _dmg_nums:
+		var nc: Color = n["col"]
+		nc.a = clampf(n["life"] * 1.6, 0.0, 1.0)
+		_text(n["pos"], n["text"], nc, 14)
+
+	# hurt vignette
+	if _hurt_flash > 0.0:
+		var hc := Color(0.8, 0.1, 0.1, _hurt_flash * 0.6)
+		draw_rect(Rect2(0, 0, PLAY_W, PLAY_H), hc)
+
+	_draw_hud()
+
+func _draw_hud() -> void:
+	# hp bar
+	draw_rect(Rect2(MARGIN + 6, PLAY_H - 30, 220, 16), Color(0.2, 0.2, 0.22))
+	var hpf: float = clampf(_hp / PLAYER_MAX_HP, 0.0, 1.0)
+	draw_rect(Rect2(MARGIN + 6, PLAY_H - 30, 220 * hpf, 16), Color(0.75, 0.3, 0.3))
+	_text(Vector2(MARGIN + 10, PLAY_H - 17), "HP %d" % int(maxf(_hp, 0.0)), Color(1, 1, 1), 13)
+
+	var status := ""
+	match _phase:
+		Phase.BUILD: status = "BUILD  ·  next wave in %ds (SPACE to start)" % int(ceil(_phase_timer))
+		Phase.WAVE:  status = "WAVE %d  ·  %d left" % [_wave, _zombies.size() + _to_spawn]
+		Phase.GAME_OVER: status = "DEAD on wave %d  ·  press R" % _wave
+	_text(Vector2(MARGIN + 6, MARGIN + 20), status, Color(0.85, 0.87, 0.9), 16)
+	var eq := "(nothing)"
+	if _equipped != null:
+		eq = "%s  [%d/%d]" % [_equipped.display_name, _equipped_idx + 1, _arsenal.size()]
+	_text(Vector2(MARGIN + 6, MARGIN + 42), "Equipped: %s" % eq, Color(0.6, 0.65, 0.7), 14)
 
 func _text(pos: Vector2, s: String, col: Color, size: int) -> void:
 	draw_string(_font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
 
 # =============================================================================
-# UI
+# UI (right panel: inventory -> pot -> combine -> equipped -> log)
 # =============================================================================
 
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
-
 	var bg := ColorRect.new()
-	bg.color = Color(0.13, 0.14, 0.17)
+	bg.color = Color(0.12, 0.13, 0.16)
 	bg.position = Vector2(PLAY_W, 0)
 	bg.size = Vector2(PANEL_W, PLAY_H)
 	layer.add_child(bg)
@@ -321,150 +645,163 @@ func _build_ui() -> void:
 	root.add_theme_constant_override("separation", 6)
 	layer.add_child(root)
 
-	_add_title(root, "THIS IS NOT A WEAPON")
-	_add_caption(root, "graybox · prove the combine verb is fun")
+	_title(root, "THIS IS NOT A WEAPON")
+	_caption(root, "scavenge / build / survive")
 
-	# Tier selector
-	_add_caption(root, "SIMULATION INTEGRITY (tier):")
-	var tier_row := HBoxContainer.new()
-	root.add_child(tier_row)
-	for i in range(1, 4):
-		var b := Button.new()
-		b.text = "Tier %d" % i
-		b.toggle_mode = true
-		b.pressed.connect(_on_tier_pressed.bind(i))
-		tier_row.add_child(b)
-		_tier_buttons.append(b)
-	_refresh_tier_buttons()
-
-	# Inventory
-	_add_caption(root, "INVENTORY  (click to add to pot)")
+	_caption(root, "INVENTORY  (click to add to pot)")
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(0, 250)
+	scroll.custom_minimum_size = Vector2(0, 240)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(scroll)
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(grid)
-	var ids := _db.keys()
-	ids.sort()
-	for id in ids:
-		var it: Item = _db[id]
-		var b := Button.new()
-		b.text = it.display_name
-		b.tooltip_text = "slots: %s\ntags: %s" % [", ".join(it.slots), ", ".join(it.tags)]
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.pressed.connect(_on_item_pressed.bind(it))
-		grid.add_child(b)
+	_grid = GridContainer.new()
+	_grid.columns = 2
+	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_grid)
 
-	# Pot
-	_add_caption(root, "COMBINE POT  (max 3)")
+	_caption(root, "BENCH  (max 3, consumes junk)")
 	_pot_label = Label.new()
 	_pot_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_pot_label.text = "(empty)"
 	root.add_child(_pot_label)
-	var pot_row := HBoxContainer.new()
-	root.add_child(pot_row)
-	var combine_btn := Button.new()
-	combine_btn.text = "  COMBINE  "
-	combine_btn.pressed.connect(_on_combine_pressed)
-	pot_row.add_child(combine_btn)
-	var clear_btn := Button.new()
-	clear_btn.text = "Clear"
-	clear_btn.pressed.connect(_on_clear_pressed)
-	pot_row.add_child(clear_btn)
+	var row := HBoxContainer.new()
+	root.add_child(row)
+	var cb := Button.new(); cb.text = " COMBINE "; cb.pressed.connect(_on_combine); row.add_child(cb)
+	var mb := Button.new(); mb.text = " MODIFY "; mb.tooltip_text = "modify the EQUIPPED weapon with the bench junk"; mb.pressed.connect(_on_modify); row.add_child(mb)
+	var cl := Button.new(); cl.text = "Clear"; cl.pressed.connect(_on_clear); row.add_child(cl)
 
-	# Equipped
-	_add_caption(root, "EQUIPPED")
+	_caption(root, "ARSENAL  (1-9 / scroll to switch)")
+	_arsenal_box = VBoxContainer.new()
+	_arsenal_box.add_theme_constant_override("separation", 2)
+	root.add_child(_arsenal_box)
+
+	_caption(root, "EQUIPPED")
 	_equipped_label = RichTextLabel.new()
-	_equipped_label.fit_content = true
-	_equipped_label.custom_minimum_size = Vector2(0, 76)
 	_equipped_label.bbcode_enabled = true
+	_equipped_label.fit_content = true
+	_equipped_label.custom_minimum_size = Vector2(0, 96)
 	root.add_child(_equipped_label)
-	_refresh_equipped()
 
-	# Log
-	_add_caption(root, "LOG")
+	_caption(root, "LOG")
 	_log_label = RichTextLabel.new()
 	_log_label.bbcode_enabled = true
 	_log_label.scroll_following = true
 	_log_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_log_label.custom_minimum_size = Vector2(0, 120)
+	_log_label.custom_minimum_size = Vector2(0, 110)
 	root.add_child(_log_label)
 
-func _add_title(parent: Node, s: String) -> void:
-	var l := Label.new()
-	l.text = s
+func _title(parent: Node, s: String) -> void:
+	var l := Label.new(); l.text = s
 	l.add_theme_font_size_override("font_size", 20)
 	parent.add_child(l)
 
-func _add_caption(parent: Node, s: String) -> void:
-	var l := Label.new()
-	l.text = s
+func _caption(parent: Node, s: String) -> void:
+	var l := Label.new(); l.text = s
 	l.add_theme_color_override("font_color", Color(0.55, 0.6, 0.68))
 	l.add_theme_font_size_override("font_size", 13)
 	parent.add_child(l)
 
-# --- UI callbacks ------------------------------------------------------------
+func _refresh_inventory_ui() -> void:
+	if _grid == null:
+		return
+	for c in _grid.get_children():
+		c.queue_free()
+	var ids := _inv.keys()
+	ids.sort()
+	for id in ids:
+		var count: int = _inv[id]
+		if count <= 0:
+			continue
+		var it: Item = _db[id]
+		var b := Button.new()
+		b.text = "%s x%d" % [it.display_name, count]
+		b.tooltip_text = "tags: %s" % ", ".join(it.tags)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.pressed.connect(_on_item_pressed.bind(id))
+		_grid.add_child(b)
+	if _grid.get_child_count() == 0:
+		var l := Label.new(); l.text = "(empty — go scavenge)"
+		l.add_theme_color_override("font_color", Color(0.5, 0.5, 0.55))
+		_grid.add_child(l)
 
-func _on_tier_pressed(tier: int) -> void:
-	_tier = tier
-	_refresh_tier_buttons()
-	match tier:
-		1: _log("Tier 1: reality is firm. You can only swap ammo in a real gun.")
-		2: _log("Tier 2: the seams show. You can bolt weird modifiers onto weapons.")
-		3: _log("Tier 3: the rules are gone. Build anything from anything.")
-
-func _refresh_tier_buttons() -> void:
-	for i in range(_tier_buttons.size()):
-		_tier_buttons[i].button_pressed = (i + 1 == _tier)
-
-func _on_item_pressed(it: Item) -> void:
+func _on_item_pressed(id: String) -> void:
 	if _pot.size() >= 3:
-		_log("Pot is full (3). Combine or clear it first.")
-		return
-	_pot.append(it)
+		_log("Bench is full (3)."); return
+	var used := _pot.count(id)
+	if int(_inv.get(id, 0)) - used <= 0:
+		_log("You don't have another %s." % _db[id].display_name); return
+	_pot.append(id)
 	_refresh_pot()
 
-func _on_clear_pressed() -> void:
-	_pot.clear()
-	_refresh_pot()
+func _on_clear() -> void:
+	_pot.clear(); _refresh_pot()
 
-func _on_combine_pressed() -> void:
+func _on_combine() -> void:
 	if _pot.is_empty():
-		_log("Nothing in the pot.")
-		return
+		_log("Nothing on the bench."); return
+	var items: Array[Item] = []
 	var names: Array[String] = []
-	for it in _pot:
-		names.append(it.display_name)
-	var result := Resolver.combine(_pot, _tier)
-	_equipped = result
-	_refresh_equipped()
-	_log("[b]%s[/b] + ... -> [b]%s[/b]" % [" + ".join(names), result.display_name])
+	for id in _pot:
+		items.append(_db[id]); names.append(_db[id].display_name)
+	var result := Resolver.combine(items)
+	_consume_pot()
+	_arsenal.append(result)
+	_equip(_arsenal.size() - 1)
+	_log("[b]%s[/b] -> [b]%s[/b]" % [" + ".join(names), result.display_name])
 	_log("  \"%s\"" % result.description)
 	_pot.clear()
-	_refresh_pot()
+	_refresh_pot(); _refresh_inventory_ui()
+
+func _on_modify() -> void:
+	if _equipped == null:
+		_log("Nothing equipped to modify."); return
+	if _pot.is_empty():
+		_log("Put some junk on the bench to modify with."); return
+	var names: Array[String] = []
+	var items: Array[Item] = []
+	for id in _pot:
+		items.append(_db[id]); names.append(_db[id].display_name)
+	var old_name := _equipped.display_name
+	var result := Resolver.combine(items, _equipped)
+	_consume_pot()
+	_arsenal[_equipped_idx] = result   # replace in place
+	_equipped = result
+	_log("Modified [b]%s[/b] with %s -> [b]%s[/b]" % [old_name, " + ".join(names), result.display_name])
+	_pot.clear()
+	_refresh_pot(); _refresh_inventory_ui(); _refresh_equipped(); _refresh_arsenal_ui()
+
+func _consume_pot() -> void:
+	for id in _pot:
+		_inv[id] = int(_inv[id]) - 1
+		if _inv[id] <= 0: _inv.erase(id)
 
 func _refresh_pot() -> void:
 	if _pot.is_empty():
-		_pot_label.text = "(empty)"
-		return
+		_pot_label.text = "(empty)"; return
 	var names: Array[String] = []
-	for it in _pot:
-		names.append(it.display_name)
+	for id in _pot: names.append(_db[id].display_name)
 	_pot_label.text = " + ".join(names)
+
+func _refresh_arsenal_ui() -> void:
+	if _arsenal_box == null:
+		return
+	for c in _arsenal_box.get_children():
+		c.queue_free()
+	for i in range(_arsenal.size()):
+		var g: Gadget = _arsenal[i]
+		var b := Button.new()
+		b.text = "%s%d. %s [%s]" % ["> " if i == _equipped_idx else "   ", i + 1, g.display_name, g.category_name()]
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.pressed.connect(_equip.bind(i))
+		_arsenal_box.add_child(b)
 
 func _refresh_equipped() -> void:
 	if _equipped == null:
-		_equipped_label.text = "(nothing)"
-		return
-	_equipped_label.text = "[b]%s[/b]  [%s]\n[color=#9aa]%s[/color]" % [
-		_equipped.display_name, _equipped.category_name(), _equipped.description]
+		_equipped_label.text = "(nothing)"; return
+	_equipped_label.text = "[b]%s[/b]  [%s]\n[color=#9aa]%s[/color]\n[color=#778]%s[/color]" % [
+		_equipped.display_name, _equipped.category_name(), _equipped.description, _equipped.summary()]
 
 func _log(s: String) -> void:
 	_log_lines.append(s)
-	if _log_lines.size() > 40:
-		_log_lines.pop_front()
+	if _log_lines.size() > 40: _log_lines.pop_front()
 	if _log_label != null:
 		_log_label.text = "\n".join(_log_lines)

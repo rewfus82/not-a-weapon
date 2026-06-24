@@ -17,7 +17,7 @@ extends RefCounted
 
 static func build() -> Dictionary:
 	var defs := [
-		["m16",          "M16 Rifle",          ["delivery", "behavior"], "fire_projectile", ["ranged", "lethal", "gun_frame", "metal"],            Color(0.45, 0.45, 0.50)],
+		["m16",          "M16 Rifle",          ["delivery", "behavior"], "fire_projectile", ["ranged", "lethal", "gun_frame", "metal", "automatic"], Color(0.45, 0.45, 0.50)],
 		["nerf_gun",     "Nerf Blaster",       ["delivery", "behavior"], "fire_projectile", ["ranged", "toy", "plastic"],                          Color(0.95, 0.55, 0.15)],
 		["grenade",      "Frag Grenade",       ["delivery", "payload"],  "throw",           ["explosive", "lethal", "thrown", "metal"],            Color(0.40, 0.45, 0.30)],
 		["chainsaw",     "Chainsaw",           ["payload"],              "rend",            ["lethal", "kinetic", "metal", "electric"],            Color(0.90, 0.40, 0.20)],

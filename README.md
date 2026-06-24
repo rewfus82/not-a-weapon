@@ -30,24 +30,27 @@ is to answer one question — *is the combine verb fun?*
 2. Open Godot → **Import** → select this folder's `project.godot` → **Import & Edit**.
 3. Press **F5** (Play). The main scene is `scenes/Main.tscn`.
 
-Controls: **WASD/arrows** move · **mouse** aim · **left-click** use the equipped gadget.
-On the right: click items into the **pot** (max 3), hit **Combine**, then fire it in the
-test chamber. Toggle **Tier 1/2/3** to feel the progression gating.
+### The loop
 
-### Things to try
+**Scavenge → Wave → repeat (harder).** Each cycle: a **BUILD phase** (loot junk by
+walking into the HOUSE/CAR/DUMPSTER/CORPSE PILE, combine on the bench, equip — a
+countdown ticks to the next wave, or press **SPACE** to start early), then a **WAVE
+phase** (zombies chase you; fight with what you built; kills drop more junk). Survive
+to keep going; **die** and you restart with **R**.
 
-| Combine | Tier | Result |
-|---|---|---|
-| M16 + Can of Anchovies | 1 | Anchovy Rifle (the first crack) |
-| M16 + Pringles Can | 2 | Scoped M16 (a modifier) |
-| Ketchup + Spatula + Feathers | 2 | Gunk Lobber (harmless slow) |
-| Beehive + Frag Grenade + Magnet | 3 | Swarm Mine (homing splash) |
-| Bear Trap + Boomerang + Fishing Rod | 3 | Retriever (snare) |
-| Backpack + Chainsaw + Shop Vacuum | 3 | Harvester (auto-collect loot) |
-| Pixie Stix + Wire Hanger + Zip Ties | 3 | a crossbow that fires, harmlessly |
+Controls: **WASD/arrows** move · **mouse** aim · **left-click** fire · **SPACE** start
+wave early · **R** restart on death.
 
-Also try a **special at the wrong tier** (e.g. the Swarm Mine on Tier 1) to see the
-simulation refuse — and a nonsense combo to see a *dud* get acknowledged instead of ignored.
+On the right: click owned items into the **bench** (max 3), then either **COMBINE**
+(build a new weapon — consumes the junk) or **MODIFY** (augment your *equipped*
+weapon with the junk: a Pringles can adds pierce, a magnet adds homing, CO2 adds
+speed). You start with a Rusty Pistol and a little junk; everything else you scavenge.
+
+**Components drive the weapon.** Delivery comes from the parts — a gun fires
+projectiles, a chainsaw is **melee** (arc swing + knockback), a grenade is **lobbed**
+(explodes), a bear trap is **placed**, a vacuum is a passive **aura**. Effects compose
+from tags: explosive→splash, sticky→slow, swarm→spawned homing bees, tube→pierce,
+electric→burn. So `chainsaw + magnet` plays nothing like `M16 + pringles`.
 
 ## Layout
 
@@ -59,7 +62,7 @@ scripts/
   item_db.gd         # the junk library (~21 items)
   gadget.gd          # Gadget: the resolved effect profile
   resolver.gd        # SPECIALS (authored) over compose() (generic engine) + tier gating
-  main.gd            # test chamber: world state, draw, combine UI, tier toggle
+  main.gd            # zombie-wave loop: phases, enemies, scavenging, crafting, juice
 ```
 
 ## Next steps (when the verb feels good)
