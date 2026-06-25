@@ -117,7 +117,10 @@ func _starter_gadget() -> Gadget:
 	g.delivery = Gadget.Delivery.PROJECTILE
 	g.add(Gadget.DAMAGE, 8.0)
 	g.projectile_speed = 720.0
+	g.uses_ammo = true
+	g.ammo_max = 14
 	g.color = Color(0.85, 0.82, 0.5)
+	g.fill_plain()
 	return g
 
 func _start_build() -> void:
@@ -285,11 +288,18 @@ func _spawn_zombie() -> void:
 func _fire() -> void:
 	if _equipped == null:
 		return
+	var round_prof: Dictionary = {}
+	if _equipped.uses_ammo:
+		if _equipped.ammo_count() <= 0:
+			_log("%s — out of ammo. Load junk into it at the bench." % _equipped.display_name)
+			_fire_timer = 0.4
+			return
+		round_prof = _equipped.next_round()
 	match _equipped.delivery:
 		Gadget.Delivery.PROJECTILE:
-			_fire_ranged(_equipped, false); _fire_timer = FIRE_COOLDOWN
+			_fire_ranged(_equipped, false, round_prof); _fire_timer = FIRE_COOLDOWN
 		Gadget.Delivery.LOBBED:
-			_fire_ranged(_equipped, true); _fire_timer = 0.5
+			_fire_ranged(_equipped, true, round_prof); _fire_timer = 0.5
 		Gadget.Delivery.MELEE:
 			_melee_swing(_equipped); _fire_timer = 0.2  # fast = continuous grind while held
 		Gadget.Delivery.PLACED:
@@ -297,20 +307,45 @@ func _fire() -> void:
 		Gadget.Delivery.AURA:
 			_fire_timer = 0.2  # passive; aura ticks each frame
 
-func _fire_ranged(g: Gadget, lobbed: bool) -> void:
-	var pe := g.get_effect(Gadget.PIERCE)
-	var pierce := int(pe["count"]) if not pe.is_empty() else 0
-	_projectiles.append(_make_proj(_aim, g, lobbed, pierce, false))
+func _fire_ranged(g: Gadget, lobbed: bool, ap: Dictionary) -> void:
+	_projectiles.append(_make_proj(_aim, g, lobbed, false, ap))
 	var se := g.get_effect(Gadget.SPAWN)
 	if not se.is_empty():
 		for i in range(int(se["count"])):
 			var dir := Vector2.from_angle(_aim.angle() + randf_range(-0.5, 0.5))
-			_projectiles.append(_make_proj(dir, g, false, 0, true))
+			_projectiles.append(_make_proj(dir, g, false, true, ap))
 
-func _make_proj(dir: Vector2, g: Gadget, lobbed: bool, pierce: int, sub: bool) -> Dictionary:
+# Builds the shot from weapon effects + the loaded round's profile (ap). The same
+# gun fires differently per round — feathers drag, anchovies bounce, etc.
+func _make_proj(dir: Vector2, g: Gadget, lobbed: bool, sub: bool, ap: Dictionary) -> Dictionary:
+	var dmg := g.amount_of(Gadget.DAMAGE) * float(ap.get("dmg_mult", 1.0))
+	if g.harmless: dmg = minf(dmg, 1.0)
 	var spd := maxf(g.projectile_speed, 300.0) * (0.6 if sub else 1.0)
-	return {"pos": _player + dir * 24.0, "vel": dir * spd, "gadget": g,
-		"life": 0.85 if lobbed else 1.8, "pierce": pierce, "hits": [], "lobbed": lobbed, "sub": sub}
+	var pe := g.get_effect(Gadget.PIERCE)
+	var pierce := (int(pe["count"]) if not pe.is_empty() else 0) + int(ap.get("pierce", 0))
+	var o := _shot_onhit(g)
+	if float(ap.get("slow", 0.0)) > float(o["slow"]): o["slow"] = float(ap["slow"])
+	if float(ap.get("burn_amt", 0.0)) > 0.0: o["burn_amt"] = float(ap["burn_amt"]); o["burn_dur"] = float(ap.get("burn_dur", 0.0))
+	if float(ap.get("explode_r", 0.0)) > 0.0: o["explode_r"] = float(ap["explode_r"]); o["explode_dmg"] = float(ap.get("explode_dmg", 0.0))
+	return {"pos": _player + dir * 24.0, "vel": dir * spd, "dmg": dmg,
+		"drag": float(ap.get("drag", 0.0)), "bounce": int(ap.get("bounce", 0)),
+		"homing": g.homing or bool(ap.get("homing", false)) or sub,
+		"pierce": pierce, "hits": [], "lobbed": lobbed, "sub": sub,
+		"onhit": o, "color": ap.get("color", g.color), "life": 0.85 if lobbed else 1.8}
+
+func _shot_onhit(g: Gadget) -> Dictionary:
+	var o := {"knockback": 0.0, "slow": 0.0, "snare": 0.0, "burn_amt": 0.0, "burn_dur": 0.0, "explode_r": 0.0, "explode_dmg": 0.0}
+	var kn := g.get_effect(Gadget.KNOCKBACK)
+	if not kn.is_empty(): o["knockback"] = float(kn["amount"])
+	var sl := g.get_effect(Gadget.SLOW)
+	if not sl.is_empty(): o["slow"] = float(sl["duration"])
+	var sn := g.get_effect(Gadget.SNARE)
+	if not sn.is_empty(): o["snare"] = float(sn["duration"])
+	var bn := g.get_effect(Gadget.BURN)
+	if not bn.is_empty(): o["burn_amt"] = float(bn["amount"]); o["burn_dur"] = float(bn["duration"])
+	var ex := g.get_effect(Gadget.EXPLODE)
+	if not ex.is_empty(): o["explode_r"] = float(ex["radius"]); o["explode_dmg"] = float(ex["amount"])
+	return o
 
 func _melee_swing(g: Gadget) -> void:
 	_melee_anim = {"pos": _player, "aim": _aim, "life": 0.14}
@@ -331,34 +366,75 @@ func _place_trap(g: Gadget) -> void:
 func _update_projectiles(delta: float) -> void:
 	var live: Array[Dictionary] = []
 	for p in _projectiles:
-		var g: Gadget = p["gadget"]
-		if (g.homing or p["sub"]) and not p["lobbed"]:
+		if p["homing"] and not p["lobbed"]:
 			var t := _nearest_zombie(p["pos"])
 			if t != Vector2.INF:
-				var v: Vector2 = p["vel"]
-				p["vel"] = v.lerp((t - p["pos"]).normalized() * v.length(), 0.14)
+				var hv: Vector2 = p["vel"]
+				p["vel"] = hv.lerp((t - p["pos"]).normalized() * hv.length(), 0.14)
+		if float(p["drag"]) > 0.0:                       # feather rounds: fast, then float to a stop
+			p["vel"] = (p["vel"] as Vector2) * maxf(0.0, 1.0 - float(p["drag"]) * delta)
 		p["pos"] += p["vel"] * delta
 		p["life"] -= delta
+		# walls: ricochet if the round has bounces left, otherwise it's absorbed
+		if int(p["bounce"]) > 0:
+			var pos: Vector2 = p["pos"]
+			var v: Vector2 = p["vel"]
+			var b := false
+			if pos.x < MARGIN or pos.x > PLAY_W - MARGIN:
+				v.x = -v.x; pos.x = clampf(pos.x, MARGIN, PLAY_W - MARGIN); b = true
+			if pos.y < MARGIN or pos.y > PLAY_H - MARGIN:
+				v.y = -v.y; pos.y = clampf(pos.y, MARGIN, PLAY_H - MARGIN); b = true
+			if b:
+				p["vel"] = v; p["pos"] = pos; p["bounce"] = int(p["bounce"]) - 1
+		elif _out_of_play(p["pos"]):
+			if p["lobbed"]: _explode_at(p["pos"], p["onhit"])
+			continue
 		var spent := false
 		for z in _zombies:
 			if z.get("dead", false) or p["hits"].has(z):
 				continue
 			if (p["pos"] as Vector2).distance_to(z["pos"]) < 15.0:
 				if p["lobbed"]:
-					_explode(p["pos"], g); spent = true; break
-				_apply_onhit(g, z, p["pos"])
+					_explode_at(p["pos"], p["onhit"]); spent = true; break
+				_apply_proj_hit(p, z)
 				p["hits"].append(z)
 				if int(p["pierce"]) <= 0:
 					spent = true; break
 				p["pierce"] = int(p["pierce"]) - 1
 		if spent:
 			continue
-		if p["life"] <= 0.0 or _out_of_play(p["pos"]):
-			if p["lobbed"]:
-				_explode(p["pos"], g)
+		if p["life"] <= 0.0:
+			if p["lobbed"]: _explode_at(p["pos"], p["onhit"])
 			continue
 		live.append(p)
 	_projectiles = live
+
+func _apply_proj_hit(p: Dictionary, z: Dictionary) -> void:
+	var o: Dictionary = p["onhit"]
+	if float(o["explode_r"]) > 0.0:
+		_explode_at(p["pos"], o); return
+	z["flash"] = 0.1
+	var dmg := float(p["dmg"])
+	if dmg > 0.0: _apply_damage(z, dmg, p["pos"])
+	if float(o["knockback"]) > 0.0: z["knock"] = ((z["pos"] as Vector2) - (p["pos"] as Vector2)).normalized() * float(o["knockback"])
+	if float(o["slow"]) > 0.0: z["slow"] = maxf(z["slow"], float(o["slow"]))
+	if float(o["snare"]) > 0.0: z["snare"] = maxf(z["snare"], float(o["snare"]))
+	if float(o["burn_amt"]) > 0.0: z["burn"] = float(o["burn_amt"]); z["burn_t"] = float(o["burn_dur"])
+
+func _explode_at(at: Vector2, o: Dictionary) -> void:
+	var r := float(o["explode_r"])
+	if r <= 0.0: r = 80.0
+	var dmg := float(o["explode_dmg"])
+	_shake = maxf(_shake, 6.0)
+	_burst(at, Color(0.95, 0.6, 0.2))
+	for z in _zombies:
+		if z.get("dead", false):
+			continue
+		if (z["pos"] as Vector2).distance_to(at) < r:
+			if dmg > 0.0: _apply_damage(z, dmg, at)
+			z["knock"] = ((z["pos"] as Vector2) - at).normalized() * 200.0
+			if float(o["slow"]) > 0.0: z["slow"] = maxf(z["slow"], float(o["slow"]))
+			if float(o["burn_amt"]) > 0.0: z["burn"] = float(o["burn_amt"]); z["burn_t"] = float(o["burn_dur"])
 
 func _apply_onhit(g: Gadget, z: Dictionary, at: Vector2) -> void:
 	if g.has(Gadget.EXPLODE):
@@ -571,8 +647,7 @@ func _draw() -> void:
 
 	# projectiles
 	for p in _projectiles:
-		var g: Gadget = p["gadget"]
-		draw_circle(p["pos"], 6.0 if not g.homing else 8.0, g.color)
+		draw_circle(p["pos"], 6.0 if not p["homing"] else 8.0, p["color"])
 
 	# melee swing
 	if not _melee_anim.is_empty():
@@ -621,6 +696,13 @@ func _draw_hud() -> void:
 	var eq := "(nothing)"
 	if _equipped != null:
 		eq = "%s  [%d/%d]" % [_equipped.display_name, _equipped_idx + 1, _arsenal.size()]
+		if _equipped.uses_ammo:
+			var cnt := _equipped.ammo_count()
+			var ac := Color(0.6, 0.65, 0.7) if cnt > 0 else Color(0.85, 0.35, 0.35)
+			var s := "Ammo: %d / %d" % [cnt, _equipped.ammo_max]
+			var nm := _equipped.next_name()
+			if nm != "" and nm != "Scrap": s += "   next: %s" % nm
+			_text(Vector2(MARGIN + 6, MARGIN + 60), s, ac, 14)
 	_text(Vector2(MARGIN + 6, MARGIN + 42), "Equipped: %s" % eq, Color(0.6, 0.65, 0.7), 14)
 
 func _text(pos: Vector2, s: String, col: Color, size: int) -> void:
@@ -665,9 +747,12 @@ func _build_ui() -> void:
 	root.add_child(_pot_label)
 	var row := HBoxContainer.new()
 	root.add_child(row)
-	var cb := Button.new(); cb.text = " COMBINE "; cb.pressed.connect(_on_combine); row.add_child(cb)
-	var mb := Button.new(); mb.text = " MODIFY "; mb.tooltip_text = "modify the EQUIPPED weapon with the bench junk"; mb.pressed.connect(_on_modify); row.add_child(mb)
-	var cl := Button.new(); cl.text = "Clear"; cl.pressed.connect(_on_clear); row.add_child(cl)
+	var cb := Button.new(); cb.text = " BUILD "; cb.tooltip_text = "build a NEW weapon from the bench junk"; cb.pressed.connect(_on_combine); row.add_child(cb)
+	var mb := Button.new(); mb.text = " MOD "; mb.tooltip_text = "modify the EQUIPPED weapon with the bench junk"; mb.pressed.connect(_on_modify); row.add_child(mb)
+	var row2 := HBoxContainer.new()
+	root.add_child(row2)
+	var lb := Button.new(); lb.text = " LOAD "; lb.tooltip_text = "load the bench junk into the equipped weapon as AMMO"; lb.pressed.connect(_on_load); row2.add_child(lb)
+	var cl := Button.new(); cl.text = " Clear "; cl.pressed.connect(_on_clear); row2.add_child(cl)
 
 	_caption(root, "ARSENAL  (1-9 / scroll to switch)")
 	_arsenal_box = VBoxContainer.new()
@@ -762,6 +847,11 @@ func _on_modify() -> void:
 		items.append(_db[id]); names.append(_db[id].display_name)
 	var old_name := _equipped.display_name
 	var result := Resolver.combine(items, _equipped)
+	if result.uses_ammo and _equipped.uses_ammo:
+		result.mag = _equipped.mag.duplicate(true)  # carry the loaded magazine over
+		while result.ammo_count() > result.ammo_max and not result.mag.is_empty():
+			result.mag[0]["count"] = int(result.mag[0]["count"]) - 1
+			if int(result.mag[0]["count"]) <= 0: result.mag.pop_front()
 	_consume_pot()
 	_arsenal[_equipped_idx] = result   # replace in place
 	_equipped = result
@@ -773,6 +863,35 @@ func _consume_pot() -> void:
 	for id in _pot:
 		_inv[id] = int(_inv[id]) - 1
 		if _inv[id] <= 0: _inv.erase(id)
+
+func _on_load() -> void:
+	if _equipped == null or not _equipped.uses_ammo:
+		_log("That weapon doesn't take ammo."); return
+	if _pot.is_empty():
+		_log("Put junk on the bench to load as ammo."); return
+	var items: Array[Item] = []
+	for id in _pot:
+		items.append(_db[id])
+	var rounds := 0
+	for it in items:
+		rounds += _ammo_value(it)
+	var prof := Resolver.ammo_profile(items)
+	var loaded := _equipped.load_rounds(prof["name"], prof, prof["color"], rounds)
+	_consume_pot()
+	if loaded <= 0:
+		_log("%s is already full." % _equipped.display_name)
+	else:
+		_log("Loaded [b]%s[/b]: +%d  (now %d/%d)" % [prof["name"], loaded, _equipped.ammo_count(), _equipped.ammo_max])
+	_pot.clear()
+	_refresh_pot(); _refresh_inventory_ui()
+
+func _ammo_value(it: Item) -> int:
+	var v := 4
+	if it.has_tag("explosive") or it.has_tag("lethal"):
+		v += 6
+	elif it.has_tag("metal") or it.has_tag("canned") or it.has_tag("pressure") or it.has_tag("dense"):
+		v += 4
+	return v
 
 func _refresh_pot() -> void:
 	if _pot.is_empty():

@@ -26,6 +26,9 @@ var effects: Array[Dictionary] = []   # each {kind, amount, duration, radius, co
 var projectile_speed := 700.0
 var homing := false
 var semi := true        # true = one shot per click; false = acts while held (auto / chainsaw grind)
+var uses_ammo := false  # ranged/lobbed/placed consume ammo; melee/aura don't
+var ammo_max := 0
+var mag: Array[Dictionary] = []  # magazine: stack of {name, profile, color, count}; fires the top (last loaded) first
 var harmless := false
 var color := Color(0.7, 0.7, 0.7)
 
@@ -70,3 +73,36 @@ func summary() -> String:
 		parts.append(s)
 	if parts.is_empty(): return "nothing"
 	return ", ".join(parts)
+
+# --- magazine (mixed ammo) ---------------------------------------------------
+
+func ammo_count() -> int:
+	var n := 0
+	for s in mag: n += int(s["count"])
+	return n
+
+func next_name() -> String:
+	if mag.is_empty(): return ""
+	return String(mag[mag.size() - 1]["name"])
+
+## Consume one round from the top of the magazine; returns its behavior profile
+## ({} = plain). Last loaded fires first.
+func next_round() -> Dictionary:
+	while not mag.is_empty() and int(mag[mag.size() - 1]["count"]) <= 0:
+		mag.pop_back()
+	if mag.is_empty(): return {}
+	var top: Dictionary = mag[mag.size() - 1]
+	top["count"] = int(top["count"]) - 1
+	var prof: Dictionary = top["profile"]
+	if int(top["count"]) <= 0: mag.pop_back()
+	return prof
+
+## Load `count` rounds of a type onto the top of the magazine (capped at ammo_max).
+func load_rounds(nm: String, profile: Dictionary, col: Color, count: int) -> int:
+	var n := mini(count, ammo_max - ammo_count())
+	if n <= 0: return 0
+	mag.append({"name": nm, "profile": profile, "color": col, "count": n})
+	return n
+
+func fill_plain() -> void:
+	mag = [{"name": "Scrap", "profile": {}, "color": color, "count": ammo_max}]
