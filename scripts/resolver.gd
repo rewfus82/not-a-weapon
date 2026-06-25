@@ -73,6 +73,12 @@ static func _tag_effects() -> Dictionary:
 		"attract":   [{"op": "homing"}],
 		"tube":      [{"op": "pierce", "count": 2}],
 		"pressure":  [{"op": "speed", "mult": 1.4}, {"op": "boost", "kind": Gadget.DAMAGE, "amount": 3.0}],
+		"sharp":     [{"op": "pierce", "count": 2}, {"op": "boost", "kind": Gadget.DAMAGE, "amount": 4.0}],
+		"blunt":     [{"op": "ensure", "kind": Gadget.KNOCKBACK, "amount": 240.0}, {"op": "boost", "kind": Gadget.DAMAGE, "amount": 4.0}],
+		"flammable": [{"op": "ensure", "kind": Gadget.BURN, "amount": 5.0, "duration": 3.0}],
+		"caustic":   [{"op": "ensure", "kind": Gadget.BURN, "amount": 6.0, "duration": 3.0}, {"op": "boost", "kind": Gadget.DAMAGE, "amount": 3.0}],
+		"spicy":     [{"op": "ensure", "kind": Gadget.BURN, "amount": 3.0, "duration": 2.0}],
+		"heavy":     [{"op": "boost", "kind": Gadget.DAMAGE, "amount": 6.0}],
 	}
 
 ## Tag -> ammo-profile deltas. This is what makes the LOADED ROUND alter the shot.
@@ -92,6 +98,12 @@ static func _tag_ammo() -> Dictionary:
 		"explosive": {"explode_r": 80.0, "explode_dmg": 14.0},
 		"electric":  {"burn_amt": 4.0, "burn_dur": 3.0},
 		"attract":   {"homing": true},
+		"rubber":    {"bounce": 4},
+		"flammable": {"burn_amt": 4.0, "burn_dur": 3.0},
+		"caustic":   {"burn_amt": 5.0, "burn_dur": 3.0},
+		"spicy":     {"burn_amt": 3.0, "burn_dur": 2.0},
+		"heavy":     {"dmg_add": 0.4},
+		"sharp":     {"pierce": 1},
 	}
 
 ## Exact-combo overrides — the authored "jokes". Key = sorted item ids joined by ",".
@@ -108,6 +120,56 @@ static func _specials() -> Dictionary:
 			"name": "Swarm Mine", "desc": "Magnetized explosive bees seek the nearest metal. Reality did not sign off on this.",
 			"delivery": Gadget.Delivery.PLACED, "homing": true,
 			"effects": [{"kind": Gadget.SPAWN, "count": 4}, {"kind": Gadget.EXPLODE, "amount": 16.0, "radius": 90.0}],
+		},
+		"co2_canister,nerf_gun,spaghetti": {
+			"name": "Meatball Launcher", "desc": "Pressurized spaghetti rounds. Sticky, fast, and deeply upsetting to all involved.",
+			"delivery": Gadget.Delivery.PROJECTILE, "speed": 820.0,
+			"effects": [{"kind": Gadget.DAMAGE, "amount": 10.0}, {"kind": Gadget.SLOW, "amount": 50.0, "duration": 2.5}],
+		},
+		"backpack,chainsaw,vacuum": {
+			"name": "Harvester", "desc": "Vacuums up loot in a wide radius and quietly shreds anything that wanders too close.",
+			"delivery": Gadget.Delivery.AURA,
+			"effects": [{"kind": Gadget.COLLECT, "radius": 190.0}, {"kind": Gadget.DAMAGE, "amount": 5.0}],
+		},
+		"bear_trap,boomerang,fishing_rod": {
+			"name": "Retriever", "desc": "Casts a snare. Misses come back; hits don't get to leave.",
+			"delivery": Gadget.Delivery.PLACED,
+			"effects": [{"kind": Gadget.SNARE, "duration": 2.6}, {"kind": Gadget.DAMAGE, "amount": 8.0}],
+		},
+		"fireworks,pringles": {
+			"name": "Roman Candle", "desc": "A festive tube of mistakes. Spits flaming sparks downrange.",
+			"delivery": Gadget.Delivery.PROJECTILE, "speed": 900.0,
+			"effects": [{"kind": Gadget.SPAWN, "count": 4}, {"kind": Gadget.BURN, "amount": 4.0, "duration": 3.0}],
+		},
+		"glue,grenade": {
+			"name": "Sticky Bomb", "desc": "It adheres. Then it does not.",
+			"delivery": Gadget.Delivery.LOBBED,
+			"effects": [{"kind": Gadget.EXPLODE, "amount": 18.0, "radius": 95.0}, {"kind": Gadget.SLOW, "amount": 50.0, "duration": 2.5}],
+		},
+		"beehive,co2_canister": {
+			"name": "Bee Cannon", "desc": "Pressurized apiary. The bees are furious and aerodynamic.",
+			"delivery": Gadget.Delivery.PROJECTILE, "speed": 950.0, "homing": true,
+			"effects": [{"kind": Gadget.SPAWN, "count": 5}],
+		},
+		"anchovies,beehive": {
+			"name": "Chum Swarm", "desc": "Fish-scented bees seek the nearest warm body. Nobody is okay.",
+			"delivery": Gadget.Delivery.PROJECTILE, "homing": true,
+			"effects": [{"kind": Gadget.SPAWN, "count": 4}, {"kind": Gadget.DAMAGE, "amount": 6.0}],
+		},
+		"magnet,marbles": {
+			"name": "Bearing Storm", "desc": "Magnetized steel marbles that punch clean through a crowd.",
+			"delivery": Gadget.Delivery.PROJECTILE, "speed": 1000.0, "homing": true,
+			"effects": [{"kind": Gadget.DAMAGE, "amount": 11.0}, {"kind": Gadget.PIERCE, "count": 2}],
+		},
+		"propane_tank,wire_hanger": {
+			"name": "Bottle Rocket", "desc": "A propane tank with delusions of flight. Stand back. Further.",
+			"delivery": Gadget.Delivery.LOBBED, "speed": 700.0,
+			"effects": [{"kind": Gadget.EXPLODE, "amount": 26.0, "radius": 120.0}],
+		},
+		"chainsaw,co2_canister": {
+			"name": "Buzzsaw Launcher", "desc": "It fires the chainsaw. The whole chainsaw. Repeatedly.",
+			"delivery": Gadget.Delivery.PROJECTILE, "speed": 760.0,
+			"effects": [{"kind": Gadget.DAMAGE, "amount": 20.0}, {"kind": Gadget.PIERCE, "count": 3}],
 		},
 	}
 
@@ -142,7 +204,7 @@ static func _build_generic(items: Array, base: Gadget, tags: Dictionary) -> Gadg
 			_apply_ops(g, te[tag])
 
 	# building something NEW with no dangerous part -> a harmless contraption
-	var armed: bool = tags.has("lethal") or tags.has("explosive") or tags.has("kinetic") or tags.has("pressure")
+	var armed := _armed(tags)
 	if base == null and not armed:
 		g.harmless = true
 		var d := g.get_effect(Gadget.DAMAGE)
@@ -220,6 +282,13 @@ static func _tagset(items: Array) -> Dictionary:
 		for t in it.tags:
 			tags[t] = true
 	return tags
+
+## A WEAPON needs at least one genuinely dangerous component, or it's a harmless contraption.
+static func _armed(tags: Dictionary) -> bool:
+	for t in ["lethal", "explosive", "kinetic", "pressure", "electric", "flammable", "caustic", "spicy", "sharp", "heavy"]:
+		if tags.has(t):
+			return true
+	return false
 
 static func _key(items: Array) -> String:
 	var ids: Array[String] = []
