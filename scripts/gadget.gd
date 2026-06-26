@@ -5,7 +5,7 @@ extends RefCounted
 ## EFFECT primitives (what it does). The engine reads both, so components compose
 ## into mechanically distinct weapons instead of recolored projectiles.
 
-enum Delivery { PROJECTILE, MELEE, LOBBED, AURA, PLACED }
+enum Delivery { PROJECTILE, MELEE, LOBBED, AURA, PLACED, CONE, BEAM }
 
 # Implemented effect kinds (a subset of the harness vocabulary — keep this in
 # sync with what main.gd can actually execute: the engine capability contract).
@@ -54,6 +54,8 @@ func delivery_name() -> String:
 		Delivery.LOBBED: return "LOBBED"
 		Delivery.AURA: return "AURA"
 		Delivery.PLACED: return "TRAP"
+		Delivery.CONE: return "SPRAY"
+		Delivery.BEAM: return "BEAM"
 		_: return "RANGED"
 
 func category_name() -> String:

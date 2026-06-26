@@ -50,6 +50,7 @@ var _sites: Array[Dictionary] = []    # scavenge points: {rect, label, looted}
 var _projectiles: Array[Dictionary] = []
 var _traps: Array[Dictionary] = []    # placed traps: {pos, gadget, life}
 var _melee_anim: Dictionary = {}      # transient swing visual
+var _beam_anim: Dictionary = {}       # transient beam visual: {a, b, life, col}
 var _dmg_nums: Array[Dictionary] = [] # {pos, text, life, col}
 var _particles: Array[Dictionary] = []
 var _to_spawn := 0
@@ -154,6 +155,10 @@ func _process(delta: float) -> void:
 		_melee_anim["life"] = float(_melee_anim["life"]) - delta
 		if _melee_anim["life"] <= 0.0:
 			_melee_anim = {}
+	if not _beam_anim.is_empty():
+		_beam_anim["life"] = float(_beam_anim["life"]) - delta
+		if _beam_anim["life"] <= 0.0:
+			_beam_anim = {}
 	_update_juice(delta)
 
 	if _phase == Phase.GAME_OVER:
@@ -304,6 +309,10 @@ func _fire() -> void:
 			_melee_swing(_equipped); _fire_timer = 0.2  # fast = continuous grind while held
 		Gadget.Delivery.PLACED:
 			_place_trap(_equipped); _fire_timer = 0.6
+		Gadget.Delivery.CONE:
+			_fire_cone(_equipped, round_prof); _fire_timer = 0.4
+		Gadget.Delivery.BEAM:
+			_fire_beam(_equipped); _fire_timer = 0.08
 		Gadget.Delivery.AURA:
 			_fire_timer = 0.2  # passive; aura ticks each frame
 
@@ -362,6 +371,38 @@ func _place_trap(g: Gadget) -> void:
 		_traps.pop_front()
 	_traps.append({"pos": _player, "gadget": g, "life": 25.0})
 	_log("Placed %s." % g.display_name)
+
+func _fire_cone(g: Gadget, ap: Dictionary) -> void:
+	_shake = maxf(_shake, 2.0)
+	for i in range(6):
+		var ang := _aim.angle() + randf_range(-0.38, 0.38)
+		var p := _make_proj(Vector2.from_angle(ang), g, false, false, ap)
+		p["life"] = 0.32                  # short range = a spray, not a volley
+		p["dmg"] = float(p["dmg"]) * 0.6  # many weak pellets
+		_projectiles.append(p)
+
+func _fire_beam(g: Gadget) -> void:
+	var endp: Vector2 = _player + _aim * 360.0
+	var o := _shot_onhit(g)
+	var dmg := g.amount_of(Gadget.DAMAGE)
+	if g.harmless: dmg = minf(dmg, 1.0)
+	for z in _zombies:
+		if z.get("dead", false):
+			continue
+		if _point_seg_dist(z["pos"], _player, endp) < 16.0:
+			z["flash"] = 0.1
+			if dmg > 0.0: _apply_damage(z, dmg, z["pos"])
+			if float(o["slow"]) > 0.0: z["slow"] = maxf(z["slow"], float(o["slow"]))
+			if float(o["burn_amt"]) > 0.0: z["burn"] = float(o["burn_amt"]); z["burn_t"] = float(o["burn_dur"])
+	_beam_anim = {"a": _player, "b": endp, "life": 0.09, "col": g.color}
+
+func _point_seg_dist(p: Vector2, a: Vector2, b: Vector2) -> float:
+	var ab := b - a
+	var denom := ab.length_squared()
+	var t := 0.0
+	if denom > 0.0:
+		t = clampf((p - a).dot(ab) / denom, 0.0, 1.0)
+	return p.distance_to(a + ab * t)
 
 func _update_projectiles(delta: float) -> void:
 	var live: Array[Dictionary] = []
@@ -654,6 +695,13 @@ func _draw() -> void:
 		var ma: Vector2 = _melee_anim["aim"]
 		var mc := Color(0.95, 0.95, 0.7, clampf(float(_melee_anim["life"]) * 6.0, 0.0, 1.0))
 		draw_arc(_melee_anim["pos"], 60.0, ma.angle() - 0.6, ma.angle() + 0.6, 16, mc, 4.0)
+
+	# beam
+	if not _beam_anim.is_empty():
+		var bc: Color = _beam_anim["col"]
+		bc.a = clampf(float(_beam_anim["life"]) * 10.0, 0.3, 1.0)
+		draw_line(_beam_anim["a"], _beam_anim["b"], bc, 4.0)
+		draw_line(_beam_anim["a"], _beam_anim["b"], Color(1, 1, 1, bc.a * 0.5), 1.5)
 
 	# particles
 	for pt in _particles:

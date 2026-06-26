@@ -75,6 +75,13 @@ static func build() -> Dictionary:
 		["duct_tape",    "Duct Tape",          ["behavior"],             "bind",            ["sticky", "bind", "fabric"],                          Color(0.60, 0.60, 0.62)],
 		["brick",        "Brick",              ["payload"],              "bludgeon",        ["kinetic", "blunt", "heavy", "dense"],                Color(0.60, 0.30, 0.25)],
 		["mousetrap",    "Mousetrap",          ["payload"],              "snap",            ["snare", "metal", "snap", "small"],                   Color(0.70, 0.60, 0.50)],
+
+		# --- spray (cone) + beam frames ---
+		["fire_extinguisher", "Fire Extinguisher", ["delivery"],        "blast",           ["aerosol", "gas", "pressure", "metal"],               Color(0.80, 0.20, 0.20)],
+		["leaf_blower",  "Leaf Blower",        ["delivery"],             "blow",            ["aerosol", "wind", "plastic"],                        Color(0.30, 0.65, 0.30)],
+		["spray_paint",  "Spray Paint",        ["payload", "delivery"],  "spray",           ["aerosol", "flammable", "liquid"],                    Color(0.20, 0.30, 0.85)],
+		["laser_pointer","Laser Pointer",      ["delivery"],             "beam",            ["beam", "light", "plastic"],                          Color(0.90, 0.20, 0.20)],
+		["taser",        "Taser",              ["delivery", "behavior"], "beam",            ["beam", "electric", "metal"],                         Color(0.95, 0.90, 0.30)],
 	]
 	var db := {}
 	for d in defs:

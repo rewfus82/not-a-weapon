@@ -44,6 +44,9 @@ static func combine(items: Array, base: Gadget = null) -> Gadget:
 static func _delivery_rules() -> Array:
 	return [
 		["gun_frame", Gadget.Delivery.PROJECTILE],
+		["beam",      Gadget.Delivery.BEAM],
+		["aerosol",   Gadget.Delivery.CONE],
+		["scatter",   Gadget.Delivery.CONE],
 		["ranged",    Gadget.Delivery.PROJECTILE],
 		["explosive", Gadget.Delivery.LOBBED],
 		["thrown",    Gadget.Delivery.LOBBED],
@@ -171,6 +174,16 @@ static func _specials() -> Dictionary:
 			"delivery": Gadget.Delivery.PROJECTILE, "speed": 760.0,
 			"effects": [{"kind": Gadget.DAMAGE, "amount": 20.0}, {"kind": Gadget.PIERCE, "count": 3}],
 		},
+		"gasoline,spray_paint": {
+			"name": "Flamethrower", "desc": "A spray can and a jerry can. It does not end well for the horde.",
+			"delivery": Gadget.Delivery.CONE,
+			"effects": [{"kind": Gadget.DAMAGE, "amount": 6.0}, {"kind": Gadget.BURN, "amount": 7.0, "duration": 4.0}, {"kind": Gadget.KNOCKBACK, "amount": 100.0}],
+		},
+		"car_battery,taser": {
+			"name": "Arc Lance", "desc": "Twelve volts of bad decision, focused into a line.",
+			"delivery": Gadget.Delivery.BEAM,
+			"effects": [{"kind": Gadget.DAMAGE, "amount": 7.0}, {"kind": Gadget.BURN, "amount": 5.0, "duration": 3.0}],
+		},
 	}
 
 # =============================================================================
@@ -196,6 +209,11 @@ static func _build_generic(items: Array, base: Gadget, tags: Dictionary) -> Gadg
 		_ensure(g, Gadget.KNOCKBACK, 280.0)
 	elif g.delivery == Gadget.Delivery.AURA:
 		_ensure(g, Gadget.COLLECT, 0.0, 0.0, 180.0)
+	elif g.delivery == Gadget.Delivery.CONE:
+		_ensure(g, Gadget.DAMAGE, 6.0)
+		_ensure(g, Gadget.KNOCKBACK, 120.0)
+	elif g.delivery == Gadget.Delivery.BEAM:
+		_ensure(g, Gadget.DAMAGE, 4.0)
 
 	# component contributions, from the table (also augment a base weapon)
 	var te := _tag_effects()
@@ -231,12 +249,12 @@ static func _build_special(spec: Dictionary, items: Array) -> Gadget:
 ## Fire mode + ammo capacity. Runs for both generic and special gadgets.
 static func _finalize(g: Gadget, tags: Dictionary) -> void:
 	g.semi = true
-	if g.delivery == Gadget.Delivery.MELEE:
+	if g.delivery == Gadget.Delivery.MELEE or g.delivery == Gadget.Delivery.BEAM:
 		g.semi = false
 	elif g.delivery == Gadget.Delivery.PROJECTILE and tags.has("automatic"):
 		g.semi = false
 
-	g.uses_ammo = g.delivery in [Gadget.Delivery.PROJECTILE, Gadget.Delivery.LOBBED, Gadget.Delivery.PLACED]
+	g.uses_ammo = g.delivery in [Gadget.Delivery.PROJECTILE, Gadget.Delivery.LOBBED, Gadget.Delivery.PLACED, Gadget.Delivery.CONE]
 	if g.uses_ammo:
 		var pwr := maxf(g.amount_of(Gadget.DAMAGE), g.amount_of(Gadget.EXPLODE))
 		pwr = maxf(pwr, 4.0)
@@ -335,6 +353,8 @@ static func _delivery_word(d: Gadget.Delivery) -> String:
 		Gadget.Delivery.LOBBED: return "Bomb"
 		Gadget.Delivery.AURA: return "Field"
 		Gadget.Delivery.PLACED: return "Trap"
+		Gadget.Delivery.CONE: return "Sprayer"
+		Gadget.Delivery.BEAM: return "Beam"
 		_: return "Gun"
 
 static func _ammo_name(items: Array) -> String:
@@ -361,5 +381,7 @@ static func _describe(g: Gadget, base: Gadget) -> String:
 		Gadget.Delivery.LOBBED: d = "Throw it. Stand well back."
 		Gadget.Delivery.AURA: d = "It hums. Things nearby suffer."
 		Gadget.Delivery.PLACED: d = "Drop it. Wait. Smile."
+		Gadget.Delivery.CONE: d = "Hose them down. Close range only."
+		Gadget.Delivery.BEAM: d = "Hold the line. Literally."
 		_: d = "Point. Click. Disagree."
 	return ("Modified. " + d) if base != null else d
