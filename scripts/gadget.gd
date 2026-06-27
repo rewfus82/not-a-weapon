@@ -18,6 +18,8 @@ const BURN := "burn"         # duration; amount = damage/sec
 const PIERCE := "pierce"     # count = extra targets a shot passes through
 const SPAWN := "spawn"       # count = homing sub-projectiles
 const COLLECT := "collect"   # radius = loot-vacuum range (AURA)
+const FREEZE := "freeze"     # duration secs (near-stop; frozen enemies take bonus damage)
+const CHAIN := "chain"       # count = jumps, amount = jump damage, radius = jump range
 
 var display_name := "Nothing"
 var description := ""

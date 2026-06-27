@@ -21,7 +21,7 @@ const FIRE_COOLDOWN := 0.16
 const BUILD_TIME := 20.0
 const PLAYER_MAX_HP := 100.0
 const INVULN_TIME := 0.6
-const DEBUG := true   # dev: press \ to grant one of every item for testing (flip off for release)
+const DEBUG := true   # dev: auto-stocks every item each run; press G to top up (flip off for release)
 
 var _db: Dictionary
 var _phase: int = Phase.BUILD
@@ -53,6 +53,7 @@ var _projectiles: Array[Dictionary] = []
 var _traps: Array[Dictionary] = []    # placed traps: {pos, gadget, life}
 var _melee_anim: Dictionary = {}      # transient swing visual
 var _beam_anim: Dictionary = {}       # transient beam visual: {a, b, life, col}
+var _arcs: Array[Dictionary] = []     # chain-lightning arcs: {a, b, life}
 var _dmg_nums: Array[Dictionary] = [] # {pos, text, life, col}
 var _particles: Array[Dictionary] = []
 var _to_spawn := 0
@@ -101,6 +102,7 @@ func _restart() -> void:
 			"ketchup": 1, "feathers": 1, "anchovies": 1, "pringles": 1}
 	_log("You wake up. Something is very wrong. (WASD move, mouse aim, click to fire.)")
 	_start_build()
+	if DEBUG: _grant_all()
 	_refresh_inventory_ui()
 	_refresh_equipped()
 	_refresh_arsenal_ui()
@@ -222,14 +224,13 @@ func _input(event: InputEvent) -> void:
 		if event.keycode == KEY_SPACE and _phase != Phase.GAME_OVER:
 			_paused = not _paused
 			_log("[ PAUSED ]" if _paused else "[ unpaused ]")
-		elif DEBUG and event.keycode == KEY_BACKSLASH:
+		elif DEBUG and event.keycode == KEY_G:
 			_grant_all()
 
 func _grant_all() -> void:
 	for id in _db:
-		if int(_inv.get(id, 0)) < 1:
-			_inv[id] = 1
-	_log("[DEBUG] granted one of every item.")
+		_inv[id] = maxi(int(_inv.get(id, 0)), 9)
+	_log("[DEBUG] stocked every item x9. (press G to top up)")
 	_refresh_inventory_ui()
 
 func _update_build(delta: float) -> void:
@@ -259,6 +260,7 @@ func _update_wave(delta: float) -> void:
 		z["flash"] = maxf(0.0, z["flash"] - delta)
 		z["slow"] = maxf(0.0, z["slow"] - delta)
 		z["snare"] = maxf(0.0, z["snare"] - delta)
+		z["freeze"] = maxf(0.0, float(z.get("freeze", 0.0)) - delta)
 		if float(z.get("burn_t", 0.0)) > 0.0:
 			z["burn_t"] = float(z["burn_t"]) - delta
 			z["hp"] = float(z["hp"]) - float(z.get("burn", 0.0)) * delta
@@ -266,7 +268,7 @@ func _update_wave(delta: float) -> void:
 				_on_zombie_death(z)
 				continue
 		var spd: float = z["speed"]
-		if z["snare"] > 0.0: spd = 0.0
+		if z["freeze"] > 0.0 or z["snare"] > 0.0: spd = 0.0
 		elif z["slow"] > 0.0: spd *= 0.35
 		var to_player: Vector2 = (_player as Vector2) - z["pos"]
 		z["pos"] += to_player.normalized() * spd * delta + z["knock"] * delta
@@ -302,7 +304,7 @@ func _spawn_zombie() -> void:
 		"pos": p, "hp": hp, "max_hp": hp,
 		"speed": minf(70.0 + _wave * 4.0, 150.0),
 		"dmg": 8.0 + _wave, "flash": 0.0, "slow": 0.0, "snare": 0.0,
-		"knock": Vector2.ZERO, "dead": false, "burn": 0.0, "burn_t": 0.0,
+		"knock": Vector2.ZERO, "dead": false, "burn": 0.0, "burn_t": 0.0, "freeze": 0.0,
 	})
 
 # --- firing / projectiles ----------------------------------------------------
@@ -355,6 +357,9 @@ func _make_proj(dir: Vector2, g: Gadget, lobbed: bool, sub: bool, ap: Dictionary
 	if float(ap.get("slow", 0.0)) > float(o["slow"]): o["slow"] = float(ap["slow"])
 	if float(ap.get("burn_amt", 0.0)) > 0.0: o["burn_amt"] = float(ap["burn_amt"]); o["burn_dur"] = float(ap.get("burn_dur", 0.0))
 	if float(ap.get("explode_r", 0.0)) > 0.0: o["explode_r"] = float(ap["explode_r"]); o["explode_dmg"] = float(ap.get("explode_dmg", 0.0))
+	if float(ap.get("freeze", 0.0)) > float(o["freeze"]): o["freeze"] = float(ap["freeze"])
+	if int(ap.get("chain_count", 0)) > 0:
+		o["chain_count"] = int(ap["chain_count"]); o["chain_dmg"] = float(ap.get("chain_dmg", 0.0)); o["chain_range"] = float(ap.get("chain_range", 0.0))
 	return {"pos": _player + dir * 24.0, "vel": dir * spd, "dmg": dmg,
 		"drag": float(ap.get("drag", 0.0)), "bounce": int(ap.get("bounce", 0)),
 		"homing": g.homing or bool(ap.get("homing", false)) or sub,
@@ -362,7 +367,8 @@ func _make_proj(dir: Vector2, g: Gadget, lobbed: bool, sub: bool, ap: Dictionary
 		"onhit": o, "color": ap.get("color", g.color), "life": 0.85 if lobbed else 1.8}
 
 func _shot_onhit(g: Gadget) -> Dictionary:
-	var o := {"knockback": 0.0, "slow": 0.0, "snare": 0.0, "burn_amt": 0.0, "burn_dur": 0.0, "explode_r": 0.0, "explode_dmg": 0.0}
+	var o := {"knockback": 0.0, "slow": 0.0, "snare": 0.0, "burn_amt": 0.0, "burn_dur": 0.0,
+		"explode_r": 0.0, "explode_dmg": 0.0, "freeze": 0.0, "chain_count": 0, "chain_dmg": 0.0, "chain_range": 0.0}
 	var kn := g.get_effect(Gadget.KNOCKBACK)
 	if not kn.is_empty(): o["knockback"] = float(kn["amount"])
 	var sl := g.get_effect(Gadget.SLOW)
@@ -373,7 +379,37 @@ func _shot_onhit(g: Gadget) -> Dictionary:
 	if not bn.is_empty(): o["burn_amt"] = float(bn["amount"]); o["burn_dur"] = float(bn["duration"])
 	var ex := g.get_effect(Gadget.EXPLODE)
 	if not ex.is_empty(): o["explode_r"] = float(ex["radius"]); o["explode_dmg"] = float(ex["amount"])
+	var fz := g.get_effect(Gadget.FREEZE)
+	if not fz.is_empty(): o["freeze"] = float(fz["duration"])
+	var ch := g.get_effect(Gadget.CHAIN)
+	if not ch.is_empty(): o["chain_count"] = int(ch["count"]); o["chain_dmg"] = float(ch["amount"]); o["chain_range"] = float(ch["radius"])
 	return o
+
+func _status_fc(z: Dictionary, freeze: float, cc: int, cd: float, cr: float) -> void:
+	if freeze > 0.0:
+		z["freeze"] = maxf(float(z.get("freeze", 0.0)), freeze)
+	if cc > 0:
+		_chain(z, cc, cd, cr)
+
+func _chain(from_z: Dictionary, count: int, dmg: float, rng: float) -> void:
+	var hit: Array = [from_z]
+	var cur := from_z
+	for j in range(count):
+		var best: Dictionary = {}
+		var bd := rng
+		for z in _zombies:
+			if z.get("dead", false) or hit.has(z):
+				continue
+			var d: float = (z["pos"] as Vector2).distance_to(cur["pos"])
+			if d < bd:
+				bd = d; best = z
+		if best.is_empty():
+			break
+		_apply_damage(best, dmg, best["pos"])
+		best["flash"] = 0.1
+		_arcs.append({"a": cur["pos"], "b": best["pos"], "life": 0.12})
+		hit.append(best)
+		cur = best
 
 func _melee_swing(g: Gadget) -> void:
 	_melee_anim = {"pos": _player, "aim": _aim, "life": 0.14}
@@ -413,6 +449,7 @@ func _fire_beam(g: Gadget) -> void:
 			if dmg > 0.0: _apply_damage(z, dmg, z["pos"])
 			if float(o["slow"]) > 0.0: z["slow"] = maxf(z["slow"], float(o["slow"]))
 			if float(o["burn_amt"]) > 0.0: z["burn"] = float(o["burn_amt"]); z["burn_t"] = float(o["burn_dur"])
+			if float(o["freeze"]) > 0.0: z["freeze"] = maxf(float(z.get("freeze", 0.0)), float(o["freeze"]))
 	_beam_anim = {"a": _player, "b": endp, "life": 0.09, "col": g.color}
 
 func _point_seg_dist(p: Vector2, a: Vector2, b: Vector2) -> float:
@@ -500,6 +537,7 @@ func _apply_proj_hit(p: Dictionary, z: Dictionary) -> void:
 	if float(o["slow"]) > 0.0: z["slow"] = maxf(z["slow"], float(o["slow"]))
 	if float(o["snare"]) > 0.0: z["snare"] = maxf(z["snare"], float(o["snare"]))
 	if float(o["burn_amt"]) > 0.0: z["burn"] = float(o["burn_amt"]); z["burn_t"] = float(o["burn_dur"])
+	_status_fc(z, float(o["freeze"]), int(o["chain_count"]), float(o["chain_dmg"]), float(o["chain_range"]))
 
 func _explode_at(at: Vector2, o: Dictionary) -> void:
 	var r := float(o["explode_r"])
@@ -515,6 +553,7 @@ func _explode_at(at: Vector2, o: Dictionary) -> void:
 			z["knock"] = ((z["pos"] as Vector2) - at).normalized() * 200.0
 			if float(o["slow"]) > 0.0: z["slow"] = maxf(z["slow"], float(o["slow"]))
 			if float(o["burn_amt"]) > 0.0: z["burn"] = float(o["burn_amt"]); z["burn_t"] = float(o["burn_dur"])
+			if float(o.get("freeze", 0.0)) > 0.0: z["freeze"] = maxf(float(z.get("freeze", 0.0)), float(o["freeze"]))
 
 func _apply_onhit(g: Gadget, z: Dictionary, at: Vector2) -> void:
 	if g.has(Gadget.EXPLODE):
@@ -541,6 +580,13 @@ func _apply_payload(g: Gadget, z: Dictionary, at: Vector2) -> void:
 	var bn := g.get_effect(Gadget.BURN)
 	if not bn.is_empty():
 		z["burn"] = float(bn["amount"]); z["burn_t"] = float(bn["duration"])
+	var fz := g.get_effect(Gadget.FREEZE)
+	var ch := g.get_effect(Gadget.CHAIN)
+	_status_fc(z,
+		(float(fz["duration"]) if not fz.is_empty() else 0.0),
+		(int(ch["count"]) if not ch.is_empty() else 0),
+		(float(ch["amount"]) if not ch.is_empty() else 0.0),
+		(float(ch["radius"]) if not ch.is_empty() else 0.0))
 
 func _explode(at: Vector2, g: Gadget) -> void:
 	var ex := g.get_effect(Gadget.EXPLODE)
@@ -609,6 +655,8 @@ func _update_traps(delta: float) -> void:
 func _apply_damage(z: Dictionary, dmg: float, _from: Vector2) -> void:
 	if z.get("dead", false):
 		return
+	if float(z.get("freeze", 0.0)) > 0.0:
+		dmg *= 1.8   # frozen enemies shatter
 	z["hp"] = float(z["hp"]) - dmg
 	z["flash"] = 0.12
 	_dmg_num(z["pos"], str(int(dmg)), Color(1, 0.9, 0.5))
@@ -665,6 +713,11 @@ func _update_juice(delta: float) -> void:
 		pt["vel"] *= 0.92
 		if pt["life"] > 0.0: pp.append(pt)
 	_particles = pp
+	var ar: Array[Dictionary] = []
+	for a in _arcs:
+		a["life"] = float(a["life"]) - delta
+		if a["life"] > 0.0: ar.append(a)
+	_arcs = ar
 
 func _dmg_num(pos: Vector2, text: String, col: Color) -> void:
 	_dmg_nums.append({"pos": pos + Vector2(0, -16), "text": text, "life": 0.7, "col": col})
@@ -715,6 +768,7 @@ func _draw() -> void:
 		var zc := Color(0.40, 0.65, 0.38)
 		if z["snare"] > 0.0: zc = Color(0.6, 0.4, 0.75)
 		elif z["slow"] > 0.0: zc = Color(0.4, 0.55, 0.8)
+		if float(z.get("freeze", 0.0)) > 0.0: zc = Color(0.6, 0.85, 1.0)
 		if z["flash"] > 0.0: zc = Color(1, 1, 1)
 		draw_circle(z["pos"], 13.0, zc)
 		var f: float = clampf(z["hp"] / z["max_hp"], 0.0, 1.0)
@@ -741,6 +795,11 @@ func _draw() -> void:
 		bc.a = clampf(float(_beam_anim["life"]) * 10.0, 0.3, 1.0)
 		draw_line(_beam_anim["a"], _beam_anim["b"], bc, 4.0)
 		draw_line(_beam_anim["a"], _beam_anim["b"], Color(1, 1, 1, bc.a * 0.5), 1.5)
+
+	# chain-lightning arcs
+	for a in _arcs:
+		var aa := clampf(float(a["life"]) * 8.0, 0.2, 1.0)
+		draw_line(a["a"], a["b"], Color(0.7, 0.85, 1.0, aa), 2.5)
 
 	# particles
 	for pt in _particles:
@@ -780,7 +839,9 @@ func _draw_hud() -> void:
 
 	var status := ""
 	match _phase:
-		Phase.BUILD: status = "BUILD  ·  next wave in %ds  (SPACE = pause)" % int(ceil(_phase_timer))
+		Phase.BUILD:
+			status = "BUILD  ·  next wave in %ds  (SPACE = pause)" % int(ceil(_phase_timer))
+			if DEBUG: status += "   ·   G = all items"
 		Phase.WAVE:  status = "WAVE %d  ·  %d left" % [_wave, _zombies.size() + _to_spawn]
 		Phase.GAME_OVER: status = "DEAD on wave %d  ·  press R" % _wave
 	_text(Vector2(MARGIN + 6, MARGIN + 20), status, Color(0.85, 0.87, 0.9), 16)

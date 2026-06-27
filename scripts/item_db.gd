@@ -52,7 +52,7 @@ static func build() -> Dictionary:
 		["nail_gun",     "Nail Gun",           ["delivery", "behavior"], "fire_projectile", ["ranged", "lethal", "gun_frame", "metal", "automatic"], Color(0.50, 0.45, 0.35)],
 		["power_drill",  "Power Drill",        ["payload"],              "drill",           ["kinetic", "sharp", "electric", "metal"],             Color(0.85, 0.55, 0.10)],
 		["propane_tank", "Propane Tank",       ["payload"],              "ignite",          ["explosive", "pressure", "gas", "metal", "heavy"],    Color(0.85, 0.50, 0.20)],
-		["car_battery",  "Car Battery",        ["payload"],              "shock",           ["electric", "caustic", "heavy", "metal"],             Color(0.20, 0.20, 0.25)],
+		["car_battery",  "Car Battery",        ["payload"],              "shock",           ["electric", "caustic", "heavy", "metal", "conductive"], Color(0.20, 0.20, 0.25)],
 		["gasoline",     "Jerry Can of Gas",   ["payload"],              "splash",          ["flammable", "liquid"],                               Color(0.80, 0.70, 0.20)],
 		["crowbar",      "Crowbar",            ["delivery"],             "pry",             ["kinetic", "blunt", "metal", "lethal", "heavy"],      Color(0.55, 0.15, 0.15)],
 		["screwdriver",  "Screwdriver",        ["payload"],              "jab",             ["kinetic", "sharp", "metal"],                         Color(0.85, 0.20, 0.20)],
@@ -68,7 +68,7 @@ static func build() -> Dictionary:
 
 		# --- weird / medical / household ---
 		["battery_acid", "Battery Acid",       ["payload"],              "corrode",         ["caustic", "liquid", "chemical"],                     Color(0.70, 0.90, 0.20)],
-		["bug_spray",    "Bug Spray",          ["payload"],              "spray",           ["flammable", "aerosol", "liquid", "chemical"],        Color(0.30, 0.70, 0.30)],
+		["bug_spray",    "Bug Spray",          ["payload"],              "spray",           ["flammable", "aerosol", "liquid", "chemical", "poison"], Color(0.30, 0.70, 0.30)],
 		["glow_sticks",  "Glow Sticks",        ["payload"],              "glow",            ["light", "chemical", "colorful"],                     Color(0.40, 0.95, 0.50)],
 		["helium_tank",  "Helium Tank",        ["payload", "behavior"],  "pressurize",      ["pressure", "gas", "metal"],                          Color(0.85, 0.85, 0.90)],
 		["glue",         "Bottle of Glue",     ["payload"],              "stick",           ["sticky", "liquid", "bind"],                          Color(0.90, 0.90, 0.80)],
@@ -77,11 +77,13 @@ static func build() -> Dictionary:
 		["mousetrap",    "Mousetrap",          ["payload"],              "snap",            ["snare", "metal", "snap", "small"],                   Color(0.70, 0.60, 0.50)],
 
 		# --- spray (cone) + beam frames ---
-		["fire_extinguisher", "Fire Extinguisher", ["delivery"],        "blast",           ["aerosol", "gas", "pressure", "metal"],               Color(0.80, 0.20, 0.20)],
+		["fire_extinguisher", "Fire Extinguisher", ["delivery"],        "blast",           ["aerosol", "gas", "pressure", "metal", "cold"],       Color(0.80, 0.20, 0.20)],
 		["leaf_blower",  "Leaf Blower",        ["delivery"],             "blow",            ["aerosol", "wind", "plastic"],                        Color(0.30, 0.65, 0.30)],
 		["spray_paint",  "Spray Paint",        ["payload", "delivery"],  "spray",           ["aerosol", "flammable", "liquid"],                    Color(0.20, 0.30, 0.85)],
 		["laser_pointer","Laser Pointer",      ["delivery"],             "beam",            ["beam", "light", "plastic"],                          Color(0.90, 0.20, 0.20)],
-		["taser",        "Taser",              ["delivery", "behavior"], "beam",            ["beam", "electric", "metal"],                         Color(0.95, 0.90, 0.30)],
+		["taser",        "Taser",              ["delivery", "behavior"], "beam",            ["beam", "electric", "metal", "conductive", "stun"],   Color(0.95, 0.90, 0.30)],
+		["ice_pack",     "Ice Pack",           ["payload"],              "chill",           ["cold", "soft", "fabric"],                            Color(0.65, 0.85, 0.95)],
+		["jumper_cables","Jumper Cables",      ["payload", "behavior"],  "zap",             ["conductive", "electric", "metal"],                   Color(0.85, 0.20, 0.20)],
 	]
 	var db := {}
 	for d in defs:

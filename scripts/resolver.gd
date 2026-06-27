@@ -83,6 +83,10 @@ static func _tag_effects() -> Dictionary:
 		"caustic":   [{"op": "ensure", "kind": Gadget.BURN, "amount": 6.0, "duration": 3.0}, {"op": "boost", "kind": Gadget.DAMAGE, "amount": 3.0}],
 		"spicy":     [{"op": "ensure", "kind": Gadget.BURN, "amount": 3.0, "duration": 2.0}],
 		"heavy":     [{"op": "boost", "kind": Gadget.DAMAGE, "amount": 6.0}],
+		"cold":      [{"op": "ensure", "kind": Gadget.FREEZE, "duration": 2.0}],
+		"conductive":[{"op": "ensure", "kind": Gadget.CHAIN, "amount": 8.0, "radius": 110.0, "count": 3}],
+		"stun":      [{"op": "ensure", "kind": Gadget.SNARE, "duration": 1.5}],
+		"poison":    [{"op": "ensure", "kind": Gadget.BURN, "amount": 3.0, "duration": 4.0}],
 	}
 
 ## Tag -> ammo-profile deltas. This is what makes the LOADED ROUND alter the shot.
@@ -108,6 +112,9 @@ static func _tag_ammo() -> Dictionary:
 		"spicy":     {"burn_amt": 3.0, "burn_dur": 2.0},
 		"heavy":     {"dmg_add": 0.4},
 		"sharp":     {"pierce": 1},
+		"cold":      {"freeze": 1.8},
+		"conductive":{"chain_count": 2, "chain_dmg": 6.0, "chain_range": 100.0},
+		"poison":    {"burn_amt": 3.0, "burn_dur": 4.0},
 	}
 
 ## Exact-combo overrides — the authored "jokes". Key = sorted item ids joined by ",".
@@ -184,6 +191,16 @@ static func _specials() -> Dictionary:
 			"name": "Arc Lance", "desc": "Twelve volts of bad decision, focused into a line.",
 			"delivery": Gadget.Delivery.BEAM,
 			"effects": [{"kind": Gadget.DAMAGE, "amount": 7.0}, {"kind": Gadget.BURN, "amount": 5.0, "duration": 3.0}],
+		},
+		"car_battery,jumper_cables": {
+			"name": "Chain Lightning", "desc": "Arcs from one poor soul to the next. Conductivity is a lifestyle.",
+			"delivery": Gadget.Delivery.PROJECTILE, "speed": 900.0,
+			"effects": [{"kind": Gadget.DAMAGE, "amount": 8.0}, {"kind": Gadget.CHAIN, "amount": 10.0, "radius": 130.0, "count": 4}],
+		},
+		"ice_pack,nail_gun": {
+			"name": "Frost Driver", "desc": "Freezes them where they stand. Then you nail them. Then they shatter.",
+			"delivery": Gadget.Delivery.PROJECTILE,
+			"effects": [{"kind": Gadget.DAMAGE, "amount": 10.0}, {"kind": Gadget.FREEZE, "duration": 2.5}],
 		},
 	}
 
@@ -306,7 +323,7 @@ static func _tagset(items: Array) -> Dictionary:
 
 ## A WEAPON needs at least one genuinely dangerous component, or it's a harmless contraption.
 static func _armed(tags: Dictionary) -> bool:
-	for t in ["lethal", "explosive", "kinetic", "pressure", "electric", "flammable", "caustic", "spicy", "sharp", "heavy"]:
+	for t in ["lethal", "explosive", "kinetic", "pressure", "electric", "flammable", "caustic", "spicy", "sharp", "heavy", "conductive"]:
 		if tags.has(t):
 			return true
 	return false
