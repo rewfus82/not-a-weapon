@@ -21,11 +21,13 @@ const FIRE_COOLDOWN := 0.16
 const BUILD_TIME := 20.0
 const PLAYER_MAX_HP := 100.0
 const INVULN_TIME := 0.6
+const DEBUG := true   # dev: press \ to grant one of every item for testing (flip off for release)
 
 var _db: Dictionary
 var _phase: int = Phase.BUILD
 var _phase_timer := 0.0
 var _wave := 0
+var _paused := false
 
 # --- player ------------------------------------------------------------------
 var _player := Vector2(PLAY_W * 0.5, PLAY_H * 0.5)
@@ -91,7 +93,7 @@ func _restart() -> void:
 	_player = Vector2(PLAY_W * 0.5, PLAY_H * 0.5)
 	_zombies.clear(); _loot.clear(); _projectiles.clear()
 	_dmg_nums.clear(); _particles.clear(); _pot.clear()
-	_invuln = 0.0; _hurt_flash = 0.0; _shake = 0.0
+	_invuln = 0.0; _hurt_flash = 0.0; _shake = 0.0; _paused = false
 	_arsenal = [_starter_gadget()]
 	_equipped_idx = 0
 	_equipped = _arsenal[0]
@@ -167,6 +169,11 @@ func _process(delta: float) -> void:
 		queue_redraw()
 		return
 
+	if _paused:
+		_lmb_edge = false   # don't queue a shot while paused
+		queue_redraw()
+		return
+
 	_handle_input(delta)
 	_update_loot(delta)
 	_update_projectiles(delta)
@@ -198,9 +205,6 @@ func _handle_input(delta: float) -> void:
 			_fire()  # sets its own cooldown per delivery
 	_lmb_edge = false  # consume the click edge each frame
 
-	if _phase == Phase.BUILD and Input.is_key_pressed(KEY_SPACE):
-		_start_wave()
-
 	# switch weapons with the number keys
 	for n in range(mini(9, _arsenal.size())):
 		if Input.is_key_pressed(KEY_1 + n):
@@ -214,6 +218,19 @@ func _input(event: InputEvent) -> void:
 			_equip((_equipped_idx - 1 + _arsenal.size()) % _arsenal.size())
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and not _arsenal.is_empty():
 			_equip((_equipped_idx + 1) % _arsenal.size())
+	elif event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_SPACE and _phase != Phase.GAME_OVER:
+			_paused = not _paused
+			_log("[ PAUSED ]" if _paused else "[ unpaused ]")
+		elif DEBUG and event.keycode == KEY_BACKSLASH:
+			_grant_all()
+
+func _grant_all() -> void:
+	for id in _db:
+		if int(_inv.get(id, 0)) < 1:
+			_inv[id] = 1
+	_log("[DEBUG] granted one of every item.")
+	_refresh_inventory_ui()
 
 func _update_build(delta: float) -> void:
 	_phase_timer -= delta
@@ -313,6 +330,8 @@ func _fire() -> void:
 			_fire_cone(_equipped, round_prof); _fire_timer = 0.4
 		Gadget.Delivery.BEAM:
 			_fire_beam(_equipped); _fire_timer = 0.08
+		Gadget.Delivery.RETURN:
+			_fire_return(_equipped); _fire_timer = 0.45
 		Gadget.Delivery.AURA:
 			_fire_timer = 0.2  # passive; aura ticks each frame
 
@@ -404,14 +423,34 @@ func _point_seg_dist(p: Vector2, a: Vector2, b: Vector2) -> float:
 		t = clampf((p - a).dot(ab) / denom, 0.0, 1.0)
 	return p.distance_to(a + ab * t)
 
+func _fire_return(g: Gadget) -> void:
+	var p := _make_proj(_aim, g, false, false, {})
+	p["return"] = true
+	p["returning"] = false
+	p["origin"] = _player
+	p["pierce"] = 99     # passes through everything, and re-hits on the way back
+	p["life"] = 3.0
+	_projectiles.append(p)
+
 func _update_projectiles(delta: float) -> void:
 	var live: Array[Dictionary] = []
 	for p in _projectiles:
-		if p["homing"] and not p["lobbed"]:
+		if p["homing"] and not p["lobbed"] and not p.get("return", false):
 			var t := _nearest_zombie(p["pos"])
 			if t != Vector2.INF:
 				var hv: Vector2 = p["vel"]
 				p["vel"] = hv.lerp((t - p["pos"]).normalized() * hv.length(), 0.14)
+		if p.get("return", false):
+			var rpos: Vector2 = p["pos"]
+			if not p["returning"]:
+				if (rpos - (p["origin"] as Vector2)).length() > 280.0:
+					p["returning"] = true
+					p["hits"].clear()   # let it cut the crowd again on the way back
+			else:
+				var rv: Vector2 = p["vel"]
+				p["vel"] = rv.lerp((_player - rpos).normalized() * rv.length(), 0.2)
+				if rpos.distance_to(_player) < 22.0:
+					continue  # caught it
 		if float(p["drag"]) > 0.0:                       # feather rounds: fast, then float to a stop
 			p["vel"] = (p["vel"] as Vector2) * maxf(0.0, 1.0 - float(p["drag"]) * delta)
 		p["pos"] += p["vel"] * delta
@@ -427,7 +466,7 @@ func _update_projectiles(delta: float) -> void:
 				v.y = -v.y; pos.y = clampf(pos.y, MARGIN, PLAY_H - MARGIN); b = true
 			if b:
 				p["vel"] = v; p["pos"] = pos; p["bounce"] = int(p["bounce"]) - 1
-		elif _out_of_play(p["pos"]):
+		elif _out_of_play(p["pos"]) and not p.get("return", false):
 			if p["lobbed"]: _explode_at(p["pos"], p["onhit"])
 			continue
 		var spent := false
@@ -728,6 +767,10 @@ func _draw() -> void:
 
 	_draw_hud()
 
+	if _paused:
+		draw_rect(Rect2(0, 0, PLAY_W, PLAY_H), Color(0, 0, 0, 0.45))
+		_text(Vector2(PLAY_W * 0.5 - 90, PLAY_H * 0.5), "PAUSED  —  SPACE to resume", Color(1, 1, 1), 22)
+
 func _draw_hud() -> void:
 	# hp bar
 	draw_rect(Rect2(MARGIN + 6, PLAY_H - 30, 220, 16), Color(0.2, 0.2, 0.22))
@@ -737,7 +780,7 @@ func _draw_hud() -> void:
 
 	var status := ""
 	match _phase:
-		Phase.BUILD: status = "BUILD  ·  next wave in %ds (SPACE to start)" % int(ceil(_phase_timer))
+		Phase.BUILD: status = "BUILD  ·  next wave in %ds  (SPACE = pause)" % int(ceil(_phase_timer))
 		Phase.WAVE:  status = "WAVE %d  ·  %d left" % [_wave, _zombies.size() + _to_spawn]
 		Phase.GAME_OVER: status = "DEAD on wave %d  ·  press R" % _wave
 	_text(Vector2(MARGIN + 6, MARGIN + 20), status, Color(0.85, 0.87, 0.9), 16)

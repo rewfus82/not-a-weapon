@@ -49,6 +49,7 @@ static func _delivery_rules() -> Array:
 		["scatter",   Gadget.Delivery.CONE],
 		["ranged",    Gadget.Delivery.PROJECTILE],
 		["explosive", Gadget.Delivery.LOBBED],
+		["return",    Gadget.Delivery.RETURN],
 		["thrown",    Gadget.Delivery.LOBBED],
 		["kinetic",   Gadget.Delivery.MELEE],
 		["flat",      Gadget.Delivery.MELEE],
@@ -214,6 +215,8 @@ static func _build_generic(items: Array, base: Gadget, tags: Dictionary) -> Gadg
 		_ensure(g, Gadget.KNOCKBACK, 120.0)
 	elif g.delivery == Gadget.Delivery.BEAM:
 		_ensure(g, Gadget.DAMAGE, 4.0)
+	elif g.delivery == Gadget.Delivery.RETURN:
+		_ensure(g, Gadget.DAMAGE, 10.0)
 
 	# component contributions, from the table (also augment a base weapon)
 	var te := _tag_effects()
@@ -355,6 +358,7 @@ static func _delivery_word(d: Gadget.Delivery) -> String:
 		Gadget.Delivery.PLACED: return "Trap"
 		Gadget.Delivery.CONE: return "Sprayer"
 		Gadget.Delivery.BEAM: return "Beam"
+		Gadget.Delivery.RETURN: return "Boomerang"
 		_: return "Gun"
 
 static func _ammo_name(items: Array) -> String:
@@ -383,5 +387,6 @@ static func _describe(g: Gadget, base: Gadget) -> String:
 		Gadget.Delivery.PLACED: d = "Drop it. Wait. Smile."
 		Gadget.Delivery.CONE: d = "Hose them down. Close range only."
 		Gadget.Delivery.BEAM: d = "Hold the line. Literally."
+		Gadget.Delivery.RETURN: d = "Throw it. It comes back. It cuts both ways."
 		_: d = "Point. Click. Disagree."
 	return ("Modified. " + d) if base != null else d
