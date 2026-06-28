@@ -5,7 +5,7 @@ extends RefCounted
 ## EFFECT primitives (what it does). The engine reads both, so components compose
 ## into mechanically distinct weapons instead of recolored projectiles.
 
-enum Delivery { PROJECTILE, MELEE, LOBBED, AURA, PLACED, CONE, BEAM, RETURN }
+enum Delivery { PROJECTILE, MELEE, LOBBED, AURA, PLACED, CONE, BEAM, RETURN, SELF }
 
 # Implemented effect kinds (a subset of the harness vocabulary — keep this in
 # sync with what main.gd can actually execute: the engine capability contract).
@@ -20,6 +20,9 @@ const SPAWN := "spawn"       # count = homing sub-projectiles
 const COLLECT := "collect"   # radius = loot-vacuum range (AURA)
 const FREEZE := "freeze"     # duration secs (near-stop; frozen enemies take bonus damage)
 const CHAIN := "chain"       # count = jumps, amount = jump damage, radius = jump range
+const HEAL := "heal"         # amount = HP restored to the player (SELF)
+const SHIELD := "shield"     # amount = damage-absorbing shield given to the player (SELF)
+const SPEED := "speed_buff"  # amount = move-speed multiplier, duration secs (SELF)
 
 var display_name := "Nothing"
 var description := ""
@@ -59,11 +62,13 @@ func delivery_name() -> String:
 		Delivery.CONE: return "SPRAY"
 		Delivery.BEAM: return "BEAM"
 		Delivery.RETURN: return "BOOMERANG"
+		Delivery.SELF: return "SELF"
 		_: return "RANGED"
 
 func category_name() -> String:
 	# a short label for the HUD / arsenal, derived from what it does
 	if effects.is_empty(): return "DUD"
+	if has(HEAL) or has(SHIELD) or has(SPEED): return "SUPPORT"
 	if harmless: return "TRINKET"
 	if (has(SNARE) or has(SLOW)) and not has(DAMAGE) and not has(EXPLODE): return "CONTROL"
 	if has(COLLECT) and not has(DAMAGE): return "UTILITY"

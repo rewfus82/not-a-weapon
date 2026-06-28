@@ -84,6 +84,11 @@ static func build() -> Dictionary:
 		["taser",        "Taser",              ["delivery", "behavior"], "beam",            ["beam", "electric", "metal", "conductive", "stun"],   Color(0.95, 0.90, 0.30)],
 		["ice_pack",     "Ice Pack",           ["payload"],              "chill",           ["cold", "soft", "fabric"],                            Color(0.65, 0.85, 0.95)],
 		["jumper_cables","Jumper Cables",      ["payload", "behavior"],  "zap",             ["conductive", "electric", "metal"],                   Color(0.85, 0.20, 0.20)],
+
+		# --- support (self) ---
+		["bandages",     "Bandages",           ["payload"],              "patch",           ["heal", "fabric", "soft"],                            Color(0.95, 0.95, 0.92)],
+		["caffeine_pills","Caffeine Pills",    ["payload"],              "gulp",            ["buff", "chemical", "powder"],                        Color(0.85, 0.55, 0.30)],
+		["trash_can_lid","Trash Can Lid",      ["delivery"],             "block",           ["shield", "metal"],                                   Color(0.45, 0.45, 0.50)],
 	]
 	var db := {}
 	for d in defs:

@@ -44,6 +44,9 @@ static func combine(items: Array, base: Gadget = null) -> Gadget:
 static func _delivery_rules() -> Array:
 	return [
 		["gun_frame", Gadget.Delivery.PROJECTILE],
+		["heal",      Gadget.Delivery.SELF],
+		["shield",    Gadget.Delivery.SELF],
+		["buff",      Gadget.Delivery.SELF],
 		["beam",      Gadget.Delivery.BEAM],
 		["aerosol",   Gadget.Delivery.CONE],
 		["scatter",   Gadget.Delivery.CONE],
@@ -87,6 +90,9 @@ static func _tag_effects() -> Dictionary:
 		"conductive":[{"op": "ensure", "kind": Gadget.CHAIN, "amount": 8.0, "radius": 110.0, "count": 3}],
 		"stun":      [{"op": "ensure", "kind": Gadget.SNARE, "duration": 1.5}],
 		"poison":    [{"op": "ensure", "kind": Gadget.BURN, "amount": 3.0, "duration": 4.0}],
+		"heal":      [{"op": "ensure", "kind": Gadget.HEAL, "amount": 40.0}],
+		"shield":    [{"op": "ensure", "kind": Gadget.SHIELD, "amount": 40.0}],
+		"buff":      [{"op": "ensure", "kind": Gadget.SPEED, "amount": 1.6, "duration": 6.0}],
 	}
 
 ## Tag -> ammo-profile deltas. This is what makes the LOADED ROUND alter the shot.
@@ -202,6 +208,11 @@ static func _specials() -> Dictionary:
 			"delivery": Gadget.Delivery.PROJECTILE,
 			"effects": [{"kind": Gadget.DAMAGE, "amount": 10.0}, {"kind": Gadget.FREEZE, "duration": 2.5}],
 		},
+		"bandages,caffeine_pills": {
+			"name": "Combat Stim", "desc": "Patches you up and makes you regret nothing, quickly.",
+			"delivery": Gadget.Delivery.SELF,
+			"effects": [{"kind": Gadget.HEAL, "amount": 30.0}, {"kind": Gadget.SPEED, "amount": 1.7, "duration": 7.0}],
+		},
 	}
 
 ## The sorted-id keys of every authored special (for debug / cheat-sheet tooling).
@@ -278,11 +289,13 @@ static func _finalize(g: Gadget, tags: Dictionary) -> void:
 	elif g.delivery == Gadget.Delivery.PROJECTILE and tags.has("automatic"):
 		g.semi = false
 
-	g.uses_ammo = g.delivery in [Gadget.Delivery.PROJECTILE, Gadget.Delivery.LOBBED, Gadget.Delivery.PLACED, Gadget.Delivery.CONE]
+	g.uses_ammo = g.delivery in [Gadget.Delivery.PROJECTILE, Gadget.Delivery.LOBBED, Gadget.Delivery.PLACED, Gadget.Delivery.CONE, Gadget.Delivery.SELF]
 	if g.uses_ammo:
 		var pwr := maxf(g.amount_of(Gadget.DAMAGE), g.amount_of(Gadget.EXPLODE))
 		pwr = maxf(pwr, 4.0)
 		match g.delivery:
+			Gadget.Delivery.SELF:
+				g.ammo_max = 3   # a few charges
 			Gadget.Delivery.LOBBED, Gadget.Delivery.PLACED:
 				g.ammo_max = clampi(int(round(60.0 / pwr)), 3, 8)
 			_:
@@ -380,6 +393,7 @@ static func _delivery_word(d: Gadget.Delivery) -> String:
 		Gadget.Delivery.CONE: return "Sprayer"
 		Gadget.Delivery.BEAM: return "Beam"
 		Gadget.Delivery.RETURN: return "Boomerang"
+		Gadget.Delivery.SELF: return "Kit"
 		_: return "Gun"
 
 static func _ammo_name(items: Array) -> String:
@@ -399,6 +413,7 @@ static func _name(items: Array, base: Gadget, g: Gadget) -> String:
 
 static func _describe(g: Gadget, base: Gadget) -> String:
 	if g.effects.is_empty(): return "It does... nothing. A monument to wasted potential."
+	if g.delivery == Gadget.Delivery.SELF: return "Use it on yourself. Patch up, shield up, or speed up."
 	if g.harmless: return "It works. It is not a weapon. It is barely an opinion."
 	var d := ""
 	match g.delivery:

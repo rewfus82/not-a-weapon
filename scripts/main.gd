@@ -37,6 +37,9 @@ var _invuln := 0.0
 var _hurt_flash := 0.0
 var _fire_timer := 0.0
 var _lmb_edge := false                # left-button pressed THIS frame (for semi-auto)
+var _shield := 0.0                    # SELF gadgets: absorbs damage before HP
+var _speed_mult := 1.0
+var _speed_timer := 0.0
 
 # --- crafting ----------------------------------------------------------------
 var _inv: Dictionary = {}             # item_id -> count
@@ -95,6 +98,7 @@ func _restart() -> void:
 	_zombies.clear(); _loot.clear(); _projectiles.clear()
 	_dmg_nums.clear(); _particles.clear(); _pot.clear()
 	_invuln = 0.0; _hurt_flash = 0.0; _shake = 0.0; _paused = false
+	_shield = 0.0; _speed_mult = 1.0; _speed_timer = 0.0
 	_arsenal = [_starter_gadget()]
 	_equipped_idx = 0
 	_equipped = _arsenal[0]
@@ -155,6 +159,9 @@ func _process(delta: float) -> void:
 	_invuln = maxf(0.0, _invuln - delta)
 	_hurt_flash = maxf(0.0, _hurt_flash - delta)
 	_shake = maxf(0.0, _shake - delta * 22.0)
+	if _speed_timer > 0.0:
+		_speed_timer -= delta
+		if _speed_timer <= 0.0: _speed_mult = 1.0
 	if not _melee_anim.is_empty():
 		_melee_anim["life"] = float(_melee_anim["life"]) - delta
 		if _melee_anim["life"] <= 0.0:
@@ -194,7 +201,7 @@ func _handle_input(delta: float) -> void:
 	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT): move.x -= 1.0
 	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT): move.x += 1.0
 	if move != Vector2.ZERO:
-		_player += move.normalized() * PLAYER_SPEED * delta
+		_player += move.normalized() * PLAYER_SPEED * _speed_mult * delta
 	_player.x = clampf(_player.x, MARGIN + PLAYER_RADIUS, PLAY_W - MARGIN - PLAYER_RADIUS)
 	_player.y = clampf(_player.y, MARGIN + PLAYER_RADIUS, PLAY_H - MARGIN - PLAYER_RADIUS)
 
@@ -291,7 +298,10 @@ func _update_wave(delta: float) -> void:
 		z["knock"] = z["knock"].lerp(Vector2.ZERO, 0.12)
 		# contact damage
 		if z["pos"].distance_to(_player) < PLAYER_RADIUS + 13.0 and _invuln <= 0.0:
-			_hp -= z["dmg"]
+			var dmg: float = z["dmg"]
+			if _shield > 0.0:
+				var ab := minf(_shield, dmg); _shield -= ab; dmg -= ab
+			if dmg > 0.0: _hp -= dmg
 			_invuln = INVULN_TIME
 			_hurt_flash = 0.4
 			_shake = 6.0
@@ -350,6 +360,8 @@ func _fire() -> void:
 			_fire_beam(_equipped); _fire_timer = 0.08
 		Gadget.Delivery.RETURN:
 			_fire_return(_equipped); _fire_timer = 0.45
+		Gadget.Delivery.SELF:
+			_use_self(_equipped); _fire_timer = 0.5
 		Gadget.Delivery.AURA:
 			_fire_timer = 0.2  # passive; aura ticks each frame
 
@@ -484,6 +496,18 @@ func _fire_return(g: Gadget) -> void:
 	p["pierce"] = 99     # passes through everything, and re-hits on the way back
 	p["life"] = 3.0
 	_projectiles.append(p)
+
+func _use_self(g: Gadget) -> void:
+	var h := g.amount_of(Gadget.HEAL)
+	if h > 0.0:
+		_hp = minf(_hp + h, PLAYER_MAX_HP)
+		_burst(_player, Color(0.4, 0.9, 0.4)); _log("Patched up (+%d HP)." % int(h))
+	var s := g.amount_of(Gadget.SHIELD)
+	if s > 0.0:
+		_shield = maxf(_shield, s); _log("Shield up (%d)." % int(s))
+	var sp := g.get_effect(Gadget.SPEED)
+	if not sp.is_empty():
+		_speed_mult = float(sp["amount"]); _speed_timer = float(sp["duration"]); _log("Speed boost.")
 
 func _update_projectiles(delta: float) -> void:
 	var live: Array[Dictionary] = []
@@ -827,6 +851,8 @@ func _draw() -> void:
 	var pc := Color(0.88, 0.88, 0.92)
 	if _invuln > 0.0 and int(_invuln * 20.0) % 2 == 0: pc = Color(1, 0.5, 0.5)
 	draw_circle(_player, PLAYER_RADIUS, pc)
+	if _shield > 0.0:
+		draw_arc(_player, PLAYER_RADIUS + 5.0, 0.0, TAU, 28, Color(0.4, 0.7, 1.0, 0.85), 2.5)
 	draw_line(_player, _player + _aim * 28.0, Color(0.9, 0.9, 0.5), 3.0)
 
 	# damage numbers
@@ -852,6 +878,10 @@ func _draw_hud() -> void:
 	var hpf: float = clampf(_hp / PLAYER_MAX_HP, 0.0, 1.0)
 	draw_rect(Rect2(MARGIN + 6, PLAY_H - 30, 220 * hpf, 16), Color(0.75, 0.3, 0.3))
 	_text(Vector2(MARGIN + 10, PLAY_H - 17), "HP %d" % int(maxf(_hp, 0.0)), Color(1, 1, 1), 13)
+	if _shield > 0.0:
+		_text(Vector2(MARGIN + 235, PLAY_H - 27), "SHIELD %d" % int(_shield), Color(0.5, 0.8, 1.0), 13)
+	if _speed_mult > 1.0:
+		_text(Vector2(MARGIN + 235, PLAY_H - 11), "SPEED x%.1f" % _speed_mult, Color(0.6, 0.95, 0.6), 12)
 
 	var status := ""
 	match _phase:
