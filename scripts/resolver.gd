@@ -204,6 +204,10 @@ static func _specials() -> Dictionary:
 		},
 	}
 
+## The sorted-id keys of every authored special (for debug / cheat-sheet tooling).
+static func special_recipes() -> Array:
+	return _specials().keys()
+
 # =============================================================================
 # BUILDERS
 # =============================================================================

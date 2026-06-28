@@ -226,12 +226,28 @@ func _input(event: InputEvent) -> void:
 			_log("[ PAUSED ]" if _paused else "[ unpaused ]")
 		elif DEBUG and event.keycode == KEY_G:
 			_grant_all()
+		elif DEBUG and event.keycode == KEY_T:
+			_spawn_all_specials()
 
 func _grant_all() -> void:
 	for id in _db:
 		_inv[id] = maxi(int(_inv.get(id, 0)), 9)
-	_log("[DEBUG] stocked every item x9. (press G to top up)")
+	_log("[DEBUG] stocked every item x9. (G top up · T spawn all specials)")
 	_refresh_inventory_ui()
+
+func _spawn_all_specials() -> void:
+	var n := 0
+	for key in Resolver.special_recipes():
+		var ids := String(key).split(",")
+		var items: Array[Item] = []
+		for id in ids:
+			if _db.has(id): items.append(_db[id])
+		if items.size() == ids.size() and not items.is_empty():
+			_arsenal.append(Resolver.combine(items))
+			n += 1
+	if not _arsenal.is_empty(): _equip(_arsenal.size() - 1)
+	_log("[DEBUG] added %d special weapons to your arsenal." % n)
+	_refresh_arsenal_ui()
 
 func _update_build(delta: float) -> void:
 	_phase_timer -= delta
@@ -906,10 +922,14 @@ func _build_ui() -> void:
 	var lb := Button.new(); lb.text = " LOAD "; lb.tooltip_text = "load the bench junk into the equipped weapon as AMMO"; lb.pressed.connect(_on_load); row2.add_child(lb)
 	var cl := Button.new(); cl.text = " Clear "; cl.pressed.connect(_on_clear); row2.add_child(cl)
 
-	_caption(root, "ARSENAL  (1-9 / scroll to switch)")
+	_caption(root, "ARSENAL  (1-9 / wheel to switch)")
+	var ascroll := ScrollContainer.new()
+	ascroll.custom_minimum_size = Vector2(0, 130)
+	root.add_child(ascroll)
 	_arsenal_box = VBoxContainer.new()
 	_arsenal_box.add_theme_constant_override("separation", 2)
-	root.add_child(_arsenal_box)
+	_arsenal_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ascroll.add_child(_arsenal_box)
 
 	_caption(root, "EQUIPPED")
 	_equipped_label = RichTextLabel.new()
