@@ -23,6 +23,14 @@ const PLAYER_MAX_HP := 100.0
 const INVULN_TIME := 0.6
 const DEBUG := true   # dev: auto-stocks every item each run; press G to top up (flip off for release)
 
+# --- AI combine bridge (the Python brain served over HTTP; see combine/serve.py) ---
+const AI_URL := "http://127.0.0.1:8777/resolve"
+const SLOT_NAMES := ["DELIVERY", "DAMAGE", "UTILITY", "MODIFIER"]  # bench position -> slot
+var _http: HTTPRequest
+var _ai_busy := false
+var _ai_pending: Array[String] = []
+var _awakening := 1.0   # 0..1 lucidity/insight; 1.0 = full "try anything" for testing
+
 var _db: Dictionary
 var _phase: int = Phase.BUILD
 var _phase_timer := 0.0
@@ -57,8 +65,13 @@ var _traps: Array[Dictionary] = []    # placed traps: {pos, gadget, life}
 var _melee_anim: Dictionary = {}      # transient swing visual
 var _beam_anim: Dictionary = {}       # transient beam visual: {a, b, life, col}
 var _arcs: Array[Dictionary] = []     # chain-lightning arcs: {a, b, life}
+var _turrets: Array[Dictionary] = []  # deployed turrets: {pos, life, dmg, cd, color}
+var _decoys: Array[Dictionary] = []   # deployed decoys: {pos, life, range}
 var _dmg_nums: Array[Dictionary] = [] # {pos, text, life, col}
 var _particles: Array[Dictionary] = []
+var _rings: Array[Dictionary] = []    # expanding shockwave rings: {pos, r, max_r, life, life0, col, w}
+var _muzzle: Dictionary = {}          # transient muzzle flash: {pos, life}
+var _hitstop := 0.0                   # brief freeze-frame on impactful hits (game feel)
 var _to_spawn := 0
 var _spawn_timer := 0.0
 var _shake := 0.0
@@ -97,6 +110,8 @@ func _restart() -> void:
 	_player = Vector2(PLAY_W * 0.5, PLAY_H * 0.5)
 	_zombies.clear(); _loot.clear(); _projectiles.clear()
 	_dmg_nums.clear(); _particles.clear(); _pot.clear()
+	_traps.clear(); _turrets.clear(); _decoys.clear(); _arcs.clear()
+	_rings.clear(); _muzzle = {}; _hitstop = 0.0
 	_invuln = 0.0; _hurt_flash = 0.0; _shake = 0.0; _paused = false
 	_shield = 0.0; _speed_mult = 1.0; _speed_timer = 0.0
 	_arsenal = [_starter_gadget()]
@@ -170,6 +185,10 @@ func _process(delta: float) -> void:
 		_beam_anim["life"] = float(_beam_anim["life"]) - delta
 		if _beam_anim["life"] <= 0.0:
 			_beam_anim = {}
+	if not _muzzle.is_empty():
+		_muzzle["life"] = float(_muzzle["life"]) - delta
+		if _muzzle["life"] <= 0.0:
+			_muzzle = {}
 	_update_juice(delta)
 
 	if _phase == Phase.GAME_OVER:
@@ -180,6 +199,12 @@ func _process(delta: float) -> void:
 
 	if _paused:
 		_lmb_edge = false   # don't queue a shot while paused
+		queue_redraw()
+		return
+
+	# hit-stop: a few ms of frozen gameplay on impactful hits makes them land harder
+	if _hitstop > 0.0:
+		_hitstop = maxf(0.0, _hitstop - delta)
 		queue_redraw()
 		return
 
@@ -284,6 +309,8 @@ func _update_wave(delta: float) -> void:
 		z["slow"] = maxf(0.0, z["slow"] - delta)
 		z["snare"] = maxf(0.0, z["snare"] - delta)
 		z["freeze"] = maxf(0.0, float(z.get("freeze", 0.0)) - delta)
+		z["scale"] = minf(1.0, float(z.get("scale", 1.0)) + delta * 5.0)      # spawn grow-in
+		z["squash"] = maxf(0.0, float(z.get("squash", 0.0)) - delta * 5.0)    # hit-pop decay
 		if float(z.get("burn_t", 0.0)) > 0.0:
 			z["burn_t"] = float(z["burn_t"]) - delta
 			z["hp"] = float(z["hp"]) - float(z.get("burn", 0.0)) * delta
@@ -293,8 +320,14 @@ func _update_wave(delta: float) -> void:
 		var spd: float = z["speed"]
 		if z["freeze"] > 0.0 or z["snare"] > 0.0: spd = 0.0
 		elif z["slow"] > 0.0: spd *= 0.35
-		var to_player: Vector2 = (_player as Vector2) - z["pos"]
-		z["pos"] += to_player.normalized() * spd * delta + z["knock"] * delta
+		var target: Vector2 = _player
+		var bd := INF
+		for d in _decoys:
+			var dd: float = (z["pos"] as Vector2).distance_to(d["pos"])
+			if dd < float(d["range"]) and dd < bd:
+				bd = dd; target = d["pos"]
+		var to_target: Vector2 = target - (z["pos"] as Vector2)
+		z["pos"] += to_target.normalized() * spd * delta + z["knock"] * delta
 		z["knock"] = z["knock"].lerp(Vector2.ZERO, 0.12)
 		# contact damage
 		if z["pos"].distance_to(_player) < PLAYER_RADIUS + 13.0 and _invuln <= 0.0:
@@ -304,7 +337,9 @@ func _update_wave(delta: float) -> void:
 			if dmg > 0.0: _hp -= dmg
 			_invuln = INVULN_TIME
 			_hurt_flash = 0.4
-			_shake = 6.0
+			_shake = 8.0
+			_freeze(0.05)
+			_ring(_player, Color(0.9, 0.2, 0.2), 44.0, 3.0, 0.28)
 			if _hp <= 0.0:
 				_game_over()
 				return
@@ -312,6 +347,8 @@ func _update_wave(delta: float) -> void:
 	_zombies = alive
 	_update_aura(delta)
 	_update_traps(delta)
+	_update_turrets(delta)
+	_update_decoys(delta)
 	# wave clear?
 	if _to_spawn <= 0 and _zombies.is_empty():
 		_log("Wave %d cleared." % _wave)
@@ -331,6 +368,7 @@ func _spawn_zombie() -> void:
 		"speed": minf(70.0 + _wave * 4.0, 150.0),
 		"dmg": 8.0 + _wave, "flash": 0.0, "slow": 0.0, "snare": 0.0,
 		"knock": Vector2.ZERO, "dead": false, "burn": 0.0, "burn_t": 0.0, "freeze": 0.0,
+		"scale": 0.0, "squash": 0.0,   # scale eases in on spawn; squash pops on hit
 	})
 
 # --- firing / projectiles ----------------------------------------------------
@@ -362,10 +400,15 @@ func _fire() -> void:
 			_fire_return(_equipped); _fire_timer = 0.45
 		Gadget.Delivery.SELF:
 			_use_self(_equipped); _fire_timer = 0.5
+		Gadget.Delivery.TURRET:
+			_deploy_turret(_equipped); _fire_timer = 0.6
+		Gadget.Delivery.DECOY:
+			_deploy_decoy(_equipped); _fire_timer = 0.6
 		Gadget.Delivery.AURA:
 			_fire_timer = 0.2  # passive; aura ticks each frame
 
 func _fire_ranged(g: Gadget, lobbed: bool, ap: Dictionary) -> void:
+	_muzzle_kick(g.color)
 	_projectiles.append(_make_proj(_aim, g, lobbed, false, ap))
 	var se := g.get_effect(Gadget.SPAWN)
 	if not se.is_empty():
@@ -391,7 +434,7 @@ func _make_proj(dir: Vector2, g: Gadget, lobbed: bool, sub: bool, ap: Dictionary
 	return {"pos": _player + dir * 24.0, "vel": dir * spd, "dmg": dmg,
 		"drag": float(ap.get("drag", 0.0)), "bounce": int(ap.get("bounce", 0)),
 		"homing": g.homing or bool(ap.get("homing", false)) or sub,
-		"pierce": pierce, "hits": [], "lobbed": lobbed, "sub": sub,
+		"pierce": pierce, "hits": [], "lobbed": lobbed, "sub": sub, "trail": [],
 		"onhit": o, "color": ap.get("color", g.color), "life": 0.85 if lobbed else 1.8}
 
 func _shot_onhit(g: Gadget) -> Dictionary:
@@ -457,6 +500,7 @@ func _place_trap(g: Gadget) -> void:
 
 func _fire_cone(g: Gadget, ap: Dictionary) -> void:
 	_shake = maxf(_shake, 2.0)
+	_muzzle_kick(g.color)
 	for i in range(6):
 		var ang := _aim.angle() + randf_range(-0.38, 0.38)
 		var p := _make_proj(Vector2.from_angle(ang), g, false, false, ap)
@@ -509,6 +553,43 @@ func _use_self(g: Gadget) -> void:
 	if not sp.is_empty():
 		_speed_mult = float(sp["amount"]); _speed_timer = float(sp["duration"]); _log("Speed boost.")
 
+func _deploy_turret(g: Gadget) -> void:
+	if _turrets.size() >= 4: _turrets.pop_front()
+	_turrets.append({"pos": _player, "life": 14.0, "dmg": maxf(g.amount_of(Gadget.DAMAGE), 6.0), "cd": 0.0, "color": g.color})
+	_log("Deployed %s." % g.display_name)
+
+func _deploy_decoy(g: Gadget) -> void:
+	if _decoys.size() >= 3: _decoys.pop_front()
+	_decoys.append({"pos": _player, "life": 12.0, "range": 320.0})
+	_log("Dropped %s. The horde turns to look." % g.display_name)
+
+func _update_turrets(delta: float) -> void:
+	var live: Array[Dictionary] = []
+	for t in _turrets:
+		t["life"] = float(t["life"]) - delta
+		t["cd"] = float(t["cd"]) - delta
+		if float(t["cd"]) <= 0.0:
+			var target := _nearest_zombie(t["pos"])
+			if target != Vector2.INF and (t["pos"] as Vector2).distance_to(target) < 260.0:
+				var dir: Vector2 = (target - (t["pos"] as Vector2)).normalized()
+				_projectiles.append({"pos": t["pos"], "vel": dir * 720.0, "dmg": float(t["dmg"]),
+					"drag": 0.0, "bounce": 0, "homing": false, "pierce": 0, "hits": [], "lobbed": false,
+					"sub": false, "onhit": _empty_onhit(), "color": t["color"], "life": 1.2})
+				t["cd"] = 0.35
+		if float(t["life"]) > 0.0: live.append(t)
+	_turrets = live
+
+func _update_decoys(delta: float) -> void:
+	var live: Array[Dictionary] = []
+	for d in _decoys:
+		d["life"] = float(d["life"]) - delta
+		if float(d["life"]) > 0.0: live.append(d)
+	_decoys = live
+
+func _empty_onhit() -> Dictionary:
+	return {"knockback": 0.0, "slow": 0.0, "snare": 0.0, "burn_amt": 0.0, "burn_dur": 0.0,
+		"explode_r": 0.0, "explode_dmg": 0.0, "freeze": 0.0, "chain_count": 0, "chain_dmg": 0.0, "chain_range": 0.0}
+
 func _update_projectiles(delta: float) -> void:
 	var live: Array[Dictionary] = []
 	for p in _projectiles:
@@ -532,6 +613,10 @@ func _update_projectiles(delta: float) -> void:
 			p["vel"] = (p["vel"] as Vector2) * maxf(0.0, 1.0 - float(p["drag"]) * delta)
 		p["pos"] += p["vel"] * delta
 		p["life"] -= delta
+		var tr: Array = p.get("trail", [])              # motion trail for readability + feel
+		tr.append(p["pos"])
+		if tr.size() > 6: tr.pop_front()
+		p["trail"] = tr
 		# walls: ricochet if the round has bounces left, otherwise it's absorbed
 		if int(p["bounce"]) > 0:
 			var pos: Vector2 = p["pos"]
@@ -583,8 +668,10 @@ func _explode_at(at: Vector2, o: Dictionary) -> void:
 	var r := float(o["explode_r"])
 	if r <= 0.0: r = 80.0
 	var dmg := float(o["explode_dmg"])
-	_shake = maxf(_shake, 6.0)
-	_burst(at, Color(0.95, 0.6, 0.2))
+	_shake = maxf(_shake, 8.0)
+	_burst(at, Color(0.98, 0.7, 0.25), 20, 300.0)
+	_ring(at, Color(0.98, 0.65, 0.25), r, 4.0, 0.4)
+	_freeze(0.06)
 	for z in _zombies:
 		if z.get("dead", false):
 			continue
@@ -632,8 +719,10 @@ func _explode(at: Vector2, g: Gadget) -> void:
 	var ex := g.get_effect(Gadget.EXPLODE)
 	var r := float(ex["radius"]) if not ex.is_empty() else 80.0
 	var dmg := float(ex["amount"]) if not ex.is_empty() else g.amount_of(Gadget.DAMAGE)
-	_shake = maxf(_shake, 6.0)
-	_burst(at, Color(0.95, 0.6, 0.2))
+	_shake = maxf(_shake, 8.0)
+	_burst(at, Color(0.98, 0.7, 0.25), 20, 300.0)
+	_ring(at, Color(0.98, 0.65, 0.25), r, 4.0, 0.4)
+	_freeze(0.06)
 	for z in _zombies:
 		if z.get("dead", false):
 			continue
@@ -695,18 +784,23 @@ func _update_traps(delta: float) -> void:
 func _apply_damage(z: Dictionary, dmg: float, _from: Vector2) -> void:
 	if z.get("dead", false):
 		return
-	if float(z.get("freeze", 0.0)) > 0.0:
+	var shatter := float(z.get("freeze", 0.0)) > 0.0
+	if shatter:
 		dmg *= 1.8   # frozen enemies shatter
 	z["hp"] = float(z["hp"]) - dmg
 	z["flash"] = 0.12
-	_dmg_num(z["pos"], str(int(dmg)), Color(1, 0.9, 0.5))
+	z["squash"] = 1.0   # pop on hit
+	_dmg_num(z["pos"], str(int(dmg)), Color(0.6, 0.9, 1.0) if shatter else Color(1, 0.9, 0.5))
 	if z["hp"] <= 0.0:
 		_on_zombie_death(z)
 
 func _on_zombie_death(z: Dictionary) -> void:
 	# mark dead; the WAVE update drops it next pass (avoids mutating mid-iteration)
 	z["dead"] = true
-	_burst(z["pos"], Color(0.4, 0.7, 0.4))
+	_burst(z["pos"], Color(0.5, 0.8, 0.45), 14, 240.0)
+	_ring(z["pos"], Color(0.6, 0.9, 0.5), 34.0, 3.0, 0.28)
+	_shake = maxf(_shake, 4.0)
+	_freeze(0.045)   # brief hit-stop so a kill lands
 	if randf() < 0.45:
 		var id: String = _db.keys().pick_random()
 		_loot.append({"pos": z["pos"], "id": id})
@@ -758,15 +852,32 @@ func _update_juice(delta: float) -> void:
 		a["life"] = float(a["life"]) - delta
 		if a["life"] > 0.0: ar.append(a)
 	_arcs = ar
+	var rr: Array[Dictionary] = []
+	for r in _rings:
+		r["life"] = float(r["life"]) - delta
+		var t: float = 1.0 - clampf(float(r["life"]) / float(r["life0"]), 0.0, 1.0)
+		r["r"] = lerpf(6.0, float(r["max_r"]), t)
+		if r["life"] > 0.0: rr.append(r)
+	_rings = rr
 
 func _dmg_num(pos: Vector2, text: String, col: Color) -> void:
 	_dmg_nums.append({"pos": pos + Vector2(0, -16), "text": text, "life": 0.7, "col": col})
 
-func _burst(pos: Vector2, col: Color) -> void:
-	for i in range(8):
+func _burst(pos: Vector2, col: Color, count := 8, speed := 160.0) -> void:
+	for i in range(count):
 		var a := randf() * TAU
-		_particles.append({"pos": pos, "vel": Vector2(cos(a), sin(a)) * randf_range(40, 160),
+		_particles.append({"pos": pos, "vel": Vector2(cos(a), sin(a)) * randf_range(40, speed),
 			"life": randf_range(0.3, 0.6), "col": col})
+
+# an expanding shockwave ring — cheap, high-impact feedback for hits/explosions/deaths
+func _ring(pos: Vector2, col: Color, max_r: float, w := 3.0, life := 0.32) -> void:
+	_rings.append({"pos": pos, "r": 6.0, "max_r": max_r, "life": life, "life0": life, "col": col, "w": w})
+
+func _freeze(t: float) -> void:
+	_hitstop = maxf(_hitstop, t)
+
+func _muzzle_kick(col: Color) -> void:
+	_muzzle = {"pos": _player + _aim * 22.0, "life": 0.06, "col": col}
 
 func _nearest_zombie(from: Vector2) -> Vector2:
 	var best := Vector2.INF
@@ -810,18 +921,38 @@ func _draw() -> void:
 		elif z["slow"] > 0.0: zc = Color(0.4, 0.55, 0.8)
 		if float(z.get("freeze", 0.0)) > 0.0: zc = Color(0.6, 0.85, 1.0)
 		if z["flash"] > 0.0: zc = Color(1, 1, 1)
-		draw_circle(z["pos"], 13.0, zc)
+		var sc: float = float(z.get("scale", 1.0)) * (1.0 + 0.35 * float(z.get("squash", 0.0)))
+		var rad: float = 13.0 * sc
+		draw_circle(z["pos"], rad, zc)
 		var f: float = clampf(z["hp"] / z["max_hp"], 0.0, 1.0)
-		draw_rect(Rect2(z["pos"] + Vector2(-13, -20), Vector2(26.0 * f, 4)), Color(0.8, 0.3, 0.3))
+		if f < 1.0:
+			draw_rect(Rect2(z["pos"] + Vector2(-13, -20), Vector2(26.0 * f, 4)), Color(0.85, 0.3, 0.3))
 
 	# traps
 	for t in _traps:
 		draw_rect(Rect2((t["pos"] as Vector2) - Vector2(8, 8), Vector2(16, 16)), Color(0.8, 0.5, 0.2))
 		draw_arc(t["pos"], 42.0, 0.0, TAU, 24, Color(0.8, 0.5, 0.2, 0.25), 1.0)
 
-	# projectiles
+	# turrets
+	for tu in _turrets:
+		draw_rect(Rect2((tu["pos"] as Vector2) - Vector2(9, 9), Vector2(18, 18)), tu["color"])
+		draw_circle(tu["pos"], 4.0, Color(0.1, 0.1, 0.12))
+
+	# decoys
+	for dc in _decoys:
+		var dl := clampf(float(dc["life"]) / 12.0, 0.25, 1.0)
+		draw_circle(dc["pos"], 10.0, Color(0.95, 0.5, 0.2, dl))
+		draw_arc(dc["pos"], float(dc["range"]), 0.0, TAU, 32, Color(0.95, 0.5, 0.2, 0.10), 1.0)
+
+	# projectiles (with fading motion trails)
 	for p in _projectiles:
-		draw_circle(p["pos"], 6.0 if not p["homing"] else 8.0, p["color"])
+		var pr: float = 6.0 if not p["homing"] else 8.0
+		var tr: Array = p.get("trail", [])
+		for i in range(tr.size()):
+			var ta := (float(i) + 1.0) / float(tr.size() + 1)
+			var tc: Color = p["color"]; tc.a = ta * 0.45
+			draw_circle(tr[i], pr * ta * 0.85, tc)
+		draw_circle(p["pos"], pr, p["color"])
 
 	# melee swing
 	if not _melee_anim.is_empty():
@@ -841,6 +972,17 @@ func _draw() -> void:
 		var aa := clampf(float(a["life"]) * 8.0, 0.2, 1.0)
 		draw_line(a["a"], a["b"], Color(0.7, 0.85, 1.0, aa), 2.5)
 
+	# shockwave rings
+	for r in _rings:
+		var ra := clampf(float(r["life"]) / float(r["life0"]), 0.0, 1.0)
+		var rc: Color = r["col"]; rc.a = ra * 0.8
+		draw_arc(r["pos"], float(r["r"]), 0.0, TAU, 32, rc, float(r["w"]))
+
+	# muzzle flash
+	if not _muzzle.is_empty():
+		var mf := clampf(float(_muzzle["life"]) * 16.0, 0.0, 1.0)
+		draw_circle(_muzzle["pos"], 8.0 * mf, Color(1.0, 0.95, 0.65, mf))
+
 	# particles
 	for pt in _particles:
 		var c: Color = pt["col"]
@@ -855,16 +997,22 @@ func _draw() -> void:
 		draw_arc(_player, PLAYER_RADIUS + 5.0, 0.0, TAU, 28, Color(0.4, 0.7, 1.0, 0.85), 2.5)
 	draw_line(_player, _player + _aim * 28.0, Color(0.9, 0.9, 0.5), 3.0)
 
-	# damage numbers
+	# damage numbers (pop big, then settle + fade)
 	for n in _dmg_nums:
 		var nc: Color = n["col"]
 		nc.a = clampf(n["life"] * 1.6, 0.0, 1.0)
-		_text(n["pos"], n["text"], nc, 14)
+		var nsz := int(13 + 9 * clampf(float(n["life"]) / 0.7, 0.0, 1.0))
+		_text(n["pos"], n["text"], nc, nsz)
 
 	# hurt vignette
 	if _hurt_flash > 0.0:
 		var hc := Color(0.8, 0.1, 0.1, _hurt_flash * 0.6)
 		draw_rect(Rect2(0, 0, PLAY_W, PLAY_H), hc)
+
+	# low-HP danger pulse
+	if _hp > 0.0 and _hp < PLAYER_MAX_HP * 0.3:
+		var pulse := 0.12 + 0.10 * sin(Time.get_ticks_msec() * 0.008)
+		draw_rect(Rect2(0, 0, PLAY_W, PLAY_H), Color(0.7, 0.05, 0.05, pulse))
 
 	_draw_hud()
 
@@ -938,19 +1086,24 @@ func _build_ui() -> void:
 	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_grid)
 
-	_caption(root, "BENCH  (max 3, consumes junk)")
+	_caption(root, "BENCH  (slots by order: delivery / damage / utility / modifier)")
 	_pot_label = Label.new()
 	_pot_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_pot_label.text = "(empty)"
 	root.add_child(_pot_label)
+	var airow := HBoxContainer.new()
+	root.add_child(airow)
+	var aib := Button.new(); aib.text = "  AI BUILD  "; aib.tooltip_text = "build with the AI brain (needs combine/serve.py running)"; aib.pressed.connect(_on_ai_build); airow.add_child(aib)
+	var cl := Button.new(); cl.text = " Clear "; cl.pressed.connect(_on_clear); airow.add_child(cl)
 	var row := HBoxContainer.new()
 	root.add_child(row)
-	var cb := Button.new(); cb.text = " BUILD "; cb.tooltip_text = "build a NEW weapon from the bench junk"; cb.pressed.connect(_on_combine); row.add_child(cb)
+	var cb := Button.new(); cb.text = " old BUILD "; cb.tooltip_text = "deterministic tag-vote build (legacy, for comparison)"; cb.pressed.connect(_on_combine); row.add_child(cb)
 	var mb := Button.new(); mb.text = " MOD "; mb.tooltip_text = "modify the EQUIPPED weapon with the bench junk"; mb.pressed.connect(_on_modify); row.add_child(mb)
-	var row2 := HBoxContainer.new()
-	root.add_child(row2)
-	var lb := Button.new(); lb.text = " LOAD "; lb.tooltip_text = "load the bench junk into the equipped weapon as AMMO"; lb.pressed.connect(_on_load); row2.add_child(lb)
-	var cl := Button.new(); cl.text = " Clear "; cl.pressed.connect(_on_clear); row2.add_child(cl)
+	var lb := Button.new(); lb.text = " LOAD "; lb.tooltip_text = "load the bench junk into the equipped weapon as AMMO"; lb.pressed.connect(_on_load); row.add_child(lb)
+
+	_http = HTTPRequest.new()
+	add_child(_http)
+	_http.request_completed.connect(_on_ai_response)
 
 	_caption(root, "ARSENAL  (1-9 / wheel to switch)")
 	var ascroll := ScrollContainer.new()
@@ -1011,16 +1164,112 @@ func _refresh_inventory_ui() -> void:
 		_grid.add_child(l)
 
 func _on_item_pressed(id: String) -> void:
-	if _pot.size() >= 3:
-		_log("Bench is full (3)."); return
+	if _pot.size() >= 4:
+		_log("All four slots are full."); return
 	var used := _pot.count(id)
 	if int(_inv.get(id, 0)) - used <= 0:
 		_log("You don't have another %s." % _db[id].display_name); return
 	_pot.append(id)
+	_log("%s -> %s slot" % [_db[id].display_name, SLOT_NAMES[_pot.size() - 1]])
 	_refresh_pot()
 
 func _on_clear() -> void:
 	_pot.clear(); _refresh_pot()
+
+# --- AI build (calls the Python combine brain over HTTP) ---------------------
+
+func _on_ai_build() -> void:
+	if _ai_busy:
+		_log("The AI is still thinking..."); return
+	if _pot.is_empty():
+		_log("Fill the bench slots first (click junk; order = delivery/damage/utility/modifier)."); return
+	var req := {"awakening": _awakening}
+	for i in range(_pot.size()):
+		req[String(SLOT_NAMES[i]).to_lower()] = _pot[i]
+	var err := _http.request(AI_URL, PackedStringArray(["Content-Type: application/json"]),
+		HTTPClient.METHOD_POST, JSON.stringify(req))
+	if err != OK:
+		_log("Can't reach the AI bridge — is combine/serve.py running?  (err %d)" % err); return
+	_ai_pending = _pot.duplicate()
+	_ai_busy = true
+	_log("[i]Reality is recalculating...[/i]")
+
+func _on_ai_response(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+	_ai_busy = false
+	var text := body.get_string_from_utf8()
+	if result != HTTPRequest.RESULT_SUCCESS or response_code != 200:
+		_log("AI bridge failed (net %d / http %d). Is the server up?" % [result, response_code])
+		if text != "": _log("  %s" % text)
+		return
+	var data: Variant = JSON.parse_string(text)
+	if typeof(data) != TYPE_DICTIONARY:
+		_log("AI returned something unparseable."); return
+	if data.has("error"):
+		_log("AI error: %s" % str(data["error"])); return
+	var g := _gadget_from_dict(data)
+	# consume the junk we actually sent (pot may have changed while we waited)
+	for id in _ai_pending:
+		if _inv.has(id):
+			_inv[id] = int(_inv[id]) - 1
+			if _inv[id] <= 0: _inv.erase(id)
+	_ai_pending.clear()
+	_arsenal.append(g)
+	_equip(_arsenal.size() - 1)
+	_log("[b]%s[/b]  [%s]" % [g.display_name, g.category_name()])
+	_log("  \"%s\"" % g.description)
+	if data.has("logic"): _log("  [color=#889]why: %s[/color]" % str(data["logic"]))
+	_pot.clear()
+	_refresh_pot(); _refresh_inventory_ui()
+
+func _gadget_from_dict(d: Dictionary) -> Gadget:
+	var g := Gadget.new()
+	g.display_name = str(d.get("name", "Contraption"))
+	g.description = str(d.get("description", ""))
+	g.delivery = _delivery_from_name(str(d.get("delivery", "PROJECTILE")))
+	g.homing = bool(d.get("homing", false))
+	g.harmless = bool(d.get("harmless", false))
+	g.projectile_speed = float(d.get("projectile_speed", 700.0))
+	g.color = Color.from_string(str(d.get("color", "#b0b0b0")), Color(0.7, 0.7, 0.7))
+	for e in d.get("effects", []):
+		g.add(str(e.get("kind", "damage")), float(e.get("amount", 0.0)),
+			float(e.get("duration", 0.0)), float(e.get("radius", 0.0)), int(e.get("count", 0)))
+	_finalize_ai_gadget(g)
+	return g
+
+func _delivery_from_name(n: String) -> Gadget.Delivery:
+	match n:
+		"MELEE": return Gadget.Delivery.MELEE
+		"LOBBED": return Gadget.Delivery.LOBBED
+		"AURA": return Gadget.Delivery.AURA
+		"PLACED": return Gadget.Delivery.PLACED
+		"CONE": return Gadget.Delivery.CONE
+		"BEAM": return Gadget.Delivery.BEAM
+		"RETURN": return Gadget.Delivery.RETURN
+		"SELF": return Gadget.Delivery.SELF
+		"TURRET": return Gadget.Delivery.TURRET
+		"DECOY": return Gadget.Delivery.DECOY
+		_: return Gadget.Delivery.PROJECTILE
+
+# mirrors Resolver._finalize: fire mode + ammo capacity from delivery/power
+func _finalize_ai_gadget(g: Gadget) -> void:
+	g.semi = true
+	if g.delivery == Gadget.Delivery.MELEE or g.delivery == Gadget.Delivery.BEAM:
+		g.semi = false
+	g.uses_ammo = g.delivery in [Gadget.Delivery.PROJECTILE, Gadget.Delivery.LOBBED,
+		Gadget.Delivery.PLACED, Gadget.Delivery.CONE, Gadget.Delivery.SELF,
+		Gadget.Delivery.TURRET, Gadget.Delivery.DECOY]
+	if g.uses_ammo:
+		var pwr: float = maxf(g.amount_of(Gadget.DAMAGE), g.amount_of(Gadget.EXPLODE))
+		pwr = maxf(pwr, 4.0)
+		match g.delivery:
+			Gadget.Delivery.SELF, Gadget.Delivery.TURRET, Gadget.Delivery.DECOY:
+				g.ammo_max = 3
+			Gadget.Delivery.LOBBED, Gadget.Delivery.PLACED:
+				g.ammo_max = clampi(int(round(60.0 / pwr)), 3, 8)
+			_:
+				g.ammo_max = clampi(int(round(90.0 / pwr)), 6, 30)
+				if not g.semi: g.ammo_max = int(g.ammo_max * 1.5)
+		g.fill_plain()
 
 func _on_combine() -> void:
 	if _pot.is_empty():
@@ -1097,10 +1346,11 @@ func _ammo_value(it: Item) -> int:
 
 func _refresh_pot() -> void:
 	if _pot.is_empty():
-		_pot_label.text = "(empty)"; return
-	var names: Array[String] = []
-	for id in _pot: names.append(_db[id].display_name)
-	_pot_label.text = " + ".join(names)
+		_pot_label.text = "(empty — click junk to fill slots)"; return
+	var lines: Array[String] = []
+	for i in range(_pot.size()):
+		lines.append("%s: %s" % [SLOT_NAMES[i], _db[_pot[i]].display_name])
+	_pot_label.text = "\n".join(lines)
 
 func _refresh_arsenal_ui() -> void:
 	if _arsenal_box == null:

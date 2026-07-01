@@ -89,6 +89,11 @@ static func build() -> Dictionary:
 		["bandages",     "Bandages",           ["payload"],              "patch",           ["heal", "fabric", "soft"],                            Color(0.95, 0.95, 0.92)],
 		["caffeine_pills","Caffeine Pills",    ["payload"],              "gulp",            ["buff", "chemical", "powder"],                        Color(0.85, 0.55, 0.30)],
 		["trash_can_lid","Trash Can Lid",      ["delivery"],             "block",           ["shield", "metal"],                                   Color(0.45, 0.45, 0.50)],
+
+		# --- deployables ---
+		["tripod",       "Camera Tripod",      ["delivery", "behavior"], "mount",           ["mount", "metal"],                                    Color(0.30, 0.30, 0.34)],
+		["boombox",      "Boombox",            ["payload"],              "blare",           ["lure", "electric", "plastic"],                       Color(0.85, 0.30, 0.55)],
+		["raw_meat",     "Slab of Raw Meat",   ["payload"],              "dangle",          ["lure", "organic", "bait", "soft"],                   Color(0.80, 0.30, 0.30)],
 	]
 	var db := {}
 	for d in defs:

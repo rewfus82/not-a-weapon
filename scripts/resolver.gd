@@ -43,6 +43,8 @@ static func combine(items: Array, base: Gadget = null) -> Gadget:
 ## Tag -> delivery. First matching tag (in order) wins.
 static func _delivery_rules() -> Array:
 	return [
+		["mount",     Gadget.Delivery.TURRET],
+		["lure",      Gadget.Delivery.DECOY],
 		["gun_frame", Gadget.Delivery.PROJECTILE],
 		["heal",      Gadget.Delivery.SELF],
 		["shield",    Gadget.Delivery.SELF],
@@ -213,6 +215,16 @@ static func _specials() -> Dictionary:
 			"delivery": Gadget.Delivery.SELF,
 			"effects": [{"kind": Gadget.HEAL, "amount": 30.0}, {"kind": Gadget.SPEED, "amount": 1.7, "duration": 7.0}],
 		},
+		"m16,tripod": {
+			"name": "Sentry Gun", "desc": "Plant it. It picks targets with the cold patience you lack.",
+			"delivery": Gadget.Delivery.TURRET,
+			"effects": [{"kind": Gadget.DAMAGE, "amount": 12.0}],
+		},
+		"boombox,raw_meat": {
+			"name": "Irresistible Decoy", "desc": "Meat and a beat. The horde simply cannot say no.",
+			"delivery": Gadget.Delivery.DECOY,
+			"effects": [],
+		},
 	}
 
 ## The sorted-id keys of every authored special (for debug / cheat-sheet tooling).
@@ -249,6 +261,8 @@ static func _build_generic(items: Array, base: Gadget, tags: Dictionary) -> Gadg
 		_ensure(g, Gadget.DAMAGE, 4.0)
 	elif g.delivery == Gadget.Delivery.RETURN:
 		_ensure(g, Gadget.DAMAGE, 10.0)
+	elif g.delivery == Gadget.Delivery.TURRET:
+		_ensure(g, Gadget.DAMAGE, 8.0)
 
 	# component contributions, from the table (also augment a base weapon)
 	var te := _tag_effects()
@@ -289,13 +303,13 @@ static func _finalize(g: Gadget, tags: Dictionary) -> void:
 	elif g.delivery == Gadget.Delivery.PROJECTILE and tags.has("automatic"):
 		g.semi = false
 
-	g.uses_ammo = g.delivery in [Gadget.Delivery.PROJECTILE, Gadget.Delivery.LOBBED, Gadget.Delivery.PLACED, Gadget.Delivery.CONE, Gadget.Delivery.SELF]
+	g.uses_ammo = g.delivery in [Gadget.Delivery.PROJECTILE, Gadget.Delivery.LOBBED, Gadget.Delivery.PLACED, Gadget.Delivery.CONE, Gadget.Delivery.SELF, Gadget.Delivery.TURRET, Gadget.Delivery.DECOY]
 	if g.uses_ammo:
 		var pwr := maxf(g.amount_of(Gadget.DAMAGE), g.amount_of(Gadget.EXPLODE))
 		pwr = maxf(pwr, 4.0)
 		match g.delivery:
-			Gadget.Delivery.SELF:
-				g.ammo_max = 3   # a few charges
+			Gadget.Delivery.SELF, Gadget.Delivery.TURRET, Gadget.Delivery.DECOY:
+				g.ammo_max = 3   # a few charges/deploys
 			Gadget.Delivery.LOBBED, Gadget.Delivery.PLACED:
 				g.ammo_max = clampi(int(round(60.0 / pwr)), 3, 8)
 			_:
@@ -394,6 +408,8 @@ static func _delivery_word(d: Gadget.Delivery) -> String:
 		Gadget.Delivery.BEAM: return "Beam"
 		Gadget.Delivery.RETURN: return "Boomerang"
 		Gadget.Delivery.SELF: return "Kit"
+		Gadget.Delivery.TURRET: return "Turret"
+		Gadget.Delivery.DECOY: return "Decoy"
 		_: return "Gun"
 
 static func _ammo_name(items: Array) -> String:
@@ -412,8 +428,10 @@ static func _name(items: Array, base: Gadget, g: Gadget) -> String:
 	return "%s %s" % [frame, word]
 
 static func _describe(g: Gadget, base: Gadget) -> String:
-	if g.effects.is_empty(): return "It does... nothing. A monument to wasted potential."
 	if g.delivery == Gadget.Delivery.SELF: return "Use it on yourself. Patch up, shield up, or speed up."
+	if g.delivery == Gadget.Delivery.TURRET: return "Drop it. It shoots so you don't have to."
+	if g.delivery == Gadget.Delivery.DECOY: return "Drop it. The horde finds it more interesting than you."
+	if g.effects.is_empty(): return "It does... nothing. A monument to wasted potential."
 	if g.harmless: return "It works. It is not a weapon. It is barely an opinion."
 	var d := ""
 	match g.delivery:
