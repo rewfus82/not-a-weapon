@@ -41,7 +41,7 @@ void fragment() {
 
 	// soft vignette
 	float vig = smoothstep(0.95, 0.4, length(SCREEN_UV - 0.5));
-	col *= mix(0.82, 1.0, vig);
+	col *= mix(0.92, 1.0, vig);
 
 	// faint grain (mostly from glitch)
 	col += (rand(SCREEN_UV * (TIME + 1.3)) - 0.5) * (0.005 + glitch * 0.07);

@@ -11,9 +11,10 @@ extends Node2D
 
 enum Phase { BUILD, WAVE, GAME_OVER }
 
-const PANEL_W := 360.0
-const PLAY_W := 1280.0 - PANEL_W
-const PLAY_H := 720.0
+const PANEL_W := 400.0        # (legacy; used only for build-overlay caption widths)
+const PLAY_W := 1600.0        # world is now the full screen — no reserved side panel
+const PLAY_H := 900.0
+const CAM_ZOOM := 1.8
 const MARGIN := 14.0
 const PLAYER_SPEED := 300.0
 const PLAYER_RADIUS := 14.0
@@ -21,7 +22,7 @@ const FIRE_COOLDOWN := 0.16
 const BUILD_TIME := 20.0
 const PLAYER_MAX_HP := 100.0
 const INVULN_TIME := 0.6
-const DEBUG := true   # dev: auto-stocks every item each run; press G to top up (flip off for release)
+var _debug := false   # NORMAL by default (scavenge for items). F1 toggles DEBUG (all items + G/T).
 
 # --- AI combine bridge (the Python brain served over HTTP; see combine/serve.py) ---
 const AI_URL := "http://127.0.0.1:8777/resolve"
@@ -98,15 +99,26 @@ const TDS := "res://assets/kenney/topdown-shooter/PNG/"
 # preload entity scripts by path (avoids relying on class_name global registration,
 # which needs an editor rescan that external file edits don't trigger)
 const PickupNode := preload("res://scripts/pickup.gd")
+const HudNode := preload("res://scripts/hud.gd")
+var _hud_node: Node2D
+var _cam: Camera2D
+var _build_layer: CanvasLayer   # the pause-to-build overlay (hidden until TAB)
 var _tex_player: Texture2D
 var _tex_zombie: Texture2D
 var _tex_ground: Texture2D
 var _shake_off := Vector2.ZERO
 var _glitch_mat: ShaderMaterial   # the full-screen simulation-glitch post-process
 var _glitch := 0.0                # transient glitch pulse (decays); base from _awakening
+var _flashlight: PointLight2D     # real 2D light — the flashlight cone (follows aim)
+var _player_glow: PointLight2D    # soft glow right around the player
 
 func _ready() -> void:
-	_font = ThemeDB.fallback_font
+	# maximize to fit the actual screen; stretch(keep) scales the 1600x900 design down
+	get_window().mode = Window.MODE_MAXIMIZED
+	RenderingServer.set_default_clear_color(Color(0.02, 0.02, 0.03))   # dark void, not gray
+	_font = load("res://assets/fonts/ShareTechMono-Regular.ttf")
+	if _font == null:
+		_font = ThemeDB.fallback_font
 	_db = ItemDB.build()
 	_tex_player = _tex(TDS + "Survivor 1/survivor1_gun.png")
 	_tex_zombie = _tex(TDS + "Zombie 1/zoimbie1_hold.png")
@@ -116,6 +128,22 @@ func _ready() -> void:
 	_pickups_root = Node2D.new()
 	add_child(_pickups_root)
 	_setup_atmosphere()
+	var hud_layer := CanvasLayer.new()   # HUD on its own bright layer (immune to world darkness)
+	hud_layer.layer = 2
+	add_child(hud_layer)
+	_hud_node = HudNode.new()
+	_hud_node.main = self
+	hud_layer.add_child(_hud_node)
+	_cam = Camera2D.new()
+	_cam.zoom = Vector2(CAM_ZOOM, CAM_ZOOM)
+	_cam.position_smoothing_enabled = true
+	_cam.position_smoothing_speed = 9.0
+	_cam.limit_left = 0
+	_cam.limit_top = 0
+	_cam.limit_right = int(PLAY_W)
+	_cam.limit_bottom = int(PLAY_H)
+	add_child(_cam)
+	_cam.make_current()
 	_restart()
 
 func _setup_atmosphere() -> void:
@@ -141,6 +169,56 @@ func _setup_atmosphere() -> void:
 	_glitch_mat.shader = load("res://shaders/glitch.gdshader")
 	rect.material = _glitch_mat
 	layer.add_child(rect)
+
+	# real 2D lighting: a dark world (CanvasModulate) that the player's flashlight reveals
+	var cm := CanvasModulate.new()
+	cm.color = Color(0.12, 0.13, 0.18)   # cold blue night ambient
+	add_child(cm)
+	_player_glow = PointLight2D.new()
+	_player_glow.texture = _radial_tex(256)
+	_player_glow.color = Color(1.0, 0.84, 0.6)   # warm
+	_player_glow.energy = 0.7
+	_player_glow.texture_scale = 0.9
+	add_child(_player_glow)
+	_flashlight = PointLight2D.new()
+	_flashlight.texture = _cone_tex(256)
+	_flashlight.color = Color(1.0, 0.9, 0.72)     # warm flashlight vs cold dark
+	_flashlight.energy = 1.6
+	_flashlight.texture_scale = 3.2
+	add_child(_flashlight)
+
+func _radial_tex(size: int) -> Texture2D:
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
+	g.colors = PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 0.45), Color(1, 1, 1, 0)])
+	var gt := GradientTexture2D.new()
+	gt.gradient = g
+	gt.fill = GradientTexture2D.FILL_RADIAL
+	gt.fill_from = Vector2(0.5, 0.5)
+	gt.fill_to = Vector2(1.0, 0.5)
+	gt.width = size
+	gt.height = size
+	return gt
+
+# a cone light pointing +x (apex at texture center); the node is rotated to aim
+func _cone_tex(size: int) -> Texture2D:
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var c := float(size) * 0.5
+	var maxd := float(size) * 0.5
+	var half := 0.55
+	for yy in size:
+		for xx in size:
+			var dx := float(xx) - c
+			var dy := float(yy) - c
+			var a := 0.0
+			if dx > 0.0:
+				var dist := sqrt(dx * dx + dy * dy)
+				var ang: float = atan2(dy, dx)
+				var angf := clampf(1.0 - absf(ang) / half, 0.0, 1.0)
+				var distf := clampf(1.0 - dist / maxd, 0.0, 1.0)
+				a = angf * angf * distf * distf
+			img.set_pixel(xx, yy, Color(1, 1, 1, a))
+	return ImageTexture.create_from_image(img)
 
 func _glitch_pulse(amount: float) -> void:
 	_glitch = maxf(_glitch, amount)
@@ -189,7 +267,7 @@ func _restart() -> void:
 			"ketchup": 1, "feathers": 1, "anchovies": 1, "pringles": 1}
 	_log("You wake up. Something is very wrong. (WASD move, mouse aim, click to fire.)")
 	_start_build()
-	if DEBUG: _grant_all()
+	if _debug: _grant_all()
 	_refresh_inventory_ui()
 	_refresh_equipped()
 	_refresh_arsenal_ui()
@@ -246,6 +324,13 @@ func _process(delta: float) -> void:
 	_glitch = maxf(0.0, _glitch - delta * 2.5)
 	if _glitch_mat != null:
 		_glitch_mat.set_shader_parameter("glitch", clampf(lerpf(0.0, 0.05, _awakening) + _glitch, 0.0, 1.0))
+	if _flashlight != null:
+		_flashlight.position = _player
+		_flashlight.rotation = _aim.angle()
+	if _player_glow != null:
+		_player_glow.position = _player
+	if _cam != null:
+		_cam.position = _player
 	if _speed_timer > 0.0:
 		_speed_timer -= delta
 		if _speed_timer <= 0.0: _speed_mult = 1.0
@@ -325,12 +410,18 @@ func _input(event: InputEvent) -> void:
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and not _arsenal.is_empty():
 			_equip((_equipped_idx + 1) % _arsenal.size())
 	elif event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_SPACE and _phase != Phase.GAME_OVER:
+		if event.keycode == KEY_TAB:
+			_toggle_build()
+		elif event.keycode == KEY_SPACE and _phase != Phase.GAME_OVER:
 			_paused = not _paused
 			_log("[ PAUSED ]" if _paused else "[ unpaused ]")
-		elif DEBUG and event.keycode == KEY_G:
+		elif event.keycode == KEY_F1:
+			_debug = not _debug
+			_log("[MODE] %s" % ("DEBUG — all items stocked (G top-up · T specials)" if _debug else "NORMAL — scavenge for your items"))
+			_restart()
+		elif _debug and event.keycode == KEY_G:
 			_grant_all()
-		elif DEBUG and event.keycode == KEY_T:
+		elif _debug and event.keycode == KEY_T:
 			_spawn_all_specials()
 
 func _grant_all() -> void:
@@ -987,7 +1078,7 @@ func _draw() -> void:
 
 	draw_rect(Rect2(0, 0, PLAY_W, PLAY_H), Color(0.09, 0.10, 0.12))
 	if _tex_ground != null:
-		draw_texture_rect(_tex_ground, Rect2(0, 0, PLAY_W, PLAY_H), true, Color(0.72, 0.74, 0.7))
+		draw_texture_rect(_tex_ground, Rect2(0, 0, PLAY_W, PLAY_H), true, Color(0.5, 0.42, 0.3))   # muted dead olive-brown
 	else:
 		draw_rect(Rect2(MARGIN, MARGIN, PLAY_W - MARGIN * 2, PLAY_H - MARGIN * 2), Color(0.14, 0.15, 0.18))
 
@@ -1105,42 +1196,69 @@ func _draw() -> void:
 		var pulse := 0.12 + 0.10 * sin(Time.get_ticks_msec() * 0.008)
 		draw_rect(Rect2(0, 0, PLAY_W, PLAY_H), Color(0.7, 0.05, 0.05, pulse))
 
-	_draw_hud()
+	# (HUD now renders on its own bright CanvasLayer via _hud_node, not here)
 
 	if _paused:
 		draw_rect(Rect2(0, 0, PLAY_W, PLAY_H), Color(0, 0, 0, 0.45))
 		_text(Vector2(PLAY_W * 0.5 - 90, PLAY_H * 0.5), "PAUSED  —  SPACE to resume", Color(1, 1, 1), 22)
 
-func _draw_hud() -> void:
-	# hp bar
-	draw_rect(Rect2(MARGIN + 6, PLAY_H - 30, 220, 16), Color(0.2, 0.2, 0.22))
-	var hpf: float = clampf(_hp / PLAYER_MAX_HP, 0.0, 1.0)
-	draw_rect(Rect2(MARGIN + 6, PLAY_H - 30, 220 * hpf, 16), Color(0.75, 0.3, 0.3))
-	_text(Vector2(MARGIN + 10, PLAY_H - 17), "HP %d" % int(maxf(_hp, 0.0)), Color(1, 1, 1), 13)
-	if _shield > 0.0:
-		_text(Vector2(MARGIN + 235, PLAY_H - 27), "SHIELD %d" % int(_shield), Color(0.5, 0.8, 1.0), 13)
-	if _speed_mult > 1.0:
-		_text(Vector2(MARGIN + 235, PLAY_H - 11), "SPEED x%.1f" % _speed_mult, Color(0.6, 0.95, 0.6), 12)
+func _hud_panel(ci: CanvasItem, r: Rect2, border: Color) -> void:
+	ci.draw_rect(r, Color(0.04, 0.06, 0.07, 0.86))
+	ci.draw_rect(r, Color(border.r, border.g, border.b, 0.45), false, 1.0)
 
+func _text_on(ci: CanvasItem, pos: Vector2, s: String, col: Color, size: int) -> void:
+	ci.draw_string(_font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
+
+# drawn onto a dedicated HUD CanvasLayer node so CanvasModulate (world darkness) can't dim it
+func _draw_hud(ci: CanvasItem) -> void:
+	var accent := Color(0.35, 0.85, 0.78)
+	var dim := Color(0.55, 0.62, 0.64)
+
+	# --- top-left: mode badge + phase/wave status ---
+	var mode_col := Color(0.95, 0.6, 0.3) if _debug else accent
+	_text_on(ci, Vector2(MARGIN + 6, MARGIN + 16), ("[ DEBUG ]" if _debug else "[ NORMAL ]") + "  F1", mode_col, 13)
 	var status := ""
 	match _phase:
-		Phase.BUILD:
-			status = "BUILD  ·  next wave in %ds  (SPACE = pause)" % int(ceil(_phase_timer))
-			if DEBUG: status += "   ·   G = all items"
-		Phase.WAVE:  status = "WAVE %d  ·  %d left" % [_wave, _zombies.size() + _to_spawn]
-		Phase.GAME_OVER: status = "DEAD on wave %d  ·  press R" % _wave
-	_text(Vector2(MARGIN + 6, MARGIN + 20), status, Color(0.85, 0.87, 0.9), 16)
-	var eq := "(nothing)"
+		Phase.BUILD:    status = "BUILD  /  wave in %ds" % int(ceil(_phase_timer))
+		Phase.WAVE:     status = "WAVE %d  /  %d left" % [_wave, _zombies.size() + _to_spawn]
+		Phase.GAME_OVER: status = "TERMINATED  /  wave %d  /  press R" % _wave
+	_text_on(ci, Vector2(MARGIN + 6, MARGIN + 44), status, Color(0.9, 0.94, 0.96), 24)
+	var hint := "TAB workbench"
+	if _phase == Phase.BUILD:
+		hint += "   ·   SPACE start wave"
+	_text_on(ci, Vector2(MARGIN + 6, MARGIN + 66), hint, dim, 12)
+
+	# --- bottom-left console: equipped weapon + ammo + HP ---
+	var bx := MARGIN + 12.0
+	var top := PLAY_H - 96.0
+	_hud_panel(ci, Rect2(bx - 8, top - 10, 320, 96), accent)
 	if _equipped != null:
-		eq = "%s  [%d/%d]" % [_equipped.display_name, _equipped_idx + 1, _arsenal.size()]
+		_text_on(ci, Vector2(bx, top + 8), _equipped.display_name, accent, 16)
+		_text_on(ci, Vector2(bx + 250, top + 8), "%d/%d" % [_equipped_idx + 1, _arsenal.size()], dim, 12)
 		if _equipped.uses_ammo:
 			var cnt := _equipped.ammo_count()
-			var ac := Color(0.6, 0.65, 0.7) if cnt > 0 else Color(0.85, 0.35, 0.35)
-			var s := "Ammo: %d / %d" % [cnt, _equipped.ammo_max]
+			var ac := dim if cnt > 0 else Color(0.9, 0.4, 0.4)
+			var s := "AMMO %d / %d" % [cnt, _equipped.ammo_max]
 			var nm := _equipped.next_name()
 			if nm != "" and nm != "Scrap": s += "   next: %s" % nm
-			_text(Vector2(MARGIN + 6, MARGIN + 60), s, ac, 14)
-	_text(Vector2(MARGIN + 6, MARGIN + 42), "Equipped: %s" % eq, Color(0.6, 0.65, 0.7), 14)
+			_text_on(ci, Vector2(bx, top + 28), s, ac, 12)
+		else:
+			_text_on(ci, Vector2(bx, top + 28), _equipped.category_name(), dim, 12)
+	else:
+		_text_on(ci, Vector2(bx, top + 8), "(nothing equipped)", dim, 15)
+	# hp bar
+	var hpw := 300.0
+	var hpy := top + 44.0
+	var hpf: float = clampf(_hp / PLAYER_MAX_HP, 0.0, 1.0)
+	ci.draw_rect(Rect2(bx, hpy, hpw, 20), Color(0.14, 0.05, 0.06))
+	ci.draw_rect(Rect2(bx, hpy, hpw * hpf, 20), Color(0.82, 0.28, 0.32))
+	ci.draw_rect(Rect2(bx, hpy, hpw, 20), Color(accent.r, accent.g, accent.b, 0.4), false, 1.0)
+	_text_on(ci, Vector2(bx + 8, hpy + 15), "HP  %d" % int(maxf(_hp, 0.0)), Color(1, 1, 1), 12)
+	var badge := bx + hpw + 12.0
+	if _shield > 0.0:
+		_text_on(ci, Vector2(badge, hpy + 4), "SHLD %d" % int(_shield), Color(0.5, 0.8, 1.0), 12)
+	if _speed_mult > 1.0:
+		_text_on(ci, Vector2(badge, hpy + 20), "SPD x%.1f" % _speed_mult, Color(0.6, 0.95, 0.6), 12)
 
 func _text(pos: Vector2, s: String, col: Color, size: int) -> void:
 	draw_string(_font, pos, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
@@ -1149,27 +1267,80 @@ func _text(pos: Vector2, s: String, col: Color, size: int) -> void:
 # UI (right panel: inventory -> pot -> combine -> equipped -> log)
 # =============================================================================
 
+func _toggle_build() -> void:
+	if _build_layer == null:
+		return
+	_build_layer.visible = not _build_layer.visible
+	_paused = _build_layer.visible   # opening the workbench pauses the game
+	_lmb_edge = false
+
+func _make_ui_theme() -> Theme:
+	var theme := Theme.new()
+	theme.default_font = _font
+	theme.default_font_size = 14
+	var accent := Color(0.35, 0.85, 0.78)
+	var accent_dim := Color(0.2, 0.42, 0.4)
+	theme.set_stylebox("normal", "Button", _stylebox(Color(0.09, 0.11, 0.13), accent_dim))
+	theme.set_stylebox("hover", "Button", _stylebox(Color(0.12, 0.2, 0.22), accent))
+	theme.set_stylebox("pressed", "Button", _stylebox(Color(0.16, 0.32, 0.3), accent))
+	theme.set_stylebox("focus", "Button", _stylebox(Color(0.12, 0.2, 0.22), accent))
+	theme.set_color("font_color", "Button", Color(0.78, 0.88, 0.88))
+	theme.set_color("font_hover_color", "Button", accent)
+	theme.set_color("font_pressed_color", "Button", Color(0.95, 1.0, 1.0))
+	theme.set_color("font_color", "Label", Color(0.72, 0.8, 0.82))
+	theme.set_color("default_color", "RichTextLabel", Color(0.72, 0.8, 0.82))
+	return theme
+
+func _stylebox(fill: Color, border: Color) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = fill
+	sb.border_color = border
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(2)
+	sb.content_margin_left = 6
+	sb.content_margin_right = 6
+	sb.content_margin_top = 3
+	sb.content_margin_bottom = 3
+	return sb
+
 func _build_ui() -> void:
-	var layer := CanvasLayer.new()
-	add_child(layer)
-	var bg := ColorRect.new()
-	bg.color = Color(0.12, 0.13, 0.16)
-	bg.position = Vector2(PLAY_W, 0)
-	bg.size = Vector2(PANEL_W, PLAY_H)
-	layer.add_child(bg)
+	# the WORKBENCH: a full-screen overlay that pauses the game (toggle with TAB)
+	_build_layer = CanvasLayer.new()
+	_build_layer.layer = 3
+	_build_layer.visible = false
+	add_child(_build_layer)
+	var dim := ColorRect.new()
+	dim.color = Color(0.02, 0.03, 0.04, 0.85)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_build_layer.add_child(dim)
+	var pw := 780.0
+	var ph := 820.0
+	var px := (PLAY_W - pw) * 0.5
+	var py := (PLAY_H - ph) * 0.5
+	var panelbg := ColorRect.new()
+	panelbg.color = Color(0.05, 0.06, 0.08)
+	panelbg.position = Vector2(px, py)
+	panelbg.size = Vector2(pw, ph)
+	_build_layer.add_child(panelbg)
+	var seam := ColorRect.new()
+	seam.color = Color(0.35, 0.85, 0.78, 0.55)
+	seam.position = Vector2(px, py)
+	seam.size = Vector2(pw, 2)
+	_build_layer.add_child(seam)
 
 	var root := VBoxContainer.new()
-	root.position = Vector2(PLAY_W + 12, 10)
-	root.size = Vector2(PANEL_W - 24, PLAY_H - 20)
+	root.position = Vector2(px + 18, py + 14)
+	root.size = Vector2(pw - 36, ph - 28)
 	root.add_theme_constant_override("separation", 6)
-	layer.add_child(root)
+	root.theme = _make_ui_theme()
+	_build_layer.add_child(root)
 
-	_title(root, "THIS IS NOT A WEAPON")
-	_caption(root, "scavenge / build / survive")
+	_title(root, "WORKBENCH")
+	_caption(root, "assemble junk into gear  ·  TAB to close")
 
-	_caption(root, "INVENTORY  (click to add to pot)")
+	_caption(root, "INVENTORY  (click to add to a bench slot)")
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(0, 240)
+	scroll.custom_minimum_size = Vector2(0, 220)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(scroll)
 	_grid = GridContainer.new()
@@ -1198,7 +1369,7 @@ func _build_ui() -> void:
 
 	_caption(root, "ARSENAL  (1-9 / wheel to switch)")
 	var ascroll := ScrollContainer.new()
-	ascroll.custom_minimum_size = Vector2(0, 130)
+	ascroll.custom_minimum_size = Vector2(0, 90)
 	root.add_child(ascroll)
 	_arsenal_box = VBoxContainer.new()
 	_arsenal_box.add_theme_constant_override("separation", 2)
@@ -1209,7 +1380,7 @@ func _build_ui() -> void:
 	_equipped_label = RichTextLabel.new()
 	_equipped_label.bbcode_enabled = true
 	_equipped_label.fit_content = true
-	_equipped_label.custom_minimum_size = Vector2(0, 96)
+	_equipped_label.custom_minimum_size = Vector2(0, 58)
 	root.add_child(_equipped_label)
 
 	_caption(root, "LOG")
@@ -1217,7 +1388,7 @@ func _build_ui() -> void:
 	_log_label.bbcode_enabled = true
 	_log_label.scroll_following = true
 	_log_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_log_label.custom_minimum_size = Vector2(0, 110)
+	_log_label.custom_minimum_size = Vector2(0, 70)
 	root.add_child(_log_label)
 
 func _title(parent: Node, s: String) -> void:
@@ -1227,6 +1398,8 @@ func _title(parent: Node, s: String) -> void:
 
 func _caption(parent: Node, s: String) -> void:
 	var l := Label.new(); l.text = s
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size = Vector2(PANEL_W - 28, 0)
 	l.add_theme_color_override("font_color", Color(0.55, 0.6, 0.68))
 	l.add_theme_font_size_override("font_size", 13)
 	parent.add_child(l)
@@ -1247,7 +1420,9 @@ func _refresh_inventory_ui() -> void:
 		b.text = "%s x%d" % [it.display_name, count]
 		b.tooltip_text = "tags: %s" % ", ".join(it.tags)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.add_theme_font_size_override("font_size", 11)
+		b.clip_text = true
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.add_theme_font_size_override("font_size", 12)
 		var tex := _item_icon(id)
 		if tex != null:
 			b.icon = tex
@@ -1463,6 +1638,8 @@ func _refresh_arsenal_ui() -> void:
 		var b := Button.new()
 		b.text = "%s%d. %s [%s]" % ["> " if i == _equipped_idx else "   ", i + 1, g.display_name, g.category_name()]
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.clip_text = true
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		b.pressed.connect(_equip.bind(i))
 		_arsenal_box.add_child(b)
 
