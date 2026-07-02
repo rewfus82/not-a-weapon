@@ -11,12 +11,17 @@ The client is duck-typed (`client.messages.parse(...)`), so tests inject a fake.
 
 from __future__ import annotations
 
+import os
+
 from .grammar import Build
 from .items import Item
 from .lucidity import Awakening, MismatchPolicy
 from .schema import Delivery, EffectKind, Gadget, GadgetDraft
 
-MODEL = "claude-sonnet-4-6"
+# Haiku is the cheap/fast POC default. NOTE: switch back to Sonnet
+# (COMBINE_MODEL=claude-sonnet-4-6) for the shipped/authored catalog or whenever
+# max wit matters — Sonnet keeps sharper names + tighter normalize/era-discipline.
+MODEL = os.environ.get("COMBINE_MODEL", "claude-haiku-4-5")
 
 _DELIVERIES = " | ".join(d.value for d in Delivery)
 _EFFECTS = " | ".join(k.value for k in EffectKind)

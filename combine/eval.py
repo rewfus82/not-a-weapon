@@ -72,6 +72,44 @@ CASES: list[dict] = [
     {"name": "spaghetti tangle spray", "awake": 1.0,
      "slots": {"delivery": "leaf_blower", "utility": "spaghetti"},
      "expect": {"not_weapon": True}},
+
+    # --- new-vocabulary cases (the 49 items just added) ---
+    {"name": "taser + jumper cables", "awake": 1.0,
+     "slots": {"delivery": "taser", "damage": "jumper_cables"},
+     "expect": {"armed": True}},
+    {"name": "sentry (tripod + nail gun)", "awake": 1.0,
+     "slots": {"delivery": "tripod", "damage": "nail_gun"},
+     "expect": {"armed": True}},
+    {"name": "grabber (fishing rod + magnet + backpack)", "awake": 1.0,
+     "slots": {"delivery": "fishing_rod", "utility": "magnet", "modifier": "backpack"},
+     "expect": {"not_weapon": True}},
+    {"name": "propane + spray paint", "awake": 1.0,
+     "slots": {"delivery": "propane_tank", "damage": "spray_paint"},
+     "expect": {"armed": True, "has": ["burn"]}},
+    {"name": "electro-cleaver", "awake": 1.0,
+     "slots": {"delivery": "kitchen_knife", "damage": "meat_cleaver", "modifier": "car_battery"},
+     "expect": {"armed": True}},
+    {"name": "freeze cone (extinguisher + ice pack)", "awake": 1.0,
+     "slots": {"delivery": "fire_extinguisher", "modifier": "ice_pack"},
+     "expect": {"has": ["freeze"], "not_weapon": True}},
+    {"name": "returning grater", "awake": 1.0,
+     "slots": {"delivery": "boomerang", "damage": "cheese_grater"},
+     "expect": {"armed": True}},
+    {"name": "combat stim (bandages + caffeine)", "awake": 1.0,
+     "slots": {"delivery": "bandages", "modifier": "caffeine_pills"},
+     "expect": {"not_weapon": True}},
+    {"name": "meat decoy + bees", "awake": 1.0,
+     "slots": {"delivery": "raw_meat", "utility": "beehive"},
+     "expect": {}},
+    {"name": "flaming weed whacker", "awake": 1.0,
+     "slots": {"delivery": "weed_whacker", "damage": "gasoline"},
+     "expect": {"armed": True, "has": ["burn"]}},
+    {"name": "marble + glue floor", "awake": 1.0,
+     "slots": {"delivery": "marbles", "utility": "glue"},
+     "expect": {"not_weapon": True}},
+    {"name": "electric crowbar", "awake": 1.0,
+     "slots": {"delivery": "crowbar", "damage": "brick", "modifier": "car_battery"},
+     "expect": {"armed": True}},
 ]
 
 
@@ -128,7 +166,8 @@ def main() -> int:
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")
     client = _make_client("--det" in sys.argv)
-    where = "Sonnet (BYOK)" if client is not None else "deterministic"
+    from .llm import MODEL
+    where = f"{MODEL} (BYOK)" if client is not None else "deterministic"
     print(f"combine eval — routing: {where} — {len(CASES)} cases\n")
     fails = 0
     for c in CASES:
