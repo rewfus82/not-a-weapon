@@ -84,13 +84,45 @@ var _pot_label: Label
 var _arsenal_box: VBoxContainer
 var _equipped_label: RichTextLabel
 var _log_label: RichTextLabel
+var _icons: Dictionary = {}   # item_id -> Texture2D (game-icons svg), cached
+
+func _item_icon(id: String) -> Texture2D:
+	if _icons.has(id):
+		return _icons[id]
+	var path := "res://assets/icons/%s.svg" % id
+	var tex: Texture2D = load(path) if ResourceLoader.exists(path) else null
+	_icons[id] = tex
+	return tex
+
+const TDS := "res://assets/kenney/topdown-shooter/PNG/"
+var _tex_player: Texture2D
+var _tex_zombie: Texture2D
+var _tex_ground: Texture2D
+var _shake_off := Vector2.ZERO
 
 func _ready() -> void:
 	_font = ThemeDB.fallback_font
 	_db = ItemDB.build()
+	_tex_player = _tex(TDS + "Survivor 1/survivor1_gun.png")
+	_tex_zombie = _tex(TDS + "Zombie 1/zoimbie1_hold.png")
+	_tex_ground = _tex(TDS + "Tiles/tile_01.png")
 	_spawn_sites()
 	_build_ui()
 	_restart()
+
+func _tex(path: String) -> Texture2D:
+	return load(path) if ResourceLoader.exists(path) else null
+
+# draw a texture centered at pos, rotated, scaled to target_h, then restore the
+# frame's shake transform (so following primitive draws stay aligned)
+func _blit(t: Texture2D, pos: Vector2, rot: float, target_h: float, mod := Color.WHITE) -> void:
+	if t == null:
+		return
+	var sz := t.get_size()
+	var s := target_h / sz.y
+	draw_set_transform(_shake_off + pos, rot, Vector2(s, s))
+	draw_texture(t, -sz * 0.5, mod)
+	draw_set_transform(_shake_off, 0.0, Vector2.ONE)
 
 # =============================================================================
 # LIFECYCLE
@@ -898,10 +930,14 @@ func _out_of_play(p: Vector2) -> bool:
 
 func _draw() -> void:
 	var shake := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * _shake
+	_shake_off = shake
 	draw_set_transform(shake, 0.0, Vector2.ONE)
 
 	draw_rect(Rect2(0, 0, PLAY_W, PLAY_H), Color(0.09, 0.10, 0.12))
-	draw_rect(Rect2(MARGIN, MARGIN, PLAY_W - MARGIN * 2, PLAY_H - MARGIN * 2), Color(0.14, 0.15, 0.18))
+	if _tex_ground != null:
+		draw_texture_rect(_tex_ground, Rect2(0, 0, PLAY_W, PLAY_H), true, Color(0.72, 0.74, 0.7))
+	else:
+		draw_rect(Rect2(MARGIN, MARGIN, PLAY_W - MARGIN * 2, PLAY_H - MARGIN * 2), Color(0.14, 0.15, 0.18))
 
 	# scavenge sites
 	for s in _sites:
@@ -910,23 +946,30 @@ func _draw() -> void:
 		var col := Color(0.6, 0.65, 0.7) if not looted else Color(0.35, 0.35, 0.4)
 		_text(s["rect"].position + Vector2(6, 18), s["label"], col, 13)
 
-	# loot
+	# loot — the actual dropped item's icon
 	for l in _loot:
-		draw_rect(Rect2(l["pos"] - Vector2(5, 5), Vector2(10, 10)), Color(0.95, 0.82, 0.25))
+		var lt := _item_icon(l["id"])
+		if lt != null:
+			_blit(lt, l["pos"], 0.0, 24.0, Color(0.98, 0.88, 0.4))
+		else:
+			draw_rect(Rect2(l["pos"] - Vector2(5, 5), Vector2(10, 10)), Color(0.95, 0.82, 0.25))
 
-	# zombies
+	# zombies — sprite, rotated to face the player, tinted by status
 	for z in _zombies:
-		var zc := Color(0.40, 0.65, 0.38)
-		if z["snare"] > 0.0: zc = Color(0.6, 0.4, 0.75)
-		elif z["slow"] > 0.0: zc = Color(0.4, 0.55, 0.8)
-		if float(z.get("freeze", 0.0)) > 0.0: zc = Color(0.6, 0.85, 1.0)
-		if z["flash"] > 0.0: zc = Color(1, 1, 1)
-		var sc: float = float(z.get("scale", 1.0)) * (1.0 + 0.35 * float(z.get("squash", 0.0)))
-		var rad: float = 13.0 * sc
-		draw_circle(z["pos"], rad, zc)
+		var tint := Color(1, 1, 1)
+		if z["snare"] > 0.0: tint = Color(0.8, 0.6, 1.0)
+		elif z["slow"] > 0.0: tint = Color(0.7, 0.8, 1.0)
+		if float(z.get("freeze", 0.0)) > 0.0: tint = Color(0.6, 0.85, 1.0)
+		if z["flash"] > 0.0: tint = Color(1.7, 1.7, 1.7)
+		var sc: float = float(z.get("scale", 1.0)) * (1.0 + 0.3 * float(z.get("squash", 0.0)))
+		var zrot: float = (_player - (z["pos"] as Vector2)).angle()
+		if _tex_zombie != null:
+			_blit(_tex_zombie, z["pos"], zrot, 42.0 * sc, tint)
+		else:
+			draw_circle(z["pos"], 13.0 * sc, Color(0.4, 0.65, 0.38))
 		var f: float = clampf(z["hp"] / z["max_hp"], 0.0, 1.0)
 		if f < 1.0:
-			draw_rect(Rect2(z["pos"] + Vector2(-13, -20), Vector2(26.0 * f, 4)), Color(0.85, 0.3, 0.3))
+			draw_rect(Rect2(z["pos"] + Vector2(-16, -26), Vector2(32.0 * f, 4)), Color(0.85, 0.3, 0.3))
 
 	# traps
 	for t in _traps:
@@ -989,13 +1032,15 @@ func _draw() -> void:
 		c.a = clampf(pt["life"] * 2.0, 0.0, 1.0)
 		draw_rect(Rect2(pt["pos"] - Vector2(2, 2), Vector2(4, 4)), c)
 
-	# player
-	var pc := Color(0.88, 0.88, 0.92)
-	if _invuln > 0.0 and int(_invuln * 20.0) % 2 == 0: pc = Color(1, 0.5, 0.5)
-	draw_circle(_player, PLAYER_RADIUS, pc)
+	# player — survivor sprite, rotated to aim
+	var ptint := Color(1, 1, 1)
+	if _invuln > 0.0 and int(_invuln * 20.0) % 2 == 0: ptint = Color(1.6, 0.6, 0.6)
+	if _tex_player != null:
+		_blit(_tex_player, _player, _aim.angle(), 46.0, ptint)
+	else:
+		draw_circle(_player, PLAYER_RADIUS, Color(0.88, 0.88, 0.92))
 	if _shield > 0.0:
-		draw_arc(_player, PLAYER_RADIUS + 5.0, 0.0, TAU, 28, Color(0.4, 0.7, 1.0, 0.85), 2.5)
-	draw_line(_player, _player + _aim * 28.0, Color(0.9, 0.9, 0.5), 3.0)
+		draw_arc(_player, PLAYER_RADIUS + 8.0, 0.0, TAU, 28, Color(0.4, 0.7, 1.0, 0.85), 2.5)
 
 	# damage numbers (pop big, then settle + fade)
 	for n in _dmg_nums:
@@ -1156,6 +1201,14 @@ func _refresh_inventory_ui() -> void:
 		b.text = "%s x%d" % [it.display_name, count]
 		b.tooltip_text = "tags: %s" % ", ".join(it.tags)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.add_theme_font_size_override("font_size", 11)
+		var tex := _item_icon(id)
+		if tex != null:
+			b.icon = tex
+			b.expand_icon = true
+			b.add_theme_color_override("icon_normal_color", it.color)   # tint the white glyph
+			b.add_theme_color_override("icon_hover_color", Color(1, 1, 1))
+			b.custom_minimum_size = Vector2(0, 40)
 		b.pressed.connect(_on_item_pressed.bind(id))
 		_grid.add_child(b)
 	if _grid.get_child_count() == 0:
