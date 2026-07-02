@@ -58,7 +58,7 @@ var _equipped: Gadget = null          # always points at _arsenal[_equipped_idx]
 
 # --- world -------------------------------------------------------------------
 var _zombies: Array[Dictionary] = []
-var _loot: Array[Dictionary] = []     # ground pickups: {pos, id}
+var _pickups_root: Node2D             # container node for Pickup entities (dropped loot)
 var _sites: Array[Dictionary] = []    # scavenge points: {rect, label, looted}
 var _projectiles: Array[Dictionary] = []
 var _traps: Array[Dictionary] = []    # placed traps: {pos, gadget, life}
@@ -95,10 +95,15 @@ func _item_icon(id: String) -> Texture2D:
 	return tex
 
 const TDS := "res://assets/kenney/topdown-shooter/PNG/"
+# preload entity scripts by path (avoids relying on class_name global registration,
+# which needs an editor rescan that external file edits don't trigger)
+const PickupNode := preload("res://scripts/pickup.gd")
 var _tex_player: Texture2D
 var _tex_zombie: Texture2D
 var _tex_ground: Texture2D
 var _shake_off := Vector2.ZERO
+var _glitch_mat: ShaderMaterial   # the full-screen simulation-glitch post-process
+var _glitch := 0.0                # transient glitch pulse (decays); base from _awakening
 
 func _ready() -> void:
 	_font = ThemeDB.fallback_font
@@ -108,7 +113,37 @@ func _ready() -> void:
 	_tex_ground = _tex(TDS + "Tiles/tile_01.png")
 	_spawn_sites()
 	_build_ui()
+	_pickups_root = Node2D.new()
+	add_child(_pickups_root)
+	_setup_atmosphere()
 	_restart()
+
+func _setup_atmosphere() -> void:
+	# WorldEnvironment — 2D glow/bloom on the brightest pixels (muzzle, particles, FX)
+	var env := Environment.new()
+	env.background_mode = Environment.BG_CANVAS
+	env.glow_enabled = true
+	env.glow_intensity = 0.9
+	env.glow_bloom = 0.25
+	env.glow_hdr_threshold = 0.85
+	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
+	var we := WorldEnvironment.new()
+	we.environment = env
+	add_child(we)
+	# full-screen simulation-glitch post-process (a ColorRect on a top CanvasLayer)
+	var layer := CanvasLayer.new()
+	layer.layer = 100
+	add_child(layer)
+	var rect := ColorRect.new()
+	rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE   # let clicks pass to the UI below
+	_glitch_mat = ShaderMaterial.new()
+	_glitch_mat.shader = load("res://shaders/glitch.gdshader")
+	rect.material = _glitch_mat
+	layer.add_child(rect)
+
+func _glitch_pulse(amount: float) -> void:
+	_glitch = maxf(_glitch, amount)
 
 func _tex(path: String) -> Texture2D:
 	return load(path) if ResourceLoader.exists(path) else null
@@ -140,7 +175,8 @@ func _restart() -> void:
 	_wave = 0
 	_hp = PLAYER_MAX_HP
 	_player = Vector2(PLAY_W * 0.5, PLAY_H * 0.5)
-	_zombies.clear(); _loot.clear(); _projectiles.clear()
+	_zombies.clear(); _projectiles.clear()
+	_clear_pickups()
 	_dmg_nums.clear(); _particles.clear(); _pot.clear()
 	_traps.clear(); _turrets.clear(); _decoys.clear(); _arcs.clear()
 	_rings.clear(); _muzzle = {}; _hitstop = 0.0
@@ -191,6 +227,7 @@ func _start_wave() -> void:
 	_phase = Phase.WAVE
 	_to_spawn = 5 + _wave * 3
 	_spawn_timer = 0.0
+	_glitch_pulse(0.22)
 	_log("WAVE %d. They're coming. (%d incoming)" % [_wave, _to_spawn])
 
 func _game_over() -> void:
@@ -206,6 +243,9 @@ func _process(delta: float) -> void:
 	_invuln = maxf(0.0, _invuln - delta)
 	_hurt_flash = maxf(0.0, _hurt_flash - delta)
 	_shake = maxf(0.0, _shake - delta * 22.0)
+	_glitch = maxf(0.0, _glitch - delta * 2.5)
+	if _glitch_mat != null:
+		_glitch_mat.set_shader_parameter("glitch", clampf(lerpf(0.0, 0.05, _awakening) + _glitch, 0.0, 1.0))
 	if _speed_timer > 0.0:
 		_speed_timer -= delta
 		if _speed_timer <= 0.0: _speed_mult = 1.0
@@ -371,6 +411,7 @@ func _update_wave(delta: float) -> void:
 			_hurt_flash = 0.4
 			_shake = 8.0
 			_freeze(0.05)
+			_glitch_pulse(0.3)
 			_ring(_player, Color(0.9, 0.2, 0.2), 44.0, 3.0, 0.28)
 			if _hp <= 0.0:
 				_game_over()
@@ -835,9 +876,20 @@ func _on_zombie_death(z: Dictionary) -> void:
 	_freeze(0.045)   # brief hit-stop so a kill lands
 	if randf() < 0.45:
 		var id: String = _db.keys().pick_random()
-		_loot.append({"pos": z["pos"], "id": id})
+		_spawn_pickup(z["pos"], id)
 
-# --- loot --------------------------------------------------------------------
+# --- loot (Pickup nodes) -----------------------------------------------------
+
+func _spawn_pickup(pos: Vector2, id: String) -> void:
+	var pk := PickupNode.new()
+	pk.position = pos
+	pk.setup(id, _item_icon(id))
+	_pickups_root.add_child(pk)
+
+func _clear_pickups() -> void:
+	if _pickups_root != null:
+		for c in _pickups_root.get_children():
+			c.queue_free()
 
 func _update_loot(_delta: float) -> void:
 	var auto := _equipped != null and _equipped.has(Gadget.COLLECT)
@@ -845,17 +897,17 @@ func _update_loot(_delta: float) -> void:
 	if auto:
 		var ce := _equipped.get_effect(Gadget.COLLECT)
 		if float(ce["radius"]) > 0.0: ar = float(ce["radius"])
-	var keep: Array[Dictionary] = []
-	for l in _loot:
-		var d: float = l["pos"].distance_to(_player)
-		if auto and d < ar:
-			l["pos"] = (l["pos"] as Vector2).lerp(_player, 0.12)
-			d = l["pos"].distance_to(_player)
-		if d < 22.0:
-			_grant(l["id"], "Picked up %s." % _db[l["id"]].display_name)
+	for node in _pickups_root.get_children():
+		var p := node as PickupNode
+		if p == null:
 			continue
-		keep.append(l)
-	_loot = keep
+		var d: float = p.position.distance_to(_player)
+		if auto and d < ar:
+			p.position = p.position.lerp(_player, 0.12)
+			d = p.position.distance_to(_player)
+		if d < 22.0:
+			_grant(p.id, "Picked up %s." % _db[p.id].display_name)
+			p.queue_free()
 
 func _grant(id: String, msg: String) -> void:
 	_inv[id] = int(_inv.get(id, 0)) + 1
@@ -946,13 +998,7 @@ func _draw() -> void:
 		var col := Color(0.6, 0.65, 0.7) if not looted else Color(0.35, 0.35, 0.4)
 		_text(s["rect"].position + Vector2(6, 18), s["label"], col, 13)
 
-	# loot — the actual dropped item's icon
-	for l in _loot:
-		var lt := _item_icon(l["id"])
-		if lt != null:
-			_blit(lt, l["pos"], 0.0, 24.0, Color(0.98, 0.88, 0.4))
-		else:
-			draw_rect(Rect2(l["pos"] - Vector2(5, 5), Vector2(10, 10)), Color(0.95, 0.82, 0.25))
+	# (loot now renders as Pickup nodes in _pickups_root)
 
 	# zombies — sprite, rotated to face the player, tinted by status
 	for z in _zombies:
@@ -1266,6 +1312,7 @@ func _on_ai_response(result: int, response_code: int, _headers: PackedStringArra
 			_inv[id] = int(_inv[id]) - 1
 			if _inv[id] <= 0: _inv.erase(id)
 	_ai_pending.clear()
+	_glitch_pulse(0.5)
 	_arsenal.append(g)
 	_equip(_arsenal.size() - 1)
 	_log("[b]%s[/b]  [%s]" % [g.display_name, g.category_name()])
@@ -1332,6 +1379,7 @@ func _on_combine() -> void:
 	for id in _pot:
 		items.append(_db[id]); names.append(_db[id].display_name)
 	var result := Resolver.combine(items)
+	_glitch_pulse(0.4)
 	_consume_pot()
 	_arsenal.append(result)
 	_equip(_arsenal.size() - 1)
