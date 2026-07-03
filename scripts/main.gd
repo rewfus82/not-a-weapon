@@ -111,6 +111,9 @@ var _glitch_mat: ShaderMaterial   # the full-screen simulation-glitch post-proce
 var _glitch := 0.0                # transient glitch pulse (decays); base from _awakening
 var _flashlight: PointLight2D     # real 2D light — the flashlight cone (follows aim)
 var _player_glow: PointLight2D    # soft glow right around the player
+var _light_pool: Array[PointLight2D] = []   # pooled transient flashes (muzzle/explosions/hits)
+var _light_i := 0
+var _flashes: Array[Dictionary] = []        # active fading flashes: {l, t, dur, e0}
 
 func _ready() -> void:
 	# maximize to fit the actual screen; stretch(keep) scales the 1600x900 design down
@@ -186,6 +189,24 @@ func _setup_atmosphere() -> void:
 	_flashlight.energy = 1.6
 	_flashlight.texture_scale = 3.2
 	add_child(_flashlight)
+	for i in range(16):
+		var fx := PointLight2D.new()
+		fx.texture = _radial_tex(128)
+		fx.energy = 0.0
+		add_child(fx)
+		_light_pool.append(fx)
+
+	# drifting fog (screen-space, above the world, below the HUD)
+	var fog_layer := CanvasLayer.new()
+	fog_layer.layer = 1
+	add_child(fog_layer)
+	var fog := ColorRect.new()
+	fog.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	fog.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var fmat := ShaderMaterial.new()
+	fmat.shader = load("res://shaders/fog.gdshader")
+	fog.material = fmat
+	fog_layer.add_child(fog)
 
 func _radial_tex(size: int) -> Texture2D:
 	var g := Gradient.new()
@@ -820,6 +841,7 @@ func _apply_proj_hit(p: Dictionary, z: Dictionary) -> void:
 	if float(o["explode_r"]) > 0.0:
 		_explode_at(p["pos"], o); return
 	z["flash"] = 0.1
+	_burst(p["pos"], Color(1.0, 0.9, 0.65), 4, 210.0)   # impact sparks
 	var dmg := float(p["dmg"])
 	if dmg > 0.0: _apply_damage(z, dmg, p["pos"])
 	if float(o["knockback"]) > 0.0: z["knock"] = ((z["pos"] as Vector2) - (p["pos"] as Vector2)).normalized() * float(o["knockback"])
@@ -836,6 +858,7 @@ func _explode_at(at: Vector2, o: Dictionary) -> void:
 	_burst(at, Color(0.98, 0.7, 0.25), 20, 300.0)
 	_ring(at, Color(0.98, 0.65, 0.25), r, 4.0, 0.4)
 	_freeze(0.06)
+	_flash(at, Color(1.0, 0.55, 0.2), 2.6, 2.6, 0.25)   # explosion lights the whole area
 	for z in _zombies:
 		if z.get("dead", false):
 			continue
@@ -887,6 +910,7 @@ func _explode(at: Vector2, g: Gadget) -> void:
 	_burst(at, Color(0.98, 0.7, 0.25), 20, 300.0)
 	_ring(at, Color(0.98, 0.65, 0.25), r, 4.0, 0.4)
 	_freeze(0.06)
+	_flash(at, Color(1.0, 0.55, 0.2), 2.6, 2.6, 0.25)   # explosion lights the whole area
 	for z in _zombies:
 		if z.get("dead", false):
 			continue
@@ -954,6 +978,7 @@ func _apply_damage(z: Dictionary, dmg: float, _from: Vector2) -> void:
 	z["hp"] = float(z["hp"]) - dmg
 	z["flash"] = 0.12
 	z["squash"] = 1.0   # pop on hit
+	_blood(z["pos"], 5)
 	_dmg_num(z["pos"], str(int(dmg)), Color(0.6, 0.9, 1.0) if shatter else Color(1, 0.9, 0.5))
 	if z["hp"] <= 0.0:
 		_on_zombie_death(z)
@@ -961,8 +986,9 @@ func _apply_damage(z: Dictionary, dmg: float, _from: Vector2) -> void:
 func _on_zombie_death(z: Dictionary) -> void:
 	# mark dead; the WAVE update drops it next pass (avoids mutating mid-iteration)
 	z["dead"] = true
-	_burst(z["pos"], Color(0.5, 0.8, 0.45), 14, 240.0)
-	_ring(z["pos"], Color(0.6, 0.9, 0.5), 34.0, 3.0, 0.28)
+	_blood(z["pos"], 20)
+	_ring(z["pos"], Color(0.7, 0.2, 0.15), 32.0, 3.0, 0.26)
+	_flash(z["pos"], Color(0.9, 0.3, 0.2), 0.5, 0.7, 0.1)
 	_shake = maxf(_shake, 4.0)
 	_freeze(0.045)   # brief hit-stop so a kill lands
 	if randf() < 0.45:
@@ -1034,6 +1060,16 @@ func _update_juice(delta: float) -> void:
 		r["r"] = lerpf(6.0, float(r["max_r"]), t)
 		if r["life"] > 0.0: rr.append(r)
 	_rings = rr
+	var fl: Array[Dictionary] = []
+	for f in _flashes:
+		f["t"] = float(f["t"]) - delta
+		var lt: PointLight2D = f["l"]
+		if float(f["t"]) <= 0.0:
+			lt.energy = 0.0
+		else:
+			lt.energy = float(f["e0"]) * (float(f["t"]) / float(f["dur"]))
+			fl.append(f)
+	_flashes = fl
 
 func _dmg_num(pos: Vector2, text: String, col: Color) -> void:
 	_dmg_nums.append({"pos": pos + Vector2(0, -16), "text": text, "life": 0.7, "col": col})
@@ -1044,6 +1080,24 @@ func _burst(pos: Vector2, col: Color, count := 8, speed := 160.0) -> void:
 		_particles.append({"pos": pos, "vel": Vector2(cos(a), sin(a)) * randf_range(40, speed),
 			"life": randf_range(0.3, 0.6), "col": col})
 
+func _blood(pos: Vector2, amt := 10) -> void:
+	for i in range(amt):
+		var a := randf() * TAU
+		_particles.append({"pos": pos, "vel": Vector2(cos(a), sin(a)) * randf_range(30.0, 200.0),
+			"life": randf_range(0.25, 0.55), "col": Color(0.5, 0.05, 0.06)})
+
+# a brief transient light (muzzle flash, explosion, spark) — punches through the dark
+func _flash(pos: Vector2, col: Color, energy: float, scale: float, dur: float) -> void:
+	if _light_pool.is_empty():
+		return
+	var l := _light_pool[_light_i]
+	_light_i = (_light_i + 1) % _light_pool.size()
+	l.position = pos
+	l.color = col
+	l.texture_scale = scale
+	l.energy = energy
+	_flashes.append({"l": l, "t": dur, "dur": dur, "e0": energy})
+
 # an expanding shockwave ring — cheap, high-impact feedback for hits/explosions/deaths
 func _ring(pos: Vector2, col: Color, max_r: float, w := 3.0, life := 0.32) -> void:
 	_rings.append({"pos": pos, "r": 6.0, "max_r": max_r, "life": life, "life0": life, "col": col, "w": w})
@@ -1053,6 +1107,10 @@ func _freeze(t: float) -> void:
 
 func _muzzle_kick(col: Color) -> void:
 	_muzzle = {"pos": _player + _aim * 22.0, "life": 0.06, "col": col}
+	_flash(_player + _aim * 24.0, Color(1.0, 0.82, 0.45), 1.5, 1.1, 0.09)   # muzzle throws light
+	var perp := Vector2(-_aim.y, _aim.x) * (1.0 if randf() > 0.5 else -1.0)
+	_particles.append({"pos": _player + _aim * 8.0, "vel": perp * randf_range(70.0, 130.0) - _aim * 30.0,
+		"life": 0.7, "col": Color(0.85, 0.72, 0.32)})   # ejected casing
 
 func _nearest_zombie(from: Vector2) -> Vector2:
 	var best := Vector2.INF
