@@ -37,6 +37,8 @@ var mag: Array[Dictionary] = []  # magazine: stack of {name, profile, color, cou
 var harmless := false
 var color := Color(0.7, 0.7, 0.7)
 var native_ammo := ""   # the ammo id this gun "wants" (asleep, only this loads; lucid, anything fits)
+var max_attach := 2               # how many parts can be bolted on at the bench (ATTACH)
+var attached: Array[String] = []  # names of the parts currently attached (limited by max_attach)
 
 func add(kind: String, amount := 0.0, duration := 0.0, radius := 0.0, count := 0) -> void:
 	effects.append({"kind": kind, "amount": amount, "duration": duration, "radius": radius, "count": count})

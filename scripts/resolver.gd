@@ -298,6 +298,9 @@ static func _build_generic(items: Array, base: Gadget, tags: Dictionary) -> Gadg
 		g.homing = base.homing
 		g.harmless = base.harmless
 		g.color = base.color
+		g.native_ammo = base.native_ammo
+		g.max_attach = base.max_attach
+		g.attached = base.attached.duplicate()
 	else:
 		g.delivery = _delivery_for(tags)
 		g.color = items[0].color

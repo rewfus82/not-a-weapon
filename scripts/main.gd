@@ -34,8 +34,11 @@ var _http: HTTPRequest
 var _ai_busy := false
 var _ai_pending: Array[String] = []
 var _awakening := 0.15  # 0..1 lucidity. Starts ASLEEP; rises as you wake up (debug: [ / ])
-const LUCID_UNIVERSAL := 0.34   # T1: "all bullets fit all guns" — any ammo loads any gun
-const LUCID_JUNK := 0.67        # T2: "reload with anything" — junk-as-ammo unlocks
+# The lucidity ladder (DESIGN.md §3) — each rung unlocks deeper crafting:
+const LUCID_UNIVERSAL := 0.25   # T1: "all bullets fit all guns" — any ammo loads any gun
+const LUCID_JUNK := 0.45        # T2: "reload with anything" — junk-as-ammo unlocks
+const LUCID_ATTACH := 0.65      # T3: "parts change weapons" — bench ATTACH (bolt parts on)
+const LUCID_BUILD := 0.85       # T4: "build anything from anything" — bench BUILD / AI BUILD
 
 var _db: Dictionary
 var _phase: int = Phase.BUILD
@@ -98,6 +101,9 @@ var _arsenal_box: VBoxContainer
 var _equipped_label: RichTextLabel
 var _hand_label: Label
 var _armor_label: Label
+var _btn_build: Button    # bench actions gated by lucidity (disabled until the tier unlocks)
+var _btn_attach: Button
+var _btn_ai: Button
 var _log_label: RichTextLabel
 var _icons: Dictionary = {}   # item_id -> Texture2D (game-icons svg), cached
 
@@ -315,6 +321,7 @@ func _restart() -> void:
 	_refresh_equipped()
 	_refresh_arsenal_ui()
 	_refresh_equipment()
+	_refresh_bench_locks()
 
 func _equip(i: int) -> void:
 	if i < 0 or i >= _arsenal.size():
@@ -530,9 +537,11 @@ func _input(event: InputEvent) -> void:
 		elif event.keycode == KEY_BRACKETRIGHT:
 			_awakening = clampf(_awakening + 0.2, 0.0, 1.0)
 			_log("[lucidity] %.2f — %s" % [_awakening, _lucid_tier()])
+			_refresh_bench_locks()
 		elif event.keycode == KEY_BRACKETLEFT:
 			_awakening = clampf(_awakening - 0.2, 0.0, 1.0)
 			_log("[lucidity] %.2f — %s" % [_awakening, _lucid_tier()])
+			_refresh_bench_locks()
 		elif event.keycode == KEY_F1:
 			_debug = not _debug
 			_awakening = 1.0 if _debug else 0.15   # debug = fully lucid; normal starts asleep
@@ -1614,6 +1623,21 @@ func _toggle_build() -> void:
 	_build_layer.visible = not _build_layer.visible
 	_paused = _build_layer.visible   # opening the workbench pauses the game
 	_lmb_edge = false
+	if _build_layer.visible:
+		_refresh_bench_locks()
+
+# grey out bench actions that the current lucidity hasn't unlocked (the ladder made visible)
+func _refresh_bench_locks() -> void:
+	if _btn_attach == null:
+		return
+	var can_attach := _awakening >= LUCID_ATTACH
+	var can_build := _awakening >= LUCID_BUILD
+	_btn_attach.disabled = not can_attach
+	_btn_build.disabled = not can_build
+	_btn_ai.disabled = not can_build
+	_btn_attach.tooltip_text = "bolt the bench parts onto your equipped weapon" if can_attach else "🔒 locked — reach LUCID (T3) to attach parts"
+	_btn_build.tooltip_text = "assemble the bench parts into a NEW weapon/tool" if can_build else "🔒 locked — reach AWAKE (T4) to build from scratch"
+	_btn_ai.tooltip_text = "AI freeform build (needs combine/serve.py)" if can_build else "🔒 locked — reach AWAKE (T4) for AI builds"
 
 func _make_ui_theme() -> Theme:
 	var theme := Theme.new()
@@ -1701,20 +1725,24 @@ func _build_ui() -> void:
 	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_grid)
 
-	_caption(root, "BENCH  (slots by order: delivery / damage / utility / modifier)")
+	_caption(root, "BENCH  (click items above to fill the slots: delivery · damage · utility · modifier)")
 	_pot_label = Label.new()
 	_pot_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_pot_label.text = "(empty)"
 	root.add_child(_pot_label)
-	var airow := HBoxContainer.new()
-	root.add_child(airow)
-	var aib := Button.new(); aib.text = "  AI BUILD  "; aib.tooltip_text = "build with the AI brain (needs combine/serve.py running)"; aib.pressed.connect(_on_ai_build); airow.add_child(aib)
-	var cl := Button.new(); cl.text = " Clear "; cl.pressed.connect(_on_clear); airow.add_child(cl)
+	# primitive build — deterministic, you choose the parts
 	var row := HBoxContainer.new()
 	root.add_child(row)
-	var cb := Button.new(); cb.text = " old BUILD "; cb.tooltip_text = "deterministic tag-vote build (legacy, for comparison)"; cb.pressed.connect(_on_combine); row.add_child(cb)
-	var mb := Button.new(); mb.text = " MOD "; mb.tooltip_text = "modify the EQUIPPED weapon with the bench junk"; mb.pressed.connect(_on_modify); row.add_child(mb)
-	var lb := Button.new(); lb.text = " LOAD "; lb.tooltip_text = "load the bench junk into the equipped weapon as AMMO"; lb.pressed.connect(_on_load); row.add_child(lb)
+	_btn_build = Button.new(); _btn_build.text = "  BUILD  "; _btn_build.tooltip_text = "assemble the bench parts into a NEW weapon/tool (deterministic)"; _btn_build.pressed.connect(_on_combine); row.add_child(_btn_build)
+	_btn_attach = Button.new(); _btn_attach.text = "  ATTACH  "; _btn_attach.tooltip_text = "bolt the bench parts onto your EQUIPPED weapon (uses attachment slots)"; _btn_attach.pressed.connect(_on_modify); row.add_child(_btn_attach)
+	var lb := Button.new(); lb.text = "  LOAD  "; lb.tooltip_text = "load the bench parts into the equipped weapon as AMMO"; lb.pressed.connect(_on_load); row.add_child(lb)
+	var cl := Button.new(); cl.text = " Clear "; cl.pressed.connect(_on_clear); row.add_child(cl)
+	# advanced — the AI brain (Tier-4 freeform)
+	_caption(root, "ADVANCED  (freeform AI build — needs the combine server)")
+	var airow := HBoxContainer.new()
+	root.add_child(airow)
+	_btn_ai = Button.new(); _btn_ai.text = "  AI BUILD  "; _btn_ai.tooltip_text = "let the AI brain compose something wild from the bench parts (Tier-4; needs combine/serve.py)"; _btn_ai.pressed.connect(_on_ai_build); airow.add_child(_btn_ai)
+	_refresh_bench_locks()
 
 	_http = HTTPRequest.new()
 	add_child(_http)
@@ -1815,6 +1843,8 @@ func _on_clear() -> void:
 # --- AI build (calls the Python combine brain over HTTP) ---------------------
 
 func _on_ai_build() -> void:
+	if _awakening < LUCID_BUILD:
+		_log("The deeper builds are still beyond you — not lucid enough."); return
 	if _ai_busy:
 		_log("The AI is still thinking..."); return
 	if _pot.is_empty():
@@ -1911,6 +1941,8 @@ func _finalize_ai_gadget(g: Gadget) -> void:
 		g.fill_plain()
 
 func _on_combine() -> void:
+	if _awakening < LUCID_BUILD:
+		_log("You can't picture building something new yet — you're not lucid enough."); return
 	if _pot.is_empty():
 		_log("Nothing on the bench."); return
 	var items: Array[Item] = []
@@ -1927,19 +1959,26 @@ func _on_combine() -> void:
 	_pot.clear()
 	_refresh_pot(); _refresh_inventory_ui()
 
+# ATTACH the bench parts onto the equipped weapon — limited by its attachment slots.
 func _on_modify() -> void:
 	if _equipped == null:
-		_log("Nothing equipped to modify."); return
+		_log("Nothing equipped to attach to."); return
 	if _equipped_idx < 0:
-		_log("You're wielding a raw item — build or select a crafted weapon to modify."); return
+		_log("You're wielding a raw item — equip a built weapon to attach parts to it."); return
+	if _awakening < LUCID_ATTACH:
+		_log("You can't make parts stick yet — you're not lucid enough."); return
 	if _pot.is_empty():
-		_log("Put some junk on the bench to modify with."); return
+		_log("Put parts on the bench to attach."); return
+	var free := _equipped.max_attach - _equipped.attached.size()
+	if _pot.size() > free:
+		_log("Not enough attachment slots — %s has %d/%d used. Remove a part or use fewer." % [_equipped.display_name, _equipped.attached.size(), _equipped.max_attach]); return
 	var names: Array[String] = []
 	var items: Array[Item] = []
 	for id in _pot:
 		items.append(_db[id]); names.append(_db[id].display_name)
 	var old_name := _equipped.display_name
 	var result := Resolver.combine(items, _equipped)
+	result.attached.append_array(names)   # record what's bolted on (base attachments carried by resolver)
 	if result.uses_ammo and _equipped.uses_ammo:
 		result.mag = _equipped.mag.duplicate(true)  # carry the loaded magazine over
 		while result.ammo_count() > result.ammo_max and not result.mag.is_empty():
@@ -1948,7 +1987,7 @@ func _on_modify() -> void:
 	_consume_pot()
 	_arsenal[_equipped_idx] = result   # replace in place
 	_equipped = result
-	_log("Modified [b]%s[/b] with %s -> [b]%s[/b]" % [old_name, " + ".join(names), result.display_name])
+	_log("Attached %s to [b]%s[/b] -> [b]%s[/b]  (%d/%d slots)" % [" + ".join(names), old_name, result.display_name, result.attached.size(), result.max_attach])
 	_pot.clear()
 	_refresh_pot(); _refresh_inventory_ui(); _refresh_equipped(); _refresh_arsenal_ui()
 
@@ -1989,7 +2028,9 @@ func _ammo_value(it: Item) -> int:
 # --- field RELOAD (R) — the lucidity ladder, T1 (universal ammo) + T2 (junk-as-ammo) ---
 
 func _lucid_tier() -> String:
-	if _awakening >= LUCID_JUNK: return "LUCID"
+	if _awakening >= LUCID_BUILD: return "AWAKE"
+	if _awakening >= LUCID_ATTACH: return "LUCID"
+	if _awakening >= LUCID_JUNK: return "WAKING"
 	if _awakening >= LUCID_UNIVERSAL: return "STIRRING"
 	return "ASLEEP"
 
@@ -2070,8 +2111,12 @@ func _refresh_arsenal_ui() -> void:
 func _refresh_equipped() -> void:
 	if _equipped == null:
 		_equipped_label.text = "(nothing)"; return
-	_equipped_label.text = "[b]%s[/b]  [%s]\n[color=#9aa]%s[/color]\n[color=#778]%s[/color]" % [
-		_equipped.display_name, _equipped.category_name(), _equipped.description, _equipped.summary()]
+	var att := ""
+	if _equipped.uses_ammo or not _equipped.attached.is_empty():
+		att = "\n[color=#678]attachments %d/%d%s[/color]" % [_equipped.attached.size(), _equipped.max_attach,
+			("  ·  " + ", ".join(_equipped.attached)) if not _equipped.attached.is_empty() else ""]
+	_equipped_label.text = "[b]%s[/b]  [%s]\n[color=#9aa]%s[/color]\n[color=#778]%s[/color]%s" % [
+		_equipped.display_name, _equipped.category_name(), _equipped.description, _equipped.summary(), att]
 
 func _refresh_equipment() -> void:
 	if _hand_label != null:
