@@ -36,6 +36,61 @@ static func combine(items: Array, base: Gadget = null) -> Gadget:
 	_finalize(g, tags)   # fire mode + ammo capacity (depends on delivery/damage)
 	return g
 
+## WIELD a single item ALONE (DESIGN.md §5). Delivery comes from the item's declared
+## ARCHETYPE (not tag-mashing), payload is composed from its own tags. This is why a box
+## of nails wielded = caltrops, but nails COMBINED into a launcher = a spread shot.
+static func wield(item: Item) -> Gadget:
+	var g := Gadget.new()
+	g.color = item.color
+	g.display_name = item.display_name
+	g.delivery = _archetype_delivery(item.archetype)
+
+	match g.delivery:   # intrinsic behavior of the chosen chassis
+		Gadget.Delivery.MELEE:
+			_ensure(g, Gadget.DAMAGE, 16.0); _ensure(g, Gadget.KNOCKBACK, 220.0)
+		Gadget.Delivery.CONE:
+			_ensure(g, Gadget.DAMAGE, 6.0); _ensure(g, Gadget.KNOCKBACK, 120.0)
+		Gadget.Delivery.AURA:
+			_ensure(g, Gadget.COLLECT, 0.0, 0.0, 180.0)
+		Gadget.Delivery.RETURN:
+			_ensure(g, Gadget.DAMAGE, 10.0)
+		Gadget.Delivery.CALTROPS:
+			_ensure(g, Gadget.DAMAGE, 5.0)      # per-tick contact damage on the field
+		Gadget.Delivery.PUDDLE:
+			_ensure(g, Gadget.SLOW, 55.0, 3.0)  # slick underfoot by default
+
+	var tags := _tagset([item])                 # payload from the item's own tags
+	var te := _tag_effects()
+	for tag in te:
+		if tags.has(tag):
+			_apply_ops(g, te[tag])
+
+	if not _armed(tags):                        # a lone item with no dangerous part is harmless
+		g.harmless = true
+		var d := g.get_effect(Gadget.DAMAGE)
+		if not d.is_empty(): d["amount"] = 1.0
+
+	g.description = "Wielded as-is. Combine it at a workbench to do more."
+	_finalize(g, tags)
+	return g
+
+static func _archetype_delivery(arch: String) -> Gadget.Delivery:
+	match arch:
+		"swing", "thrust", "grind": return Gadget.Delivery.MELEE
+		"lob":        return Gadget.Delivery.LOBBED
+		"scatter":    return Gadget.Delivery.CALTROPS
+		"pour":       return Gadget.Delivery.PUDDLE
+		"return":     return Gadget.Delivery.RETURN
+		"projectile": return Gadget.Delivery.PROJECTILE
+		"beam":       return Gadget.Delivery.BEAM
+		"spray":      return Gadget.Delivery.CONE
+		"trap":       return Gadget.Delivery.PLACED
+		"turret":     return Gadget.Delivery.TURRET
+		"decoy":      return Gadget.Delivery.DECOY
+		"self":       return Gadget.Delivery.SELF
+		"field":      return Gadget.Delivery.AURA
+		_:            return Gadget.Delivery.PROJECTILE   # inert / unknown → a held nothing
+
 # =============================================================================
 # DATA TABLES  (edit these to add content)
 # =============================================================================
@@ -51,7 +106,6 @@ static func _delivery_rules() -> Array:
 		["buff",      Gadget.Delivery.SELF],
 		["beam",      Gadget.Delivery.BEAM],
 		["aerosol",   Gadget.Delivery.CONE],
-		["scatter",   Gadget.Delivery.CONE],
 		["ranged",    Gadget.Delivery.PROJECTILE],
 		["explosive", Gadget.Delivery.LOBBED],
 		["return",    Gadget.Delivery.RETURN],
@@ -303,14 +357,16 @@ static func _finalize(g: Gadget, tags: Dictionary) -> void:
 	elif g.delivery == Gadget.Delivery.PROJECTILE and tags.has("automatic"):
 		g.semi = false
 
-	g.uses_ammo = g.delivery in [Gadget.Delivery.PROJECTILE, Gadget.Delivery.LOBBED, Gadget.Delivery.PLACED, Gadget.Delivery.CONE, Gadget.Delivery.SELF, Gadget.Delivery.TURRET, Gadget.Delivery.DECOY]
+	g.uses_ammo = g.delivery in [Gadget.Delivery.PROJECTILE, Gadget.Delivery.LOBBED, Gadget.Delivery.PLACED, Gadget.Delivery.CONE, Gadget.Delivery.SELF, Gadget.Delivery.TURRET, Gadget.Delivery.DECOY, Gadget.Delivery.RETURN, Gadget.Delivery.CALTROPS, Gadget.Delivery.PUDDLE]
 	if g.uses_ammo:
 		var pwr := maxf(g.amount_of(Gadget.DAMAGE), g.amount_of(Gadget.EXPLODE))
 		pwr = maxf(pwr, 4.0)
 		match g.delivery:
+			Gadget.Delivery.RETURN:
+				g.ammo_max = 1   # one boomerang: it's "spent" while airborne, refunded when caught/retrieved
 			Gadget.Delivery.SELF, Gadget.Delivery.TURRET, Gadget.Delivery.DECOY:
 				g.ammo_max = 3   # a few charges/deploys
-			Gadget.Delivery.LOBBED, Gadget.Delivery.PLACED:
+			Gadget.Delivery.LOBBED, Gadget.Delivery.PLACED, Gadget.Delivery.CALTROPS, Gadget.Delivery.PUDDLE:
 				g.ammo_max = clampi(int(round(60.0 / pwr)), 3, 8)
 			_:
 				g.ammo_max = clampi(int(round(90.0 / pwr)), 6, 30)

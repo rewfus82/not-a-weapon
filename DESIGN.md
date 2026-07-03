@@ -3,154 +3,308 @@
 > The canonical statement of what this game *is*. If a decision conflicts with this
 > doc, either the decision is wrong or this doc needs an explicit, dated update.
 
-## Elevator pitch
+> **MAJOR REVISION — 2026-07-03.** The vision was refined and sharpened. Key changes
+> from prior versions of this doc: (1) the game is now framed as a **real zombie-survival
+> shooter** whose weapons are genuinely useful — the absurd junk-combining is a *glitch
+> layer* the player unlocks by "waking up," **not** the only path to a usable item.
+> (2) Perspective is now **isometric** (top-down is retired). (3) The loop is a
+> **day/night cycle with stealth/detection**, not zombie waves. (4) Crafting is split:
+> **limited field crafting** (reload, obvious add-ons) vs **full AI building only at
+> workbenches**. (5) A concrete **item taxonomy** (real guns, ammo, thrown, melee,
+> add-ons, junk) and a **lucidity ladder** that ties story → mechanic. Art/assets are
+> a deliberately deferred conversation.
 
-A **dark, high-angle, atmospheric top-down survival-shooter** set in the decaying
-rural American Midwest. You scavenge junk through a shadow-drenched, lived-in world
-lit mostly by your flashlight, and **combine that junk into weapons, tools, and
-gadgets** — most combinations are *not* weapons, and that's the point. Calm, tense
-exploration is punctuated by frantic swarms. Underneath it all: you are an entity
-slowly realizing this grim world is a **simulation**, and as you wake up, its rules
-loosen and reality glitches.
+---
 
-The combine mechanic is the identity. Everything else exists to make combining junk
-feel meaningful, legible, and dangerous.
+## 1. What this game is (one paragraph)
 
-## Setting — rural / small-town Midwest America
+An **isometric, atmospheric zombie-survival shooter** set in the decaying rural American
+Midwest. On the surface it plays straight: you have real guns, ammo, melee, and thrown
+weapons, and you survive a day/night cycle in a dark, lived-in world. Underneath, the
+world is a **simulation** and you don't know it. As you survive, you slowly **wake up**
+(the *lucidity* progression), and the simulation's rules start to bend — first you notice
+any bullet fits any gun, then you can jam junk into a gun and it fires, then you can
+bolt weird objects onto weapons for glitched effects, and finally you can build weapons,
+tools, traps, and armor out of almost anything. The title is the twist: everything
+becomes a weapon once you realize none of it is real.
 
-Deliberately **NOT** generic zombie apocalypse. Specific, eerie, lived-in Americana
-decay:
+## 2. Story & premise
 
-- Grain elevators looming in the dark
-- Casey's-style gas stations, flickering signs
-- Trailer parks, farm supply stores, small-town main streets
-- Abandoned Walmarts / big-box husks
-- **Cornfields that hide hordes** (they're fine… until the stalks start moving)
-- **Tornado sirens** as the swarm-warning motif
-- Rusted pickup trucks, county fairgrounds
+You're a survivor of the fall — you lived the collapse of society and the rise of the
+horde, and you're grinding through the first weeks in the Midwest wasteland. You do
+**not** know you are inside a simulation. The game *is* a competent survival-horror
+shooter for a while.
 
-This setting supplies the props (world detail), the dread, and the audio identity.
+The awakening is discovered through desperation and glitches, in this order — this
+progression is the emotional arc **and** the mechanical unlock ladder:
 
-## Aesthetic & feel — the reference board
+1. **"All bullets fit all guns."** Out of the right ammo, you try the wrong ammo — and
+   it works. The first crack: the sim's rules are looser than reality's.
+2. **"I can reload with… anything?"** Truly desperate, you shove non-ammo junk into a
+   gun — and it fires, with strange effects. Junk-as-ammo.
+3. **"Parts change the gun."** A weapon breaks; you try to repair/augment it with
+   something absurd (the canonical example: a **mop**), and the sim glitches — the
+   weapon now carries an effect derived from the object.
+4. **"I can build anything from anything."** Full freeform combining — weapons, tools,
+   traps, armor — assembled from seemingly useless things.
 
-Each axis is anchored to a game that nails it:
+Each step is a higher **lucidity** rating. The grim world is the simulation; the glitch
+visuals are **reality cracking through** as you grow lucid (kept subtle so it doesn't
+overpower the horror tone).
 
-| Axis | Reference | What we take |
+## 3. The lucidity ladder — story = unlock ladder
+
+Lucidity (a.k.a. "awakening", 0 → high) gates **what crafting is possible**. It is the
+progression system. It does **not** unlock recipes; it unlocks *how far the rules bend*.
+
+| Lucidity | The realization | What it unlocks mechanically |
 |---|---|---|
-| **Camera / movement** | Project Zomboid | High angle, grounded, realistic scale, excellent environmental readability |
-| **Lighting / atmosphere** | Darkwood | Line-of-sight **vision & darkness as a mechanic**; the flashlight is precious; fog; you only see what you light; oppressive dread |
-| **World detail** | The Ascent | Dense clutter, lots of props, dynamic lighting, rich particles — everything feels *lived-in* |
-| **Combat feel** | RUINER | Snappy movement, chunky impacts, sparks / casings / gore, loud visual feedback |
-| **Enemy density** | Brotato | Hundreds of enemies, constant pressure, **simple readable silhouettes — readability always beats realism** |
-| **Overall pacing** | Helldivers | Calm exploration punctuated by frantic swarms; explosions are genuinely dangerous |
+| **Asleep** | It's a normal apocalypse | Straight shooter: guns take their "correct" ammo, melee/thrown work as expected |
+| **Tier 1** | Any bullet fits any gun | **Universal ammo** — any ammo type loads any gun |
+| **Tier 2** | Reload with anything | **Junk-as-ammo** — non-ammo junk becomes rounds, with quirks |
+| **Tier 3** | Parts change weapons | **Augment/add-ons** — attach objects to weapons for glitched effects |
+| **Tier 4** | Build anything from anything | **Freeform combine** — full AI-driven building of weapons/tools/traps/armor |
 
-The tension between "grounded/detailed" and "simple/readable" resolves as: **a dense,
-grounded, dark WORLD + simple readable ENEMY silhouettes, with LIGHTING telling you
-what matters.** Lit = important. The rest is dread in shadow.
+Design rule: **items are useful WITHOUT modification.** A gun shoots, a bat hits, a
+flare lights. Combining is the *bonus glitch layer*, never the price of admission to a
+working item. (This is the big correction from earlier drafts, where "most combos are
+not weapons" made base items feel useless.)
 
-## The key unlock — why this is achievable
+## 4. Crafting model — where each tier happens
 
-This direction **dissolves the art-breadth trap** (a junk-combine game needs hundreds
-of item concepts; we can't hand-draw all of it). The richness comes from **lighting +
-darkness + density + particles + juice** — systems and shaders, which are buildable —
-**not** bespoke per-asset art:
+Crafting ability is split by **context**, gated by lucidity:
 
-- Enemies are simple silhouettes (Brotato) → no detailed enemy art needed.
-- Most of the world is hidden in shadow (Darkwood) → less has to look good.
-- Impact comes from sparks/feedback (RUINER) → juice, not art.
-- Environmental richness comes from prop density + dynamic light (The Ascent).
+- **Field crafting (anywhere, non-debug):** limited, fast, no AI calls.
+  - Reload a gun (matching ammo → universal ammo → junk-as-ammo, as lucidity rises).
+  - Attach **obvious** add-ons (scope, silencer, extended mag, bump stock).
+  - This is the moment-to-moment survival crafting. Cheap, deterministic.
+- **Workbench crafting (at workbenches scattered on the map):** the deep layer.
+  - Full **freeform building** — the AI combine brain (Tier 4). Weapons, tools, traps,
+    armor from arbitrary junk. This is where the expensive/creative resolution lives.
+  - Workbenches are places you seek out — a survival-crafting beat, and a natural home
+    for the pause-screen build UI.
+- **Debug mode:** everything unlocked, all items stocked, for testing.
 
-Free CC0/CC-BY assets (Kenney sprites/tiles, game-icons item icons) work fine under
-dramatic lighting. AI-generated art is a *later* force-multiplier, never a dependency.
+Non-negotiable: **never a hard AI dependency at ship** — field crafting and a
+deterministic fallback keep the game fully playable with no key / no server.
 
-## Perspective — top-down, NOT true isometric
+## 5. Item taxonomy (starter list — not comprehensive)
 
-We build the **feel** of both PZ and Darkwood with a **steep, atmospheric top-down**
-view. True isometric (Project Zomboid's projection) is explicitly **rejected** for now:
-it needs isometric tiles *and* 8-directional animated iso characters/zombies, which
-re-opens the art-breadth trap hard. Darkwood itself is top-down and achieves all the
-dread without iso. Camera height + lighting sell the "grounded" weight; readability
-wins. (Revisit only if we ever commit to an iso-art pipeline.)
+Items must be **useful unmodified**. The starting kit is a **loaded handgun + a handful
+of bullets**; the first thing you scavenge for is more bullets.
 
-## Narrative / tone
+**Projectile weapons:** handgun (start), SMG, shotgun, automatic rifle, crossbow,
+compound bow, sniper rifle, flamethrower, grenade launcher, sentry turret, rocket
+launcher, railgun, beam-style weapon, energy weapon.
 
-You're an unaware entity inside a **simulated reality** (matrix-like). The core verb —
-combining junk to "see what happens" — feels like exploiting a glitch. As your grasp
-on reality shatters, the simulation's rules loosen. The grim Midwest world **is** the
-simulation; the **glitch effects are reality cracking through** as you grow lucid
-(kept subtle so it doesn't fight the survival-horror tone). This ties art → narrative →
-mechanic: the **lucidity/awakening meter** drives both what you can build (rules
-loosening) and how much reality glitches.
+**Ammo:** bullets (the universal conceit — first glitch), shells, arrows, bolts, gas
+canisters, grenades, rockets, energy cells.
 
-## Core loop & mechanics
+**Thrown weapons/tools:** grenades, flares (light), smoke grenades, flashbangs,
+boomerangs, yo-yos, throwing stars, molotov cocktails.
 
-- **Scavenge** junk from the dark, lived-in world (calm, tense, flashlight-limited).
-- **Combine** junk at a workbench into gadgets (weapons / tools / control / duds).
-- **Survive** frantic swarms (Helldivers pacing; cornfields/darkness hide them).
-- Escalate; the simulation loosens; combines get more absurd; you die and restart.
+**Melee weapons:** bats, chainsaws, swords, brass knuckles, lightsaber, knives,
+nunchucks.
 
-Progression is **lucidity** (waking up) — it unlocks how much you can bend the rules
-and how absurd/rewarding off-nature combinations become; NOT unlocking recipes.
+**Add-ons (legit weapon mods):** scopes, bump stocks, extended magazines, silencers, …
 
-## The combine system — the identity (already built)
+**Junk (glitch fuel):** mundane objects that — once lucid — augment weapons or become
+craft ingredients. Useful mainly via the glitch layer, by design. **Seed set of 32
+below** (a *starting* set, not a ceiling — sized for *coverage* of the engine's ~14
+effect primitives + light/sound + flight modifiers, at ≥2 intuitive sources each, spread
+across 8 Midwest scavenge clusters). Adding more later is just a data row; only a
+brand-new *primitive* touches the capability contract. Each item is annotated with its
+real-world read → what the AI can build with it.
 
-The "brain" is an **engine-agnostic, fully-tested Python package** (`combine/`), so it
-survives any engine migration. See `combine/` and the memory notes. Essentials:
+*🔧 Garage & Truck* — Motor Oil (slick, flammable → slow/oil-slick, fire) · Jerry Can of
+Gasoline (accelerant → fire, explode) · Car Battery (12V + acid → electric/chain,
+caustic) · Jumper Cables (conducts → chain-lightning, reach)
 
-- **Slot grid** = declared intent: `delivery` (the chassis/how it's used, required),
-  `damage`, `utility` (non-damage behavior), `modifier` (a twist). The slot overrides
-  an item's default reading.
-- **Association clouds + reveal tiers**: items are vivid associations the player *sees*
-  progressively as they wake up; the resolver only ever sees what the player can see.
-- **Output = chassis + ordered stages + free flavor**, spelled in a fixed vocabulary of
-  engine-renderable primitives (the capability contract). Finite letters, infinite words.
-- **LLM resolver (primary) + deterministic fallback**, same schema. All slots always
-  open; the lucidity ramp changes how much a placement can be *bent*, not which roles
-  exist. Model: `COMBINE_MODEL` env (Haiku default for dev/cost; Sonnet for the ceiling
-  / a future shipped catalog).
-- **Not-a-weapon is enforced**: empty damage slot ⇒ a tool, not a weapon.
+*🌾 Barn & Field* — Bag of Fertilizer (ammonium nitrate → big explode) · Pitchfork (long
+tines → pierce, reach, damage) · Barbed Wire (snags → snare, area damage) · Hornet Nest
+(furious swarm → spawn/homing swarm)
 
-The engine (Godot for now) is a **thin renderer** that must faithfully show what the
-brain builds (distinct deliveries, staged effects) — this fidelity is a top priority.
+*🍳 Kitchen & House* — Cast Iron Skillet (heavy, flat → blunt damage, shield/block) ·
+Cooking Grease (slippery, flammable → slow, fire) · Drain Cleaner (lye → acid burn,
+poison) · Mason Jar (sealed vessel → lobbed container / holds a payload)
 
-## Build / craft UX
+*🪚 Shed & Hardware* — Box of Nails (shrapnel → pierce, scatter/spread, damage) · PVC Pipe
+(hollow tube → barrel: range/speed + pierce) · Propane Tank (pressurized → explode, cold
+vent/freeze) · Garage-Door Spring (stored force → knockback, launch/return, bounce) ·
+Sledgehammer (mass → huge blunt damage, knockback)
 
-A **dedicated build screen that PAUSES the game**: big labeled slots you **drag items
-into** (delivery / damage / utility / modifier), a result/preview, and a clear read of
-what you made and *why*. Later, gate it behind **finding or building a workbench**
-(survival-crafting). Interacting with the combine mechanic must feel *good* — it's the
-core verb.
+*🧪 Cleaning & Chemical* — Aerosol Bug Spray (jet + flammable → cone spray, fire, poison) ·
+Fire Extinguisher (CO₂ blast → freeze, knockback cone, smoke) · Bleach/Ammonia (toxic
+fumes → poison cloud, caustic)
 
-## Roadmap / priorities
+*⛽ Gas Station & Store* — Road Flare (burns bright → fire, light lure/ward) · Glow Sticks
+(cold light → light marker, decoy) · Air Horn (piercing noise → sound lure/decoy, stun) ·
+Energy Drink (caffeine → speed/buff, self)
 
-1. **Atmosphere + combat-feel CORE (in progress):** darkness / flashlight vision,
-   dynamic lighting, chunky RUINER-style particle combat. This single pass fixes the
-   "boring map," most of the "juice," and the "combat feels weak" problems at once.
-2. **Then** revisit the issue list below.
-3. Later: density (hundreds of enemies), day/night or scavenge→swarm pacing, the
-   dedicated build screen, real Midwest environment/props, audio (tornado sirens!),
-   and the lucidity ramp surfacing in-game.
+*💊 Medicine & Home* — First Aid Kit (patch up → heal, bandage-shield) · Duct Tape (binds
+anything → snare, patch/heal, the universal "attach" modifier) · Painkillers (numb →
+heal-over-time / pain-ignore buff)
 
-## Known issues to address (Ryan's list, 2026-07-02)
+*📦 Odds & Ends* — Horseshoe Magnet (attracts metal → homing, loot-collect) · Shop Vac
+(suction → collect/loot vacuum, aura) · Handful of Feathers (floaty → flight modifier:
+slower, wider arc, drift) · Chain (heavy links → swing damage, snare, "chain" pun) ·
+Brick (dense → thrown/blunt damage, knockback)
 
-1. The map is a boring green square with labeled boxes — needs a dark, dense, lived-in
-   Midwest space (lighting does most of the work).
-2. The loop is boring; **builds take too long** so you flee instead of fight — retune pacing.
-3. Effects suck — **everything shoots balls**; deliveries/effects aren't visually distinct.
-4. The AI builder must be **reflected accurately in-game** — e.g., a boomerang should
-   arc out and **return** by default; distinct deliveries must render distinctly.
-5. **Over-homing bug**: many items heat-seek when they shouldn't (prime suspect: spawned
-   sub-projectiles hardcoded to home via `or sub` in `main.gd:_make_proj`).
-6. Juice sucks — go **fully off graybox** (textured particles, real FX).
-7. Bench UX is bad; also a **pause bug** (re-pausing re-inserts the last bench item).
+*Known thin spot:* spawn/swarm has only one strong source (Hornet Nest) — add a second
+later (e.g. a jar of fire ants). Flight-modifier coverage is deliberately rich (feathers,
+spring, PVC, magnet, nails, duct tape) because the boomerang delivery-profile blueprint
+keys off exactly those.
 
-## Guiding principles
+### Use / delivery archetypes (the delivery model) — locked 2026-07-03
 
-- **Readability beats realism.** If you can't tell what a thing is at a glance in the
-  dark, it's wrong.
+The set of distinct **delivery mechanisms** the engine renders and the AI picks a chassis
+from. Two weapons share an archetype if the code path is the same with different numbers.
+The **key separation:** an item's *delivery* (how output reaches the world) is distinct
+from its *payload* (the effects it carries) — e.g. a rocket is `Projectile + EXPLODE
+payload`, not its own archetype. This is why "how it's launched" and "what it does on
+arrival" are modeled independently. An item's **standalone (wielded-alone) use ≠ its
+combine contribution** — a box of nails thrown = caltrops; combined into a launcher =
+spread shot.
+
+**🔫 Ranged** — *Projectile* (discrete shots; spread param = shotgun; **rocket = projectile
++ explode payload + "munition" render flag**: slow visible shot, trail, big boom) ·
+*Beam* (hitscan line / continuous — railgun, laser, arc) · *Spray* (close cone stream —
+flamethrower, extinguisher, bug spray)
+
+**🎯 Thrown** — *Lob-impact* (detonates/shatters on land — grenade, molotov, mason jar;
+**grenade launcher = lob + explode payload**) · *Scatter/caltrops* 🆕 (bursts into a ground
+hazard field — nails, glass) · *Pour* 🆕 (liquid puddle: slick/flammable/caustic — oil,
+gas, bleach) · *Return* (arcs out and back — boomerang, yo-yo)
+
+**🔨 Melee** — *Swing* (arc — bat, sword, sledgehammer, skillet) · *Thrust* 🆕 (straight jab
+with reach — spear, pitchfork, brass knuckles/punch, screwdriver) · *Grind* ⚠️ (hold for
+continuous contact damage while moving; **reach varies** — chainsaw long, drill short)
+
+**📦 Placeable** — *Trap/Mine* (proximity trigger — bear trap, landmine) · *Turret*
+(auto-fires — sentry) · *Barricade* 🆕 (physical blocker / soaks hits) · *Decoy* (draws
+enemies — boombox, raw meat) · *Beacon* 🆕 (placed light/sound; feeds the day-night
+attraction system — dropped flare, glow stick, lantern)
+
+**🧍 Self / Utility** — *Use-on-self* (heal/buff — first aid, energy drink, painkillers) ·
+*Field/Aura* (passive while held — shop vac vacuum, magnet pull, lantern light)
+
+**🔧 Modifier** — *Inert* (no standalone use; only alters another item in a combine —
+feathers, scope, silencer, ext-mag)
+
+**Not delivery archetypes:** **armor & shields are worn** (ARMOR equipment slot, not a
+"use"); active blocking is deferred / folded into armor. Legend: 🆕 = new engine behavior
+to build, ⚠️ = partial today. New behaviors implied: scatter/caltrops, pour/puddle,
+barricade, beacon, thrust-melee, grind-melee, munition render flag.
+
+Open modeling questions for the revamp (see §11): the exact tag/stat vocabulary, whether
+the Godot item list mirrors the Python `combine/items.py` "association clouds" or the two
+unify, and killing the vestigial `slots`/`affordance` fields that nothing currently reads.
+
+## 6. Gameplay loop — day/night + stealth (NO waves)
+
+Retire the wave system. The clock is a **day/night cycle**.
+
+- **Day:** zombies retreat to darkness/interiors, lethargic, low threat. This is your
+  window to scavenge, explore, reach workbenches, and craft.
+- **Night:** zombies emerge, stronger, and **actively hunt**. Getting caught out at night
+  is the core danger.
+- **Attraction:** zombies are drawn to **light and sound** (your flashlight, gunfire,
+  a running generator). Stealth is a real option.
+- **Detection:** a zombie must be **alerted** to your presence before it chases. Break
+  line-of-contact for a few seconds and it **disengages** and wanders off.
+
+The darkness system already built (ambient/flashlight/fog driven by one value) becomes
+the day/night clock, instead of tracking wave progress.
+
+## 7. Map — larger, exterior + interiors
+
+- Much **larger** than a single screen — a traversable world, camera follows the player.
+- **Exterior** Midwest environment **plus enterable building interiors** (shelter,
+  loot, workbenches, and tension: interiors are dark and can hide the horde).
+- Interior/exterior transitions, streaming, and layout are **to be fleshed out** (§11).
+
+## 8. Presentation
+
+- **Isometric** viewpoint. (Reverses the earlier top-down decision — accepted cost:
+  isometric art pipeline, incl. directional characters. Discuss under art.)
+- **Not** the current cartoony/chunky player & zombie look — art direction is a
+  deferred conversation, but the target is grittier/grounded.
+- **Weapons/tools render in the player's hands** — you can see what you're wielding.
+- **Full UI/HUD revamp** — the current graybox HUD is throwaway.
+- Art & assets are a **separate, later conversation** — do not block systems work on them.
+
+## 9. Setting — rural / small-town Midwest America (preserved)
+
+Deliberately **NOT** generic zombie apocalypse. Specific, eerie, lived-in Americana decay:
+grain elevators, Casey's-style gas stations with flickering signs, trailer parks, farm
+supply stores, small-town main streets, abandoned big-box husks, **cornfields that hide
+hordes**, **tornado sirens** as the night/alert motif, rusted pickups, county
+fairgrounds. This supplies the props, the dread, and the audio identity.
+
+## 10. The combine brain (preserved, re-scoped)
+
+The combine "brain" is an **engine-agnostic, fully-tested Python package** (`combine/`),
+so it survives any engine migration; the game engine is a **thin renderer** that must
+faithfully show what the brain builds (distinct deliveries, staged effects). Re-scoped:
+the brain now powers **Tier-4 workbench building**, not every interaction. Essentials
+still hold — slot grid (delivery/damage/utility/modifier) as declared intent; output =
+chassis + ordered stages in a fixed **capability-contract** vocabulary the engine can
+render; LLM resolver primary + deterministic fallback; `COMBINE_MODEL` env (Haiku dev /
+Sonnet ceiling). See the `combine/` package and memory notes.
+
+**Capability-contract gap (active work):** the contract models a weapon's *payload*
+(effects) but not its *delivery behavior* (a boomerang's arc/flight/range, a trap's
+arm-time). Boomerang is the **blueprint** for adding per-delivery behavior parameters
+that the engine reads and the AI can tune — build it once, template it out. (Approach
+"A": stand up the delivery-profile pattern, fully populate boomerang only, for now.)
+
+## 11. Open questions / to be fleshed out
+
+- Map: interior/exterior transition model, world size, streaming, workbench placement.
+- Item model: final tag/stat vocabulary; unify Godot `item_db.gd` with Python
+  `combine/items.py`; drop vestigial `slots`/`affordance`.
+- Isometric art pipeline (directional sprites vs other approaches) — deferred to art talk.
+- How lucidity is *earned* (survival time? story beats? specific glitch triggers?).
+- Armor: slot system exists (hand + armor); armor items/effects TBD.
+
+## 12. Roadmap / phased plan
+
+Systems first; art/iso conversion is its own later phase so it never blocks gameplay.
+
+- **Phase 0 — Vision lock + item taxonomy (now).** This doc + a rebuilt item data model
+  and the concrete item list (guns/ammo/thrown/melee/add-ons/junk), useful-unmodified,
+  with a clean tag/stat vocabulary. Foundation for crafting + the boomerang blueprint.
+- **Phase 1 — Crafting model + lucidity tiers 1–3.** Field crafting (universal ammo →
+  junk-as-ammo → obvious add-ons), workbench-gated AI building (Tier 4). Encodes the
+  story's awakening steps. No art dependency.
+- **Phase 2 — Day/night + stealth loop.** Convert the wave system to a day/night clock
+  (reuse the darkness foundation); add detection/alert/chase/disengage and light+sound
+  attraction; day-lethargy / night-hunting.
+- **Phase 3 — Larger map + interiors.** Expand beyond one screen; exterior + enterable
+  interiors; place workbenches.
+- **Phase 4 — Presentation overhaul.** Isometric, grittier art, in-hand weapon visuals,
+  full UI/HUD revamp. (Gated behind the art/assets conversation.)
+- **Cross-cutting** — the delivery-profile blueprint (boomerang) lands right after the
+  item taxonomy, since its modifier rules key off the new item tags.
+
+## 13. Current state vs the vision (2026-07-03)
+
+Built graybox (throwaway, top-down): survival loop with **waves** (to be replaced),
+real 2D lighting + flashlight + fog now driven by a wave-progress darkness curve (to be
+repurposed as the day/night clock), RUINER combat juice, a full-screen follow-camera, a
+TAB pause-to-build **workbench overlay**, a HAND/ARMOR **equipment + inventory** system
+(single items wieldable — weapon fires / throwable throws / else held), and a reworked
+**boomerang** (arc out → apex → return to where you stood → catch or retrieve; ammo
+1/1→0/1). The Python `combine/` brain exists and is tested; the AI "capability contract"
+does not yet model delivery behavior. Everything above is the starting point; the phased
+plan converts it toward this doc.
+
+## 14. Guiding principles
+
+- **Items are useful unmodified.** Combining is the glitch bonus, not the cost of a working item.
+- **Story = mechanic.** The awakening/lucidity ladder *is* the crafting-unlock ladder.
+- **Readability beats realism.** If you can't tell what a thing is at a glance in the dark, it's wrong.
 - **The dark is the aesthetic.** Show little, imply much; light what matters.
-- **Systems over assets.** Lighting, particles, density, and juice carry the look.
-- **The combine is the game.** Every system serves making junk-combining meaningful,
-  legible, and dangerous. Most combos are not weapons — protect that.
+- **Systems over assets.** Don't block gameplay systems on art; art is a later phase.
 - **The brain is portable.** Keep combine logic engine-agnostic; the renderer is swappable.
-- **Never a hard AI dependency at ship.** BYOK/offline-catalog; the game must be fun keyless.
+- **Never a hard AI dependency at ship.** Field crafting + deterministic fallback keep it fun keyless.

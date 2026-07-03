@@ -14,10 +14,13 @@ enum Phase { BUILD, WAVE, GAME_OVER }
 const PANEL_W := 400.0        # (legacy; used only for build-overlay caption widths)
 const PLAY_W := 1600.0        # world is now the full screen — no reserved side panel
 const PLAY_H := 900.0
-const CAM_ZOOM := 1.8
+const CAM_ZOOM := 1.3
 const MARGIN := 14.0
 const PLAYER_SPEED := 300.0
 const PLAYER_RADIUS := 14.0
+const BOOMERANG_RANGE := 300.0   # how far out it flies before the apex
+const BOOMERANG_SPEED := 600.0   # return speed toward the player
+const BOOMERANG_CURVE := 260.0   # lateral accel — the narrow sideways bow of the arc
 const FIRE_COOLDOWN := 0.16
 const BUILD_TIME := 20.0
 const PLAYER_MAX_HP := 100.0
@@ -54,14 +57,21 @@ var _speed_timer := 0.0
 var _inv: Dictionary = {}             # item_id -> count
 var _pot: Array[String] = []
 var _arsenal: Array[Gadget] = []      # crafted weapons you can hold + switch between
-var _equipped_idx := 0
-var _equipped: Gadget = null          # always points at _arsenal[_equipped_idx]
+var _equipped_idx := 0                # index into _arsenal, or -1 = a raw item is in hand
+var _equipped: Gadget = null          # the gadget actually fired (arsenal weapon OR a wielded item's resolved gadget)
+# --- equipment slots: HAND (weapon/item) + ARMOR (placeholder) ---------------
+var _hand_item: Item = null           # the raw junk item in hand (null = a crafted gadget is equipped)
+var _hand_hold := false               # true = held, not a weapon and not throwable → no attack
+var _armor: Item = null               # ARMOR slot — no armor items yet, so always empty for now
+var _item_gadgets: Dictionary = {}    # item_id -> resolved Gadget cache (stable ammo across re-equips)
 
 # --- world -------------------------------------------------------------------
 var _zombies: Array[Dictionary] = []
 var _pickups_root: Node2D             # container node for Pickup entities (dropped loot)
 var _sites: Array[Dictionary] = []    # scavenge points: {rect, label, looted}
 var _projectiles: Array[Dictionary] = []
+var _dropped_boomerangs: Array[Dictionary] = []   # boomerangs on the floor: {pos, gadget, spin}
+var _zones: Array[Dictionary] = []    # ground hazards (caltrops/puddles): {pos, radius, kind, dmg, slow, burn_amt, burn_dur, snare, life, life0, tick, color}
 var _traps: Array[Dictionary] = []    # placed traps: {pos, gadget, life}
 var _melee_anim: Dictionary = {}      # transient swing visual
 var _beam_anim: Dictionary = {}       # transient beam visual: {a, b, life, col}
@@ -84,6 +94,8 @@ var _grid: GridContainer
 var _pot_label: Label
 var _arsenal_box: VBoxContainer
 var _equipped_label: RichTextLabel
+var _hand_label: Label
+var _armor_label: Label
 var _log_label: RichTextLabel
 var _icons: Dictionary = {}   # item_id -> Texture2D (game-icons svg), cached
 
@@ -111,6 +123,10 @@ var _glitch_mat: ShaderMaterial   # the full-screen simulation-glitch post-proce
 var _glitch := 0.0                # transient glitch pulse (decays); base from _awakening
 var _flashlight: PointLight2D     # real 2D light — the flashlight cone (follows aim)
 var _player_glow: PointLight2D    # soft glow right around the player
+var _cm: CanvasModulate           # world ambient — lerps day<->night with _dark
+var _fog_mat: ShaderMaterial      # fog density scales with _dark
+var _dark := 0.0                  # 0 = daylight (build), 1 = pitch night (wave climax)
+var _wave_total := 0              # zombies this wave — for the darkness progress curve
 var _light_pool: Array[PointLight2D] = []   # pooled transient flashes (muzzle/explosions/hits)
 var _light_i := 0
 var _flashes: Array[Dictionary] = []        # active fading flashes: {l, t, dur, e0}
@@ -173,10 +189,9 @@ func _setup_atmosphere() -> void:
 	rect.material = _glitch_mat
 	layer.add_child(rect)
 
-	# real 2D lighting: a dark world (CanvasModulate) that the player's flashlight reveals
-	var cm := CanvasModulate.new()
-	cm.color = Color(0.12, 0.13, 0.18)   # cold blue night ambient
-	add_child(cm)
+	# real 2D lighting: a world whose ambient rides day<->night with the wave (see _apply_darkness)
+	_cm = CanvasModulate.new()
+	add_child(_cm)
 	_player_glow = PointLight2D.new()
 	_player_glow.texture = _radial_tex(256)
 	_player_glow.color = Color(1.0, 0.84, 0.6)   # warm
@@ -203,10 +218,11 @@ func _setup_atmosphere() -> void:
 	var fog := ColorRect.new()
 	fog.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	fog.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var fmat := ShaderMaterial.new()
-	fmat.shader = load("res://shaders/fog.gdshader")
-	fog.material = fmat
+	_fog_mat = ShaderMaterial.new()
+	_fog_mat.shader = load("res://shaders/fog.gdshader")
+	fog.material = _fog_mat
 	fog_layer.add_child(fog)
+	_apply_darkness()   # start in daylight (_dark = 0) so BUILD isn't a permanent night
 
 func _radial_tex(size: int) -> Texture2D:
 	var g := Gradient.new()
@@ -274,32 +290,96 @@ func _restart() -> void:
 	_wave = 0
 	_hp = PLAYER_MAX_HP
 	_player = Vector2(PLAY_W * 0.5, PLAY_H * 0.5)
-	_zombies.clear(); _projectiles.clear()
+	_zombies.clear(); _projectiles.clear(); _dropped_boomerangs.clear(); _zones.clear()
 	_clear_pickups()
 	_dmg_nums.clear(); _particles.clear(); _pot.clear()
 	_traps.clear(); _turrets.clear(); _decoys.clear(); _arcs.clear()
 	_rings.clear(); _muzzle = {}; _hitstop = 0.0
 	_invuln = 0.0; _hurt_flash = 0.0; _shake = 0.0; _paused = false
 	_shield = 0.0; _speed_mult = 1.0; _speed_timer = 0.0
+	_dark = 0.0   # every run opens in daylight
 	_arsenal = [_starter_gadget()]
 	_equipped_idx = 0
 	_equipped = _arsenal[0]
-	_inv = {"wire_hanger": 1, "pixie_stix": 1, "potato": 1, "zip_ties": 1,
-			"ketchup": 1, "feathers": 1, "anchovies": 1, "pringles": 1}
+	_hand_item = null; _hand_hold = false; _armor = null; _item_gadgets.clear()
+	_inv = {"duct_tape": 1, "road_flare": 1, "brick": 1, "nails": 1,
+			"motor_oil": 1, "mason_jar": 1, "first_aid": 1, "energy_drink": 1}
 	_log("You wake up. Something is very wrong. (WASD move, mouse aim, click to fire.)")
 	_start_build()
 	if _debug: _grant_all()
 	_refresh_inventory_ui()
 	_refresh_equipped()
 	_refresh_arsenal_ui()
+	_refresh_equipment()
 
 func _equip(i: int) -> void:
 	if i < 0 or i >= _arsenal.size():
 		return
 	_equipped_idx = i
 	_equipped = _arsenal[i]
+	_hand_item = null      # a crafted gadget is in hand now, not a raw item
+	_hand_hold = false
 	_refresh_equipped()
 	_refresh_arsenal_ui()
+	_refresh_equipment()
+
+# --- single-item wielding (equip a raw junk item into the HAND slot) ----------
+# Non-consuming: slotting in/out never uses the item up (unlike the combine bench).
+# Behavior is resolved from the item itself: weapon fires, throwable throws, else held.
+
+## Resolve one item to its gadget, cached so ammo/state survive re-equipping.
+func _item_gadget(id: String) -> Gadget:
+	if _item_gadgets.has(id):
+		return _item_gadgets[id]
+	var g := Resolver.wield(_db[id])   # delivery from the item's ARCHETYPE, not tag-mashing
+	_item_gadgets[id] = g
+	return g
+
+func _wield_item(id: String) -> void:
+	var it: Item = _db[id]
+	if it.is_armor():
+		_equip_armor(id); return
+	var g := _item_gadget(id)
+	_equipped = g
+	_equipped_idx = -1
+	_hand_item = it
+	_hand_hold = it.archetype == Item.ARCH_INERT   # inert = no standalone use, just held
+	_log("Wielding [b]%s[/b] — %s" % [it.display_name, _archetype_label(it.archetype)])
+	_refresh_equipped(); _refresh_arsenal_ui(); _refresh_equipment()
+
+func _equip_armor(id: String) -> void:
+	_armor = _db[id]
+	_log("Equipped armor: [b]%s[/b]  (armor has no effect yet)" % _armor.display_name)
+	_refresh_equipment()
+
+func _unequip_hand() -> void:
+	if _arsenal.is_empty():
+		return
+	_equip(0)   # back to the starter weapon (empty-handed has no fists yet)
+	_log("Stowed. Back to %s." % _equipped.display_name)
+
+func _unequip_armor() -> void:
+	if _armor == null:
+		return
+	_log("Removed armor: %s." % _armor.display_name)
+	_armor = null
+	_refresh_equipment()
+
+## Short role label for a wielded item, driven by its declared archetype.
+func _archetype_label(arch: String) -> String:
+	match arch:
+		"swing", "thrust", "grind": return "MELEE"
+		"lob", "return": return "THROW"
+		"scatter": return "CALTROPS"
+		"pour": return "POUR"
+		"projectile", "beam": return "SHOOT"
+		"spray": return "SPRAY"
+		"self": return "USE"
+		"field": return "AURA"
+		"trap": return "TRAP"
+		"turret": return "TURRET"
+		"decoy": return "LURE"
+		_: return "HELD"   # inert
 
 func _starter_gadget() -> Gadget:
 	var g := Gadget.new()
@@ -325,6 +405,7 @@ func _start_wave() -> void:
 	_wave += 1
 	_phase = Phase.WAVE
 	_to_spawn = 5 + _wave * 3
+	_wave_total = _to_spawn
 	_spawn_timer = 0.0
 	_glitch_pulse(0.22)
 	_log("WAVE %d. They're coming. (%d incoming)" % [_wave, _to_spawn])
@@ -368,6 +449,7 @@ func _process(delta: float) -> void:
 		if _muzzle["life"] <= 0.0:
 			_muzzle = {}
 	_update_juice(delta)
+	_update_atmosphere(delta)
 
 	if _phase == Phase.GAME_OVER:
 		if Input.is_key_pressed(KEY_R):
@@ -389,6 +471,8 @@ func _process(delta: float) -> void:
 	_handle_input(delta)
 	_update_loot(delta)
 	_update_projectiles(delta)
+	_update_dropped_boomerangs(delta)
+	_update_zones(delta)
 
 	if _phase == Phase.BUILD:
 		_update_build(delta)
@@ -413,7 +497,7 @@ func _handle_input(delta: float) -> void:
 		_aim = (mouse - _player).normalized()
 		var held := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 		var want := _lmb_edge if (_equipped != null and _equipped.semi) else held
-		if want and _fire_timer <= 0.0:
+		if want and _fire_timer <= 0.0 and not _hand_hold:
 			_fire()  # sets its own cooldown per delivery
 	_lmb_edge = false  # consume the click edge each frame
 
@@ -564,7 +648,10 @@ func _fire() -> void:
 	var round_prof: Dictionary = {}
 	if _equipped.uses_ammo:
 		if _equipped.ammo_count() <= 0:
-			_log("%s — out of ammo. Load junk into it at the bench." % _equipped.display_name)
+			if _equipped.delivery == Gadget.Delivery.RETURN:
+				_log("%s is still out there — catch it or go pick it up." % _equipped.display_name)
+			else:
+				_log("%s — out of ammo. Load junk into it at the bench." % _equipped.display_name)
 			_fire_timer = 0.4
 			return
 		round_prof = _equipped.next_round()
@@ -583,6 +670,10 @@ func _fire() -> void:
 			_fire_beam(_equipped); _fire_timer = 0.08
 		Gadget.Delivery.RETURN:
 			_fire_return(_equipped); _fire_timer = 0.45
+		Gadget.Delivery.CALTROPS:
+			_throw_ground(_equipped, "caltrops"); _fire_timer = 0.5
+		Gadget.Delivery.PUDDLE:
+			_throw_ground(_equipped, "puddle"); _fire_timer = 0.5
 		Gadget.Delivery.SELF:
 			_use_self(_equipped); _fire_timer = 0.5
 		Gadget.Delivery.TURRET:
@@ -709,6 +800,13 @@ func _fire_beam(g: Gadget) -> void:
 			if float(o["freeze"]) > 0.0: z["freeze"] = maxf(float(z.get("freeze", 0.0)), float(o["freeze"]))
 	_beam_anim = {"a": _player, "b": endp, "life": 0.09, "col": g.color}
 
+func _draw_boomerang(pos: Vector2, angle: float, col: Color, s := 1.0) -> void:
+	var arm := 11.0 * s
+	var a := pos + Vector2(cos(angle), sin(angle)) * arm
+	var b := pos + Vector2(cos(angle + 2.1), sin(angle + 2.1)) * arm
+	draw_line(a, pos, col, 3.0)
+	draw_line(pos, b, col, 3.0)
+
 func _point_seg_dist(p: Vector2, a: Vector2, b: Vector2) -> float:
 	var ab := b - a
 	var denom := ab.length_squared()
@@ -722,8 +820,12 @@ func _fire_return(g: Gadget) -> void:
 	p["return"] = true
 	p["returning"] = false
 	p["origin"] = _player
-	p["pierce"] = 99     # passes through everything, and re-hits on the way back
-	p["life"] = 3.0
+	p["target"] = _player                                 # set for real at the apex (where you stood then)
+	p["gadget"] = g                                       # to refund the throw on catch / pickup
+	p["pierce"] = 99                                      # cuts through the crowd, both ways
+	p["perp"] = Vector2(-_aim.y, _aim.x) * (1.0 if randf() > 0.5 else -1.0)  # which way it bows
+	p["spin"] = 0.0
+	p["life"] = 4.0                                       # if never caught, it drops to the floor
 	_projectiles.append(p)
 
 func _use_self(g: Gadget) -> void:
@@ -785,15 +887,25 @@ func _update_projectiles(delta: float) -> void:
 				p["vel"] = hv.lerp((t - p["pos"]).normalized() * hv.length(), 0.14)
 		if p.get("return", false):
 			var rpos: Vector2 = p["pos"]
+			var v: Vector2 = p["vel"]
+			var perp: Vector2 = p["perp"]
 			if not p["returning"]:
-				if (rpos - (p["origin"] as Vector2)).length() > 280.0:
+				v = v * maxf(0.0, 1.0 - 1.7 * delta)              # decelerate toward the apex
+				v += perp * BOOMERANG_CURVE * delta               # narrow sideways bow on the way out
+				if (rpos - (p["origin"] as Vector2)).length() > BOOMERANG_RANGE or v.length() < 140.0:
 					p["returning"] = true
-					p["hits"].clear()   # let it cut the crowd again on the way back
+					p["target"] = _player                         # where you stood at the apex — it comes back to HERE
+					p["hits"].clear()                             # let it cut the crowd again coming back
 			else:
-				var rv: Vector2 = p["vel"]
-				p["vel"] = rv.lerp((_player - rpos).normalized() * rv.length(), 0.2)
-				if rpos.distance_to(_player) < 22.0:
-					continue  # caught it
+				var tgt: Vector2 = p["target"]
+				v = v.lerp((tgt - rpos).normalized() * BOOMERANG_SPEED, 0.12)  # curve back to that spot
+				v += perp * BOOMERANG_CURVE * 0.4 * delta
+				if rpos.distance_to(_player) < 26.0:
+					_catch_boomerang(p); continue                 # you were there to catch it → refund
+				elif rpos.distance_to(tgt) < 22.0:
+					_drop_boomerang(p); continue                  # you'd moved on → it lands where you were
+			p["vel"] = v
+			p["spin"] = float(p.get("spin", 0.0)) + delta * 22.0
 		if float(p["drag"]) > 0.0:                       # feather rounds: fast, then float to a stop
 			p["vel"] = (p["vel"] as Vector2) * maxf(0.0, 1.0 - float(p["drag"]) * delta)
 		p["pos"] += p["vel"] * delta
@@ -814,7 +926,7 @@ func _update_projectiles(delta: float) -> void:
 			if b:
 				p["vel"] = v; p["pos"] = pos; p["bounce"] = int(p["bounce"]) - 1
 		elif _out_of_play(p["pos"]) and not p.get("return", false):
-			if p["lobbed"]: _explode_at(p["pos"], p["onhit"])
+			if p["lobbed"]: _lob_land(p)
 			continue
 		var spent := false
 		for z in _zombies:
@@ -822,7 +934,7 @@ func _update_projectiles(delta: float) -> void:
 				continue
 			if (p["pos"] as Vector2).distance_to(z["pos"]) < 15.0:
 				if p["lobbed"]:
-					_explode_at(p["pos"], p["onhit"]); spent = true; break
+					_lob_land(p); spent = true; break
 				_apply_proj_hit(p, z)
 				p["hits"].append(z)
 				if int(p["pierce"]) <= 0:
@@ -831,10 +943,102 @@ func _update_projectiles(delta: float) -> void:
 		if spent:
 			continue
 		if p["life"] <= 0.0:
-			if p["lobbed"]: _explode_at(p["pos"], p["onhit"])
+			if p["lobbed"]: _lob_land(p)
+			elif p.get("return", false): _drop_boomerang(p)   # never caught → it falls to the floor
 			continue
 		live.append(p)
 	_projectiles = live
+
+func _catch_boomerang(p: Dictionary) -> void:
+	var g = p.get("gadget", null)
+	if g != null and g is Gadget:
+		(g as Gadget).fill_plain()   # ammo 0/1 -> 1/1
+	_burst(_player, Color(0.8, 0.9, 1.0), 6, 120.0)
+
+func _drop_boomerang(p: Dictionary) -> void:
+	_dropped_boomerangs.append({"pos": p["pos"], "gadget": p.get("gadget", null), "spin": 0.0})
+
+# walk over a grounded boomerang to retrieve it — refunds the throw (0/1 -> 1/1)
+func _update_dropped_boomerangs(delta: float) -> void:
+	if _dropped_boomerangs.is_empty():
+		return
+	var live: Array[Dictionary] = []
+	for d in _dropped_boomerangs:
+		d["spin"] = float(d.get("spin", 0.0)) + delta * 5.0
+		if _player.distance_to(d["pos"]) < 30.0:
+			var g = d.get("gadget", null)
+			if g != null and g is Gadget: (g as Gadget).fill_plain()
+			_burst(d["pos"], Color(0.8, 0.9, 1.0), 6, 120.0)
+			_log("Retrieved %s." % ((g as Gadget).display_name if g is Gadget else "boomerang"))
+			continue
+		live.append(d)
+	_dropped_boomerangs = live
+
+# --- ground hazards: caltrops (scatter) + puddles (pour) ----------------------
+# Thrown short; on landing they drop a persistent zone that afflicts anything on it.
+
+func _throw_ground(g: Gadget, kind: String) -> void:
+	var p := _make_proj(_aim, g, true, false, {})   # arcs out like a lobbed throw, then lands
+	p["life"] = 0.42                                  # short toss, not a long-range shot
+	p["zone"] = {
+		"kind": kind,
+		"radius": 74.0 if kind == "caltrops" else 66.0,
+		"dmg": g.amount_of(Gadget.DAMAGE),
+		"slow": g.get_effect(Gadget.SLOW).get("duration", 0.0),
+		"burn_amt": g.get_effect(Gadget.BURN).get("amount", 0.0),
+		"burn_dur": g.get_effect(Gadget.BURN).get("duration", 0.0),
+		"snare": g.get_effect(Gadget.SNARE).get("duration", 0.0),
+		"life": 9.0 if kind == "caltrops" else 6.0,
+		"color": g.color,
+	}
+	_projectiles.append(p)
+
+# a lobbed projectile reached the ground — drop its zone, or detonate (old behavior)
+func _lob_land(p: Dictionary) -> void:
+	if p.has("zone"):
+		_drop_zone(p["pos"], p["zone"])
+	else:
+		_explode_at(p["pos"], p["onhit"])
+
+func _drop_zone(pos: Vector2, spec: Dictionary) -> void:
+	var z := spec.duplicate()
+	z["pos"] = pos
+	z["life0"] = float(z["life"])
+	z["tick"] = 0.0
+	_zones.append(z)
+	if String(z["kind"]) == "caltrops":
+		_burst(pos, Color(0.72, 0.72, 0.78), 12, 200.0)   # nails scatter out
+	else:
+		_ring(pos, z["color"], float(z["radius"]), 3.0, 0.35)   # a spreading puddle
+
+func _update_zones(delta: float) -> void:
+	if _zones.is_empty():
+		return
+	var live: Array[Dictionary] = []
+	for z in _zones:
+		z["life"] = float(z["life"]) - delta
+		z["tick"] = float(z["tick"]) - delta
+		var do_dmg := float(z["tick"]) <= 0.0
+		if do_dmg:
+			z["tick"] = 0.35   # damage/burn tick interval
+		var r: float = float(z["radius"])
+		for zo in _zombies:
+			if zo.get("dead", false):
+				continue
+			if (zo["pos"] as Vector2).distance_to(z["pos"]) >= r:
+				continue
+			if float(z["slow"]) > 0.0:
+				zo["slow"] = maxf(float(zo.get("slow", 0.0)), 0.5)   # stays slowed while on it
+			if float(z["snare"]) > 0.0:
+				zo["snare"] = maxf(float(zo.get("snare", 0.0)), 0.4)
+			if do_dmg:
+				if float(z["dmg"]) > 0.0:
+					_apply_damage(zo, float(z["dmg"]), z["pos"])
+				if float(z["burn_amt"]) > 0.0:
+					zo["burn"] = float(z["burn_amt"]); zo["burn_t"] = float(z["burn_dur"])
+		if float(z["life"]) > 0.0:
+			live.append(z)
+	_zones = live
 
 func _apply_proj_hit(p: Dictionary, z: Dictionary) -> void:
 	var o: Dictionary = p["onhit"]
@@ -1071,6 +1275,40 @@ func _update_juice(delta: float) -> void:
 			fl.append(f)
 	_flashes = fl
 
+# Day during BUILD; night falls as the WAVE is ground down (darkest as it's cleared),
+# then dawn eases back in. Darkness = flashlight + fog gimmick, now paced, not constant.
+func _update_atmosphere(delta: float) -> void:
+	var target := _dark
+	match _phase:
+		Phase.BUILD:
+			target = 0.0
+		Phase.WAVE:
+			var remaining := float(_to_spawn + _zombies.size())
+			var total := maxf(1.0, float(_wave_total))
+			var progress := clampf(1.0 - remaining / total, 0.0, 1.0)
+			# dusk at the first kill, full dark by ~35% cleared, then HOLD — so the
+			# darkest, tensest stretch is fought with most of the horde still alive.
+			target = clampf(0.15 + progress * 2.4, 0.0, 1.0)
+		Phase.GAME_OVER:
+			target = _dark   # hold wherever the night was when you died
+	_dark = lerpf(_dark, target, clampf(delta * 0.7, 0.0, 1.0))   # slow ease = real dusk/dawn
+	_apply_darkness()
+
+func _apply_darkness() -> void:
+	const DAY := Color(0.98, 0.98, 1.0)
+	const NIGHT := Color(0.12, 0.13, 0.18)
+	var lit := _dark > 0.02   # daylight kills the flashlight/glow entirely (no washed-out day)
+	if _cm != null:
+		_cm.color = DAY.lerp(NIGHT, _dark)
+	if _flashlight != null:
+		_flashlight.energy = 1.6 * _dark
+		_flashlight.visible = lit
+	if _player_glow != null:
+		_player_glow.energy = 0.7 * _dark
+		_player_glow.visible = lit
+	if _fog_mat != null:
+		_fog_mat.set_shader_parameter("density", 0.16 * _dark)
+
 func _dmg_num(pos: Vector2, text: String, col: Color) -> void:
 	_dmg_nums.append({"pos": pos + Vector2(0, -16), "text": text, "life": 0.7, "col": col})
 
@@ -1149,6 +1387,24 @@ func _draw() -> void:
 
 	# (loot now renders as Pickup nodes in _pickups_root)
 
+	# ground hazards — caltrops / puddles, drawn low under the entities
+	for gz in _zones:
+		var zr: float = float(gz["radius"])
+		var za: float = clampf(float(gz["life"]) / float(gz["life0"]), 0.0, 1.0)
+		if String(gz["kind"]) == "puddle":
+			var pc: Color = gz["color"]; pc.a = 0.28 * za
+			draw_circle(gz["pos"], zr, pc)
+			var rim: Color = gz["color"]; rim.a = 0.5 * za
+			draw_arc(gz["pos"], zr, 0.0, TAU, 24, rim, 1.5)
+		else:   # caltrops — a stable scatter of little spikes (phyllotaxis, no per-frame jitter)
+			var cc := Color(0.78, 0.78, 0.82, 0.9 * za)
+			for i in range(16):
+				var ang := float(i) * 2.399963
+				var rad := zr * sqrt(float(i) / 16.0)
+				var pt: Vector2 = (gz["pos"] as Vector2) + Vector2(cos(ang), sin(ang)) * rad
+				draw_line(pt - Vector2(3, 0), pt + Vector2(3, 0), cc, 1.5)
+				draw_line(pt - Vector2(0, 3), pt + Vector2(0, 3), cc, 1.5)
+
 	# zombies — sprite, rotated to face the player, tinted by status
 	for z in _zombies:
 		var tint := Color(1, 1, 1)
@@ -1190,7 +1446,15 @@ func _draw() -> void:
 			var ta := (float(i) + 1.0) / float(tr.size() + 1)
 			var tc: Color = p["color"]; tc.a = ta * 0.45
 			draw_circle(tr[i], pr * ta * 0.85, tc)
-		draw_circle(p["pos"], pr, p["color"])
+		if p.get("return", false):
+			_draw_boomerang(p["pos"], float(p.get("spin", 0.0)), p["color"], 1.0)
+		else:
+			draw_circle(p["pos"], pr, p["color"])
+
+	# boomerangs resting on the floor (walk over to retrieve)
+	for d in _dropped_boomerangs:
+		draw_arc(d["pos"], 16.0, 0.0, TAU, 20, Color(0.6, 0.8, 1.0, 0.30), 1.5)
+		_draw_boomerang(d["pos"], float(d.get("spin", 0.0)), Color(0.85, 0.9, 1.0), 0.9)
 
 	# melee swing
 	if not _melee_anim.is_empty():
@@ -1292,8 +1556,11 @@ func _draw_hud(ci: CanvasItem) -> void:
 	_hud_panel(ci, Rect2(bx - 8, top - 10, 320, 96), accent)
 	if _equipped != null:
 		_text_on(ci, Vector2(bx, top + 8), _equipped.display_name, accent, 16)
-		_text_on(ci, Vector2(bx + 250, top + 8), "%d/%d" % [_equipped_idx + 1, _arsenal.size()], dim, 12)
-		if _equipped.uses_ammo:
+		var slot_txt := "WIELD" if _equipped_idx < 0 else "%d/%d" % [_equipped_idx + 1, _arsenal.size()]
+		_text_on(ci, Vector2(bx + 250, top + 8), slot_txt, dim, 12)
+		if _hand_hold:
+			_text_on(ci, Vector2(bx, top + 28), "HELD — not a weapon", dim, 12)
+		elif _equipped.uses_ammo:
 			var cnt := _equipped.ammo_count()
 			var ac := dim if cnt > 0 else Color(0.9, 0.4, 0.4)
 			var s := "AMMO %d / %d" % [cnt, _equipped.ammo_max]
@@ -1396,7 +1663,19 @@ func _build_ui() -> void:
 	_title(root, "WORKBENCH")
 	_caption(root, "assemble junk into gear  ·  TAB to close")
 
-	_caption(root, "INVENTORY  (click to add to a bench slot)")
+	_caption(root, "EQUIPMENT")
+	var handrow := HBoxContainer.new(); root.add_child(handrow)
+	_hand_label = Label.new(); _hand_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	handrow.add_child(_hand_label)
+	var hunb := Button.new(); hunb.text = " stow "; hunb.tooltip_text = "unequip — back to the starter weapon"
+	hunb.pressed.connect(_unequip_hand); handrow.add_child(hunb)
+	var armrow := HBoxContainer.new(); root.add_child(armrow)
+	_armor_label = Label.new(); _armor_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	armrow.add_child(_armor_label)
+	var aunb := Button.new(); aunb.text = " remove "; aunb.tooltip_text = "unequip armor"
+	aunb.pressed.connect(_unequip_armor); armrow.add_child(aunb)
+
+	_caption(root, "INVENTORY  (name → bench slot · EQUIP → wield it)")
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(0, 220)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -1474,6 +1753,8 @@ func _refresh_inventory_ui() -> void:
 		if count <= 0:
 			continue
 		var it: Item = _db[id]
+		var cell := HBoxContainer.new()
+		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var b := Button.new()
 		b.text = "%s x%d" % [it.display_name, count]
 		b.tooltip_text = "tags: %s" % ", ".join(it.tags)
@@ -1489,7 +1770,14 @@ func _refresh_inventory_ui() -> void:
 			b.add_theme_color_override("icon_hover_color", Color(1, 1, 1))
 			b.custom_minimum_size = Vector2(0, 40)
 		b.pressed.connect(_on_item_pressed.bind(id))
-		_grid.add_child(b)
+		cell.add_child(b)
+		var eq := Button.new()
+		eq.text = _preview_role(id)   # WEAPON / THROW / HELD / ARMOR
+		eq.tooltip_text = "wield %s in the HAND slot" % it.display_name
+		eq.add_theme_font_size_override("font_size", 11)
+		eq.pressed.connect(_wield_item.bind(id))
+		cell.add_child(eq)
+		_grid.add_child(cell)
 	if _grid.get_child_count() == 0:
 		var l := Label.new(); l.text = "(empty — go scavenge)"
 		l.add_theme_color_override("font_color", Color(0.5, 0.5, 0.55))
@@ -1590,11 +1878,13 @@ func _finalize_ai_gadget(g: Gadget) -> void:
 		g.semi = false
 	g.uses_ammo = g.delivery in [Gadget.Delivery.PROJECTILE, Gadget.Delivery.LOBBED,
 		Gadget.Delivery.PLACED, Gadget.Delivery.CONE, Gadget.Delivery.SELF,
-		Gadget.Delivery.TURRET, Gadget.Delivery.DECOY]
+		Gadget.Delivery.TURRET, Gadget.Delivery.DECOY, Gadget.Delivery.RETURN]
 	if g.uses_ammo:
 		var pwr: float = maxf(g.amount_of(Gadget.DAMAGE), g.amount_of(Gadget.EXPLODE))
 		pwr = maxf(pwr, 4.0)
 		match g.delivery:
+			Gadget.Delivery.RETURN:
+				g.ammo_max = 1
 			Gadget.Delivery.SELF, Gadget.Delivery.TURRET, Gadget.Delivery.DECOY:
 				g.ammo_max = 3
 			Gadget.Delivery.LOBBED, Gadget.Delivery.PLACED:
@@ -1624,6 +1914,8 @@ func _on_combine() -> void:
 func _on_modify() -> void:
 	if _equipped == null:
 		_log("Nothing equipped to modify."); return
+	if _equipped_idx < 0:
+		_log("You're wielding a raw item — build or select a crafted weapon to modify."); return
 	if _pot.is_empty():
 		_log("Put some junk on the bench to modify with."); return
 	var names: Array[String] = []
@@ -1706,6 +1998,23 @@ func _refresh_equipped() -> void:
 		_equipped_label.text = "(nothing)"; return
 	_equipped_label.text = "[b]%s[/b]  [%s]\n[color=#9aa]%s[/color]\n[color=#778]%s[/color]" % [
 		_equipped.display_name, _equipped.category_name(), _equipped.description, _equipped.summary()]
+
+func _refresh_equipment() -> void:
+	if _hand_label != null:
+		if _equipped == null:
+			_hand_label.text = "HAND:  (empty)"
+		elif _hand_item != null:
+			_hand_label.text = "HAND:  %s  [%s]" % [_hand_item.display_name, _archetype_label(_hand_item.archetype)]
+		else:
+			_hand_label.text = "HAND:  %s  [%s]" % [_equipped.display_name, _equipped.category_name()]
+	if _armor_label != null:
+		_armor_label.text = "ARMOR: %s" % (_armor.display_name if _armor != null else "(empty)")
+
+## Short role label for the inventory EQUIP button — the item's standalone archetype.
+func _preview_role(id: String) -> String:
+	var it: Item = _db[id]
+	if it.is_armor(): return "ARMOR"
+	return _archetype_label(it.archetype)
 
 func _log(s: String) -> void:
 	_log_lines.append(s)
