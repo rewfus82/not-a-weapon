@@ -36,6 +36,7 @@ var ammo_max := 0
 var mag: Array[Dictionary] = []  # magazine: stack of {name, profile, color, count}; fires the top (last loaded) first
 var harmless := false
 var color := Color(0.7, 0.7, 0.7)
+var native_ammo := ""   # the ammo id this gun "wants" (asleep, only this loads; lucid, anything fits)
 
 func add(kind: String, amount := 0.0, duration := 0.0, radius := 0.0, count := 0) -> void:
 	effects.append({"kind": kind, "amount": amount, "duration": duration, "radius": radius, "count": count})

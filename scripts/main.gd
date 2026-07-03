@@ -33,7 +33,9 @@ const SLOT_NAMES := ["DELIVERY", "DAMAGE", "UTILITY", "MODIFIER"]  # bench posit
 var _http: HTTPRequest
 var _ai_busy := false
 var _ai_pending: Array[String] = []
-var _awakening := 1.0   # 0..1 lucidity/insight; 1.0 = full "try anything" for testing
+var _awakening := 0.15  # 0..1 lucidity. Starts ASLEEP; rises as you wake up (debug: [ / ])
+const LUCID_UNIVERSAL := 0.34   # T1: "all bullets fit all guns" — any ammo loads any gun
+const LUCID_JUNK := 0.67        # T2: "reload with anything" — junk-as-ammo unlocks
 
 var _db: Dictionary
 var _phase: int = Phase.BUILD
@@ -302,8 +304,10 @@ func _restart() -> void:
 	_equipped_idx = 0
 	_equipped = _arsenal[0]
 	_hand_item = null; _hand_hold = false; _armor = null; _item_gadgets.clear()
-	_inv = {"duct_tape": 1, "road_flare": 1, "brick": 1, "nails": 1,
-			"motor_oil": 1, "mason_jar": 1, "first_aid": 1, "energy_drink": 1}
+	# a handful of bullets to start (the thing you scavenge for), a stray ammo type to
+	# reveal universal-ammo once lucid, and some junk for junk-as-ammo later.
+	_inv = {"bullets": 2, "arrows": 1, "duct_tape": 1, "road_flare": 1,
+			"brick": 1, "nails": 1, "motor_oil": 1, "first_aid": 1}
 	_log("You wake up. Something is very wrong. (WASD move, mouse aim, click to fire.)")
 	_start_build()
 	if _debug: _grant_all()
@@ -390,6 +394,7 @@ func _starter_gadget() -> Gadget:
 	g.projectile_speed = 720.0
 	g.uses_ammo = true
 	g.ammo_max = 14
+	g.native_ammo = "bullets"
 	g.color = Color(0.85, 0.82, 0.5)
 	g.fill_plain()
 	return g
@@ -520,8 +525,17 @@ func _input(event: InputEvent) -> void:
 		elif event.keycode == KEY_SPACE and _phase != Phase.GAME_OVER:
 			_paused = not _paused
 			_log("[ PAUSED ]" if _paused else "[ unpaused ]")
+		elif event.keycode == KEY_R and _phase != Phase.GAME_OVER:
+			_reload()
+		elif event.keycode == KEY_BRACKETRIGHT:
+			_awakening = clampf(_awakening + 0.2, 0.0, 1.0)
+			_log("[lucidity] %.2f — %s" % [_awakening, _lucid_tier()])
+		elif event.keycode == KEY_BRACKETLEFT:
+			_awakening = clampf(_awakening - 0.2, 0.0, 1.0)
+			_log("[lucidity] %.2f — %s" % [_awakening, _lucid_tier()])
 		elif event.keycode == KEY_F1:
 			_debug = not _debug
+			_awakening = 1.0 if _debug else 0.15   # debug = fully lucid; normal starts asleep
 			_log("[MODE] %s" % ("DEBUG — all items stocked (G top-up · T specials)" if _debug else "NORMAL — scavenge for your items"))
 			_restart()
 		elif _debug and event.keycode == KEY_G:
@@ -1538,14 +1552,16 @@ func _draw_hud(ci: CanvasItem) -> void:
 
 	# --- top-left: mode badge + phase/wave status ---
 	var mode_col := Color(0.95, 0.6, 0.3) if _debug else accent
+	var lucid_col := Color(0.55, 0.6, 0.7) if _awakening < LUCID_UNIVERSAL else (Color(0.7, 0.8, 0.5) if _awakening < LUCID_JUNK else Color(0.6, 0.9, 1.0))
 	_text_on(ci, Vector2(MARGIN + 6, MARGIN + 16), ("[ DEBUG ]" if _debug else "[ NORMAL ]") + "  F1", mode_col, 13)
+	_text_on(ci, Vector2(MARGIN + 130, MARGIN + 16), "lucidity: %s" % _lucid_tier(), lucid_col, 13)
 	var status := ""
 	match _phase:
 		Phase.BUILD:    status = "BUILD  /  wave in %ds" % int(ceil(_phase_timer))
 		Phase.WAVE:     status = "WAVE %d  /  %d left" % [_wave, _zombies.size() + _to_spawn]
 		Phase.GAME_OVER: status = "TERMINATED  /  wave %d  /  press R" % _wave
 	_text_on(ci, Vector2(MARGIN + 6, MARGIN + 44), status, Color(0.9, 0.94, 0.96), 24)
-	var hint := "TAB workbench"
+	var hint := "TAB workbench   ·   R reload"
 	if _phase == Phase.BUILD:
 		hint += "   ·   SPACE start wave"
 	_text_on(ci, Vector2(MARGIN + 6, MARGIN + 66), hint, dim, 12)
@@ -1970,6 +1986,64 @@ func _ammo_value(it: Item) -> int:
 		v += 4
 	return v
 
+# --- field RELOAD (R) — the lucidity ladder, T1 (universal ammo) + T2 (junk-as-ammo) ---
+
+func _lucid_tier() -> String:
+	if _awakening >= LUCID_JUNK: return "LUCID"
+	if _awakening >= LUCID_UNIVERSAL: return "STIRRING"
+	return "ASLEEP"
+
+func _reload() -> void:
+	if _equipped == null or not _equipped.uses_ammo:
+		_log("Nothing here takes ammo."); return
+	if _equipped.ammo_count() >= _equipped.ammo_max:
+		_log("%s is already full." % _equipped.display_name); return
+	var id := _pick_reload_item()
+	if id == "":
+		_log(_reload_fail_msg()); return
+	var it: Item = _db[id]
+	var prof := Resolver.ammo_profile([it])
+	var loaded := _equipped.load_rounds(prof["name"], prof, prof["color"], _ammo_value(it))
+	if loaded <= 0:
+		_log("%s is already full." % _equipped.display_name); return
+	_inv[id] = int(_inv[id]) - 1
+	if _inv[id] <= 0: _inv.erase(id)
+	var flavor := ""
+	if it.category == Item.JUNK: flavor = "  — you jam it in. It fits. It shouldn't."
+	elif _equipped.native_ammo != "" and id != _equipped.native_ammo: flavor = "  — wrong caliber. Doesn't matter anymore."
+	_log("Reloaded [b]%s[/b] with %s (+%d → %d/%d)%s" % [_equipped.display_name, it.display_name, loaded, _equipped.ammo_count(), _equipped.ammo_max, flavor])
+	_refresh_inventory_ui()
+
+## Pick what to load, gated by lucidity. Native ammo always preferred when present.
+func _pick_reload_item() -> String:
+	var native := _equipped.native_ammo
+	if native != "" and int(_inv.get(native, 0)) > 0:
+		return native
+	if _awakening < LUCID_UNIVERSAL:
+		return ""   # ASLEEP: only the gun's own ammo works
+	var ammo: Array[String] = []
+	var junk: Array[String] = []
+	for id in _inv:
+		if int(_inv[id]) <= 0:
+			continue
+		var cat := (_db[id] as Item).category
+		if cat == Item.AMMO: ammo.append(id)
+		elif cat == Item.JUNK: junk.append(id)
+	if not ammo.is_empty():
+		return ammo[0]                                   # T1: any ammo fits any gun
+	if _awakening >= LUCID_JUNK and not junk.is_empty():
+		return junk[0]                                   # T2: junk-as-ammo
+	return ""
+
+func _reload_fail_msg() -> String:
+	var native := _equipped.native_ammo if _equipped != null else ""
+	var nm: String = (_db[native] as Item).display_name if native != "" and _db.has(native) else "ammo"
+	if _awakening < LUCID_UNIVERSAL:
+		return "Out of %s. (Other things might fit… if you were thinking clearly.)" % nm
+	if _awakening < LUCID_JUNK:
+		return "No ammo left. (Junk won't chamber… yet.)"
+	return "Nothing left to load — not even junk."
+
 func _refresh_pot() -> void:
 	if _pot.is_empty():
 		_pot_label.text = "(empty — click junk to fill slots)"; return
@@ -2014,6 +2088,7 @@ func _refresh_equipment() -> void:
 func _preview_role(id: String) -> String:
 	var it: Item = _db[id]
 	if it.is_armor(): return "ARMOR"
+	if it.category == Item.AMMO: return "AMMO"
 	return _archetype_label(it.archetype)
 
 func _log(s: String) -> void:
