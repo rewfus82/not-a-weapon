@@ -267,6 +267,16 @@ that the engine reads and the AI can tune — build it once, template it out. (A
 - How lucidity is *earned* (survival time? story beats? specific glitch triggers?).
 - Armor: slot system exists (hand + armor); armor items/effects TBD.
 
+## 11b. Backlog — deferred tweaks (not blocking; revisit when convenient)
+
+- **Ammo → shot damage/effects tuning pass.** Loaded ammo "works but the effects/damage
+  is off" (noted 2026-07-03). `Resolver.ammo_profile()` was built for the old junk-only
+  model and maps awkwardly onto "this is the actual round the gun fires now": light junk
+  (feathers) → `dmg_mult 0` = zero damage; base gun damage × profile can read weak/strong;
+  loaded ammo's effect (pierce/explode) should read clearly. Target: bullets punchy, arrows
+  pierce, rockets boom, junk weird-but-not-zero. Also decide what cross-loading ammo into an
+  *improvised* weapon (caltrops/puddle thrower) should do.
+
 ## 12. Roadmap / phased plan
 
 Systems first; art/iso conversion is its own later phase so it never blocks gameplay.
