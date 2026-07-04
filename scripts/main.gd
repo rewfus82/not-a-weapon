@@ -791,10 +791,17 @@ func _update_world(delta: float) -> void:
 		var step := vel * delta + (z["knock"] as Vector2) * delta
 		# per-axis wall collision — zombies slide along buildings instead of phasing through
 		var zr := 12.0
+		var pre := zpos
 		if not _solid_circle(Vector2(zpos.x + step.x, zpos.y), zr):
 			zpos.x += step.x
 		if not _solid_circle(Vector2(zpos.x, zpos.y + step.y), zr):
 			zpos.y += step.y
+		# stuck against a wall while hunting -> wall-follow toward a way around (door/corner)
+		if st != ZState.WANDER and vel.length() > 1.0 and (zpos - pre).length() < spd * delta * 0.5:
+			if not z.has("detour"): z["detour"] = 1.0 if randf() < 0.5 else -1.0
+			var tan := Vector2(-vel.y, vel.x).normalized() * float(z["detour"]) * spd * delta
+			if not _solid_circle(Vector2(zpos.x + tan.x, zpos.y), zr): zpos.x += tan.x
+			if not _solid_circle(Vector2(zpos.x, zpos.y + tan.y), zr): zpos.y += tan.y
 		z["pos"] = zpos
 		z["knock"] = z["knock"].lerp(Vector2.ZERO, 0.12)
 

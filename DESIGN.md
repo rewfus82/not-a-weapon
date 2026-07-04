@@ -253,13 +253,16 @@ scales to a county (bigger grid + streaming).
 player wall collision, camera-centered draw culling.
 
 **Still to build (Phase 3):**
-- **Zombies respect walls** + basic pathing around buildings (they still phase through).
+- **Zombies respect walls — DONE.** Per-axis collision: they stack on the outer walls
+  and only breach through the door (verified). Blocked chasers now wall-follow around a
+  building instead of dead-sticking; full nav/pathing (A*) deferred to entity-scaling.
 - **Interiors** — enter buildings through doors; loot and workbenches inside; interiors
   dark and can hide the horde (roof-fade / reveal-on-enter TBD).
 - **Entity scaling** — simulate only what's near the player (active radius) + pooling, so
   the town can grow toward a county without dying.
-- **Density & texture** — more building types, props (trees, cars, fences, poles),
-  lot/grass variation, doors that face the road; the town currently reads sparse.
+- **Density & texture** — DONE: denser building lattice + dirt/weed ground patches, and
+  item icons via alias map. Remaining: more building types, solid props (trees, cars,
+  fences, poles), doors that face the road (today always the south wall).
 - **Workbench placement** in the world (the Tier-4 build is currently anywhere via TAB).
 
 ## 8. Presentation
