@@ -19,8 +19,23 @@ const ZOMBIE_LOSE := 3.0            # ~seconds of lost contact before a chaser g
 const NOISE_GUNSHOT := 430.0        # radius a loud shot alerts zombies
 
 const PANEL_W := 400.0        # (legacy; used only for build-overlay caption widths)
-const PLAY_W := 1600.0        # world is now the full screen — no reserved side panel
+const PLAY_W := 1600.0        # SCREEN/design size (HUD, workbench, screen overlays live here)
 const PLAY_H := 900.0
+# --- the world is a GRID of cells: a procgen town you explore. See _gen_town(). ---
+const TILE := 40.0
+const GW := 112              # grid width in cells
+const GH := 74               # grid height in cells
+const WORLD_W := GW * TILE   # 4480
+const WORLD_H := GH * TILE   # 2960
+# cell types (stored in _grid as bytes)
+const C_GRASS := 0
+const C_ROAD := 1
+const C_WALK := 2
+const C_WALL := 3            # solid — blocks movement
+const C_FLOOR := 4
+const C_DOOR := 5
+const C_CORN := 6
+const C_DIRT := 7
 const CAM_ZOOM := 1.3
 const MARGIN := 14.0
 const PLAYER_SPEED := 300.0
@@ -52,7 +67,7 @@ var _phase: int = Phase.ALIVE
 var _paused := false
 
 # --- player ------------------------------------------------------------------
-var _player := Vector2(PLAY_W * 0.5, PLAY_H * 0.5)
+var _player := Vector2(WORLD_W * 0.5, WORLD_H * 0.5)
 var _aim := Vector2.RIGHT
 var _hp := PLAYER_MAX_HP
 var _invuln := 0.0
@@ -79,6 +94,8 @@ var _item_gadgets: Dictionary = {}    # item_id -> resolved Gadget cache (stable
 var _zombies: Array[Dictionary] = []
 var _pickups_root: Node2D             # container node for Pickup entities (dropped loot)
 var _sites: Array[Dictionary] = []    # scavenge points: {rect, label, looted}
+var _cells: Array[PackedByteArray] = [] # the town cell grid [row][col] (cell types above)
+var _buildings: Array[Rect2] = []       # building footprints in world coords
 var _projectiles: Array[Dictionary] = []
 var _dropped_boomerangs: Array[Dictionary] = []   # boomerangs on the floor: {pos, gadget, spin}
 var _zones: Array[Dictionary] = []    # ground hazards (caltrops/puddles): {pos, radius, kind, dmg, slow, burn_amt, burn_dur, snare, life, life0, tick, color}
@@ -157,7 +174,7 @@ func _ready() -> void:
 	_tex_player = _tex(TDS + "Survivor 1/survivor1_gun.png")
 	_tex_zombie = _tex(TDS + "Zombie 1/zoimbie1_hold.png")
 	_tex_ground = _tex(TDS + "Tiles/tile_01.png")
-	_spawn_sites()
+	_gen_town()
 	_build_ui()
 	_pickups_root = Node2D.new()
 	add_child(_pickups_root)
@@ -174,8 +191,8 @@ func _ready() -> void:
 	_cam.position_smoothing_speed = 9.0
 	_cam.limit_left = 0
 	_cam.limit_top = 0
-	_cam.limit_right = int(PLAY_W)
-	_cam.limit_bottom = int(PLAY_H)
+	_cam.limit_right = int(WORLD_W)
+	_cam.limit_bottom = int(WORLD_H)
 	add_child(_cam)
 	_cam.make_current()
 	_restart()
@@ -293,19 +310,92 @@ func _blit(t: Texture2D, pos: Vector2, rot: float, target_h: float, mod := Color
 # LIFECYCLE
 # =============================================================================
 
-func _spawn_sites() -> void:
-	_sites = [
-		{"rect": Rect2(80, 70, 120, 80),   "label": "HOUSE",   "looted": false},
-		{"rect": Rect2(PLAY_W - 220, 70, 130, 70), "label": "CAR", "looted": false},
-		{"rect": Rect2(90, PLAY_H - 170, 110, 70), "label": "DUMPSTER", "looted": false},
-		{"rect": Rect2(PLAY_W - 210, PLAY_H - 160, 120, 70), "label": "CORPSE PILE", "looted": false},
-	]
+# --- procgen town: a grid of grass/roads/buildings/cornfields --------------------
+# Built once at startup; the real scalable world layer (a county is just a bigger grid).
+
+func _cell(x: int, y: int) -> int:
+	if x < 0 or y < 0 or x >= GW or y >= GH:
+		return C_WALL   # off-map reads as solid
+	return _cells[y][x]
+
+func _set_cell(x: int, y: int, c: int) -> void:
+	if x >= 0 and y >= 0 and x < GW and y < GH:
+		_cells[y][x] = c
+
+func _cell_color(c: int) -> Color:
+	match c:
+		C_ROAD:  return Color(0.11, 0.11, 0.13)
+		C_WALK:  return Color(0.26, 0.26, 0.28)
+		C_WALL:  return Color(0.34, 0.28, 0.25)
+		C_FLOOR: return Color(0.17, 0.16, 0.19)
+		C_DOOR:  return Color(0.42, 0.31, 0.18)
+		C_CORN:  return Color(0.30, 0.32, 0.14)
+		C_DIRT:  return Color(0.23, 0.19, 0.15)
+		_:       return Color(0.17, 0.21, 0.14)   # grass
+
+func _road_v(rx: int) -> void:
+	for y in range(3, GH - 3):
+		_set_cell(rx - 1, y, C_WALK); _set_cell(rx, y, C_ROAD)
+		_set_cell(rx + 1, y, C_ROAD); _set_cell(rx + 2, y, C_WALK)
+
+func _road_h(ry: int) -> void:
+	for x in range(3, GW - 3):
+		_set_cell(x, ry - 1, C_WALK); _set_cell(x, ry, C_ROAD)
+		_set_cell(x, ry + 1, C_ROAD); _set_cell(x, ry + 2, C_WALK)
+
+func _place_building(x: int, y: int, w: int, h: int) -> void:
+	if x < 5 or y < 5 or x + w >= GW - 5 or y + h >= GH - 5:
+		return
+	for yy in range(y - 1, y + h + 1):          # need a clear grass lot (no roads/buildings)
+		for xx in range(x - 1, x + w + 1):
+			var c := _cell(xx, yy)
+			if c != C_GRASS and c != C_DIRT:
+				return
+	for yy in range(y, y + h):
+		for xx in range(x, x + w):
+			var edge := xx == x or xx == x + w - 1 or yy == y or yy == y + h - 1
+			_set_cell(xx, yy, C_WALL if edge else C_FLOOR)
+	_set_cell(x + int(w / 2.0), y + h - 1, C_DOOR)   # a doorway on the south wall
+	_buildings.append(Rect2(x * TILE, y * TILE, w * TILE, h * TILE))
+
+func _gen_town() -> void:
+	_cells = []
+	for y in range(GH):
+		var row := PackedByteArray(); row.resize(GW); row.fill(C_GRASS)
+		_cells.append(row)
+	for y in range(GH):                          # cornfield ring around the town
+		for x in range(GW):
+			if x < 3 or x >= GW - 3 or y < 3 or y >= GH - 3:
+				_set_cell(x, y, C_CORN)
+	for rx in [int(GW * 0.25), int(GW * 0.5), int(GW * 0.75)]:
+		_road_v(rx)
+	for ry in [int(GH * 0.34), int(GH * 0.66)]:
+		_road_h(ry)
+	_buildings = []
+	for by in range(7, GH - 7, 11):              # buildings on a loose lattice
+		for bx in range(7, GW - 7, 14):
+			if randf() < 0.72:
+				_place_building(bx + randi_range(-1, 2), by + randi_range(-1, 2), randi_range(6, 11), randi_range(5, 8))
+	# scavenge sites = a scatter of the buildings, Midwest-flavored
+	var names := ["FARMHOUSE", "GAS STATION", "BARN", "TRAILER", "DINER", "CHURCH",
+		"FEED STORE", "GRAIN SILO", "POST OFFICE", "BIG-BOX HUSK", "MOTEL", "BAIT SHOP"]
+	_buildings.shuffle()
+	_sites = []
+	for i in range(mini(10, _buildings.size())):
+		_sites.append({"rect": _buildings[i].grow(-TILE), "label": names[i % names.size()], "looted": false})
+
+# is a circle of radius r at world pos p overlapping a solid wall cell?
+func _solid_circle(p: Vector2, r: float) -> bool:
+	for off in [Vector2(-r, -r), Vector2(r, -r), Vector2(-r, r), Vector2(r, r)]:
+		if _cell(int((p.x + off.x) / TILE), int((p.y + off.y) / TILE)) == C_WALL:
+			return true
+	return false
 
 func _restart() -> void:
 	_phase = Phase.ALIVE
 	_spawn_timer = 0.0
 	_hp = PLAYER_MAX_HP
-	_player = Vector2(PLAY_W * 0.5, PLAY_H * 0.5)
+	_player = Vector2(WORLD_W * 0.5, WORLD_H * 0.5)
 	_zombies.clear(); _projectiles.clear(); _dropped_boomerangs.clear(); _zones.clear()
 	_clear_pickups()
 	_dmg_nums.clear(); _particles.clear(); _pot.clear()
@@ -489,17 +579,21 @@ func _handle_input(delta: float) -> void:
 	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT): move.x -= 1.0
 	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT): move.x += 1.0
 	if move != Vector2.ZERO:
-		_player += move.normalized() * PLAYER_SPEED * _speed_mult * delta
-	_player.x = clampf(_player.x, MARGIN + PLAYER_RADIUS, PLAY_W - MARGIN - PLAYER_RADIUS)
-	_player.y = clampf(_player.y, MARGIN + PLAYER_RADIUS, PLAY_H - MARGIN - PLAYER_RADIUS)
+		var step := move.normalized() * PLAYER_SPEED * _speed_mult * delta
+		var r := float(PLAYER_RADIUS)
+		if not _solid_circle(Vector2(_player.x + step.x, _player.y), r):   # per-axis = slide on walls
+			_player.x += step.x
+		if not _solid_circle(Vector2(_player.x, _player.y + step.y), r):
+			_player.y += step.y
+	_player.x = clampf(_player.x, PLAYER_RADIUS, WORLD_W - PLAYER_RADIUS)
+	_player.y = clampf(_player.y, PLAYER_RADIUS, WORLD_H - PLAYER_RADIUS)
 
 	var mouse := get_global_mouse_position()
-	if mouse.x < PLAY_W:
-		_aim = (mouse - _player).normalized()
-		var held := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
-		var want := _lmb_edge if (_equipped != null and _equipped.semi) else held
-		if want and _fire_timer <= 0.0 and not _hand_hold:
-			_fire()  # sets its own cooldown per delivery
+	_aim = (mouse - _player).normalized()
+	var held := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	var want := _lmb_edge if (_equipped != null and _equipped.semi) else held
+	if want and _fire_timer <= 0.0 and not _hand_hold:
+		_fire()  # sets its own cooldown per delivery
 	_lmb_edge = false  # consume the click edge each frame
 
 	# switch weapons with the number keys
@@ -686,15 +780,11 @@ func _alert_zombies(pos: Vector2, radius: float, amount: float) -> void:
 			z["known"] = _player
 
 func _spawn_zombie() -> void:
-	var p := Vector2.ZERO
-	for _try in range(6):                                  # spawn at an edge, not on top of you
-		match randi() % 4:
-			0: p = Vector2(randf_range(MARGIN, PLAY_W - MARGIN), MARGIN + 6)
-			1: p = Vector2(randf_range(MARGIN, PLAY_W - MARGIN), PLAY_H - MARGIN - 6)
-			2: p = Vector2(MARGIN + 6, randf_range(MARGIN, PLAY_H - MARGIN))
-			_: p = Vector2(PLAY_W - MARGIN - 6, randf_range(MARGIN, PLAY_H - MARGIN))
-		if p.distance_to(_player) > 260.0:
-			break
+	# spawn in a ring just beyond view — they emerge from the dark around you, not at map edges
+	var ang := randf() * TAU
+	var p := _player + Vector2(cos(ang), sin(ang)) * randf_range(740.0, 1000.0)
+	p.x = clampf(p.x, MARGIN, WORLD_W - MARGIN)
+	p.y = clampf(p.y, MARGIN, WORLD_H - MARGIN)
 	var dc := float(_day_count - 1)                        # difficulty ramps with days survived
 	var hp := 18.0 + dc * 8.0
 	_zombies.append({
@@ -993,10 +1083,10 @@ func _update_projectiles(delta: float) -> void:
 			var pos: Vector2 = p["pos"]
 			var v: Vector2 = p["vel"]
 			var b := false
-			if pos.x < MARGIN or pos.x > PLAY_W - MARGIN:
-				v.x = -v.x; pos.x = clampf(pos.x, MARGIN, PLAY_W - MARGIN); b = true
-			if pos.y < MARGIN or pos.y > PLAY_H - MARGIN:
-				v.y = -v.y; pos.y = clampf(pos.y, MARGIN, PLAY_H - MARGIN); b = true
+			if pos.x < MARGIN or pos.x > WORLD_W - MARGIN:
+				v.x = -v.x; pos.x = clampf(pos.x, MARGIN, WORLD_W - MARGIN); b = true
+			if pos.y < MARGIN or pos.y > WORLD_H - MARGIN:
+				v.y = -v.y; pos.y = clampf(pos.y, MARGIN, WORLD_H - MARGIN); b = true
 			if b:
 				p["vel"] = v; p["pos"] = pos; p["bounce"] = int(p["bounce"]) - 1
 		elif _out_of_play(p["pos"]) and not p.get("return", false):
@@ -1440,7 +1530,7 @@ func _nearest_zombie(from: Vector2) -> Vector2:
 	return best
 
 func _out_of_play(p: Vector2) -> bool:
-	return p.x < 0.0 or p.x > PLAY_W or p.y < 0.0 or p.y > PLAY_H
+	return p.x < 0.0 or p.x > WORLD_W or p.y < 0.0 or p.y > WORLD_H
 
 # =============================================================================
 # DRAW
@@ -1451,18 +1541,22 @@ func _draw() -> void:
 	_shake_off = shake
 	draw_set_transform(shake, 0.0, Vector2.ONE)
 
-	draw_rect(Rect2(0, 0, PLAY_W, PLAY_H), Color(0.09, 0.10, 0.12))
-	if _tex_ground != null:
-		draw_texture_rect(_tex_ground, Rect2(0, 0, PLAY_W, PLAY_H), true, Color(0.5, 0.42, 0.3))   # muted dead olive-brown
-	else:
-		draw_rect(Rect2(MARGIN, MARGIN, PLAY_W - MARGIN * 2, PLAY_H - MARGIN * 2), Color(0.14, 0.15, 0.18))
+	# --- the town grid: draw only the cells in view (cheap even for a huge world) ---
+	var vh := Vector2(PLAY_W, PLAY_H) * (0.5 / CAM_ZOOM) + Vector2(TILE * 2.0, TILE * 2.0)
+	var x0 := maxi(0, int((_player.x - vh.x) / TILE))
+	var x1 := mini(GW, int((_player.x + vh.x) / TILE) + 1)
+	var y0 := maxi(0, int((_player.y - vh.y) / TILE))
+	var y1 := mini(GH, int((_player.y + vh.y) / TILE) + 1)
+	for cy in range(y0, y1):
+		var row := _cells[cy]
+		for cx in range(x0, x1):
+			draw_rect(Rect2(cx * TILE, cy * TILE, TILE, TILE), _cell_color(row[cx]))
 
-	# scavenge sites
+	# scavenge sites: a soft label over the building (only the name, the building draws itself)
 	for s in _sites:
 		var looted: bool = s["looted"]
-		draw_rect(s["rect"], Color(0.22, 0.24, 0.30) if not looted else Color(0.16, 0.16, 0.18))
 		var col := Color(0.6, 0.65, 0.7) if not looted else Color(0.35, 0.35, 0.4)
-		_text(s["rect"].position + Vector2(6, 18), s["label"], col, 13)
+		_text((s["rect"] as Rect2).position + Vector2(6, 18), s["label"], col, 12)
 
 	# (loot now renders as Pickup nodes in _pickups_root)
 
@@ -1587,21 +1681,8 @@ func _draw() -> void:
 		var nsz := int(13 + 9 * clampf(float(n["life"]) / 0.7, 0.0, 1.0))
 		_text(n["pos"], n["text"], nc, nsz)
 
-	# hurt vignette
-	if _hurt_flash > 0.0:
-		var hc := Color(0.8, 0.1, 0.1, _hurt_flash * 0.6)
-		draw_rect(Rect2(0, 0, PLAY_W, PLAY_H), hc)
-
-	# low-HP danger pulse
-	if _hp > 0.0 and _hp < PLAYER_MAX_HP * 0.3:
-		var pulse := 0.12 + 0.10 * sin(Time.get_ticks_msec() * 0.008)
-		draw_rect(Rect2(0, 0, PLAY_W, PLAY_H), Color(0.7, 0.05, 0.05, pulse))
-
-	# (HUD now renders on its own bright CanvasLayer via _hud_node, not here)
-
-	if _paused:
-		draw_rect(Rect2(0, 0, PLAY_W, PLAY_H), Color(0, 0, 0, 0.45))
-		_text(Vector2(PLAY_W * 0.5 - 90, PLAY_H * 0.5), "PAUSED  —  SPACE to resume", Color(1, 1, 1), 22)
+	# (full-screen overlays — hurt/danger/pause — now render on the HUD CanvasLayer in
+	#  _draw_hud, so they cover the viewport regardless of where the camera is in the world)
 
 func _hud_panel(ci: CanvasItem, r: Rect2, border: Color) -> void:
 	ci.draw_rect(r, Color(0.04, 0.06, 0.07, 0.86))
@@ -1614,6 +1695,16 @@ func _text_on(ci: CanvasItem, pos: Vector2, s: String, col: Color, size: int) ->
 func _draw_hud(ci: CanvasItem) -> void:
 	var accent := Color(0.35, 0.85, 0.78)
 	var dim := Color(0.55, 0.62, 0.64)
+
+	# full-screen overlays (screen space, so they cover the viewport at any camera pos)
+	if _hurt_flash > 0.0:
+		ci.draw_rect(Rect2(0, 0, PLAY_W, PLAY_H), Color(0.8, 0.1, 0.1, _hurt_flash * 0.6))
+	if _hp > 0.0 and _hp < PLAYER_MAX_HP * 0.3:
+		var pulse := 0.12 + 0.10 * sin(Time.get_ticks_msec() * 0.008)
+		ci.draw_rect(Rect2(0, 0, PLAY_W, PLAY_H), Color(0.7, 0.05, 0.05, pulse))
+	if _paused:
+		ci.draw_rect(Rect2(0, 0, PLAY_W, PLAY_H), Color(0, 0, 0, 0.45))
+		_text_on(ci, Vector2(PLAY_W * 0.5 - 90, PLAY_H * 0.5), "PAUSED  —  SPACE to resume", Color(1, 1, 1), 22)
 
 	# --- top-left: mode badge + phase/wave status ---
 	var mode_col := Color(0.95, 0.6, 0.3) if _debug else accent
