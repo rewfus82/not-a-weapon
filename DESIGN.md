@@ -14,13 +14,30 @@
 > add-ons, junk) and a **lucidity ladder** that ties story → mechanic. Art/assets are
 > a deliberately deferred conversation.
 
+> **MAJOR REVISION — 2026-07-04. Open-world pivot.** The endpoint expanded from a
+> run-based roguelite to an **open-world survival game** — Project Zomboid scale: a
+> county with a large town and a couple of hamlets — **starting with a single
+> procedurally-generated town.** The world is now a **code grid** (cells →
+> grass/road/sidewalk/wall/floor/door/cornfield; `_gen_town()` in `main.gd`) with real
+> collision, drawn as graybox tiles, **reusing every proven system** — this is the real
+> scalable world layer (a county is just a bigger grid + streaming). **Phases 0–2 are
+> DONE; Phase 3 (the world) is in progress** (procgen town + collision landed; interiors,
+> zombie-wall-collision, entity-scaling next). New dev workflow: a **capture harness**
+> (`tools/capture.ps1`) screenshots a frame + captures the console so the agent can
+> self-verify Godot changes instead of relying only on F5s. **The isometric decision
+> (§8) is REOPENED** — the top-down grid is proving a cheap, good fit for an open world;
+> iso for a county is a large art commitment we'd want to justify. Scope reality: this is
+> a much bigger, longer build than the roguelite — eyes open.
+
 ---
 
 ## 1. What this game is (one paragraph)
 
-An **isometric, atmospheric zombie-survival shooter** set in the decaying rural American
-Midwest. On the surface it plays straight: you have real guns, ammo, melee, and thrown
-weapons, and you survive a day/night cycle in a dark, lived-in world. Underneath, the
+An **open-world, atmospheric zombie-survival game** set in the decaying rural American
+Midwest — you explore a town (growing toward a whole county) and try to survive. On the
+surface it plays straight: you have real guns, ammo, melee, and thrown weapons, and you
+survive a **day/night cycle** in a dark, lived-in world where light and sound draw the
+horde. (Perspective is currently top-down; iso is reopened — see §8.) Underneath, the
 world is a **simulation** and you don't know it. As you survive, you slowly **wake up**
 (the *lucidity* progression), and the simulation's rules start to bend — first you notice
 any bullet fits any gun, then you can jam junk into a gun and it fires, then you can
@@ -216,17 +233,41 @@ Retire the wave system. The clock is a **day/night cycle**.
 The darkness system already built (ambient/flashlight/fog driven by one value) becomes
 the day/night clock, instead of tracking wave progress.
 
-## 7. Map — larger, exterior + interiors
+## 7. The world — open-world town → county (grid architecture)
 
-- Much **larger** than a single screen — a traversable world, camera follows the player.
-- **Exterior** Midwest environment **plus enterable building interiors** (shelter,
-  loot, workbenches, and tension: interiors are dark and can hide the horde).
-- Interior/exterior transitions, streaming, and layout are **to be fleshed out** (§11).
+**Endpoint:** an explorable open world — a Midwest **county** with a large town and a
+couple of hamlets, rural connective tissue, cornfields. **We start with one town** and
+grow outward; a county is the same architecture at larger scale.
+
+**Architecture (built, graybox):** the world is a **code grid** — a 2-D array of cell
+types (grass / road / sidewalk / wall / floor / door / cornfield), **procedurally
+generated** into a town (`_gen_town()`): a cornfield ring, a street grid dividing blocks,
+buildings stamped into clear lots (wall perimeter + floor + a doorway), scavenge sites
+scattered onto buildings. Drawn as graybox tiles, **view-culled** around the camera so it
+stays cheap as the world grows. Real **collision** (walls are solid; player slides along
+them). This deliberately avoids Godot's TileSet/scene machinery for now — a grid + a
+generator + draw + collision in code, which is testable via the capture harness and
+scales to a county (bigger grid + streaming).
+
+**Landed:** grid world, procgen town, roads/blocks/buildings/doors, cornfield edges,
+player wall collision, camera-centered draw culling.
+
+**Still to build (Phase 3):**
+- **Zombies respect walls** + basic pathing around buildings (they still phase through).
+- **Interiors** — enter buildings through doors; loot and workbenches inside; interiors
+  dark and can hide the horde (roof-fade / reveal-on-enter TBD).
+- **Entity scaling** — simulate only what's near the player (active radius) + pooling, so
+  the town can grow toward a county without dying.
+- **Density & texture** — more building types, props (trees, cars, fences, poles),
+  lot/grass variation, doors that face the road; the town currently reads sparse.
+- **Workbench placement** in the world (the Tier-4 build is currently anywhere via TAB).
 
 ## 8. Presentation
 
-- **Isometric** viewpoint. (Reverses the earlier top-down decision — accepted cost:
-  isometric art pipeline, incl. directional characters. Discuss under art.)
+- **Isometric viewpoint — REOPENED (2026-07-04).** We're currently building **top-down**
+  on the grid world, and it's proving a cheap, readable fit for an open world. Iso for a
+  county is a heavy art commitment (iso tilesets + 8-directional characters). Decide iso
+  vs. top-down as part of the art talk; don't assume iso anymore.
 - **Not** the current cartoony/chunky player & zombie look — art direction is a
   deferred conversation, but the target is grittier/grounded.
 - **Weapons/tools render in the player's hands** — you can see what you're wielding.
@@ -252,20 +293,21 @@ chassis + ordered stages in a fixed **capability-contract** vocabulary the engin
 render; LLM resolver primary + deterministic fallback; `COMBINE_MODEL` env (Haiku dev /
 Sonnet ceiling). See the `combine/` package and memory notes.
 
-**Capability-contract gap (active work):** the contract models a weapon's *payload*
-(effects) but not its *delivery behavior* (a boomerang's arc/flight/range, a trap's
-arm-time). Boomerang is the **blueprint** for adding per-delivery behavior parameters
-that the engine reads and the AI can tune — build it once, template it out. (Approach
-"A": stand up the delivery-profile pattern, fully populate boomerang only, for now.)
+**Capability-contract — delivery params (blueprint DONE):** the contract now models both a
+weapon's *payload* (effects) **and** its *delivery behavior* via a per-gadget `params`
+dict. Boomerang is the fully-worked example (arc/range/return-speed — read by the engine,
+set by every resolver, emittable + clamped by the AI, bent by modifiers). The pattern
+templates out to other deliveries (trap arm-time, turret fire-rate) by adding keys.
 
 ## 11. Open questions / to be fleshed out
 
-- Map: interior/exterior transition model, world size, streaming, workbench placement.
-- Item model: final tag/stat vocabulary; unify Godot `item_db.gd` with Python
-  `combine/items.py`; drop vestigial `slots`/`affordance`.
-- Isometric art pipeline (directional sprites vs other approaches) — deferred to art talk.
-- How lucidity is *earned* (survival time? story beats? specific glitch triggers?).
+- World: interior reveal model (roof-fade vs enter-swap), streaming for county scale — see §7.
+- Iso vs top-down (§8) — reopened; decide in the art talk.
+- How lucidity is *earned* (survival time? story beats? specific glitch triggers?). Currently
+  debug-only (`[` / `]`); no in-game earn mechanic yet.
 - Armor: slot system exists (hand + armor); armor items/effects TBD.
+- *(Resolved: item model unified — Godot `item_db.gd` tags + Python `combine/items.py`
+  association clouds kept additively in sync; vestigial `slots`/`affordance` dropped.)*
 
 ## 11b. Backlog — deferred tweaks (not blocking; revisit when convenient)
 
@@ -277,37 +319,39 @@ that the engine reads and the AI can tune — build it once, template it out. (A
   pierce, rockets boom, junk weird-but-not-zero. Also decide what cross-loading ammo into an
   *improvised* weapon (caltrops/puddle thrower) should do.
 
-## 12. Roadmap / phased plan
+## 12. Roadmap / phased plan  (status: 2026-07-04)
 
-Systems first; art/iso conversion is its own later phase so it never blocks gameplay.
+Systems first; art/iso is its own later phase so it never blocks gameplay.
 
-- **Phase 0 — Vision lock + item taxonomy (now).** This doc + a rebuilt item data model
-  and the concrete item list (guns/ammo/thrown/melee/add-ons/junk), useful-unmodified,
-  with a clean tag/stat vocabulary. Foundation for crafting + the boomerang blueprint.
-- **Phase 1 — Crafting model + lucidity tiers 1–3.** Field crafting (universal ammo →
-  junk-as-ammo → obvious add-ons), workbench-gated AI building (Tier 4). Encodes the
-  story's awakening steps. No art dependency.
-- **Phase 2 — Day/night + stealth loop.** Convert the wave system to a day/night clock
-  (reuse the darkness foundation); add detection/alert/chase/disengage and light+sound
-  attraction; day-lethargy / night-hunting.
-- **Phase 3 — Larger map + interiors.** Expand beyond one screen; exterior + enterable
-  interiors; place workbenches.
-- **Phase 4 — Presentation overhaul.** Isometric, grittier art, in-hand weapon visuals,
-  full UI/HUD revamp. (Gated behind the art/assets conversation.)
-- **Cross-cutting** — the delivery-profile blueprint (boomerang) lands right after the
-  item taxonomy, since its modifier rules key off the new item tags.
+- **Phase 0 — Item taxonomy. ✅ DONE.** Hybrid item model (category + declared archetype +
+  tags + associations), 32 junk + 7 ammo, delivery-archetype taxonomy locked.
+- **Phase 1 — Crafting + lucidity T1–4. ✅ DONE.** Reload ladder (universal ammo →
+  junk-as-ammo), primitive build menu + attachment slots, lucidity-gated bench, AI BUILD
+  synced to the new items, boomerang delivery-profile blueprint.
+- **Phase 2 — Day/night + stealth loop. ✅ DONE.** Day/night clock, flashlight toggle,
+  waves retired, continuous night-scaled spawning, zombie detection AI
+  (wander/alert/chase, light+sound, disengage), day-lethargy/night-hunting.
+- **Phase 3 — The world (open-world town → county). 🔨 IN PROGRESS.** Landed: grid world +
+  procgen town + collision + edge-culling. Left: zombies-respect-walls + pathing,
+  interiors, entity scaling, density/props, workbench placement. See §7.
+- **Phase 4 — Presentation overhaul. ⬜ NOT STARTED.** Art direction, in-hand weapons, full
+  UI/HUD revamp, and the **iso-vs-top-down decision** (§8). Gated behind the art talk.
 
-## 13. Current state vs the vision (2026-07-03)
+The endpoint (open-world survival) makes Phase 3 the long pole — it's the "build the real
+game" phase, and it's content/world-authoring heavy (procedural generation is the lever).
 
-Built graybox (throwaway, top-down): survival loop with **waves** (to be replaced),
-real 2D lighting + flashlight + fog now driven by a wave-progress darkness curve (to be
-repurposed as the day/night clock), RUINER combat juice, a full-screen follow-camera, a
-TAB pause-to-build **workbench overlay**, a HAND/ARMOR **equipment + inventory** system
-(single items wieldable — weapon fires / throwable throws / else held), and a reworked
-**boomerang** (arc out → apex → return to where you stood → catch or retrieve; ammo
-1/1→0/1). The Python `combine/` brain exists and is tested; the AI "capability contract"
-does not yet model delivery behavior. Everything above is the starting point; the phased
-plan converts it toward this doc.
+## 13. Current state (2026-07-04)
+
+Playable top-down graybox, Phases 0–2 done + Phase 3 underway. **Combine:** hybrid item
+model, primitive build menu (BUILD/ATTACH/LOAD) + attachment slots, workbench AI (Tier-4)
+wired to the Python brain, lucidity ladder gating field crafting + the bench, boomerang
+delivery-profile blueprint (per-delivery `params`). **Loop:** day/night clock + flashlight
+toggle, no waves, continuous night-scaled spawning, zombie detection AI (wander/alert/
+chase, drawn to light + gunfire, disengage on lost contact). **World:** procgen town on a
+code grid — roads/blocks/buildings/doors/cornfields, player wall collision, camera-culled
+draw. **Combat:** RUINER juice, caltrops/puddle ground hazards, real 2D lighting/fog.
+**Python `combine/` brain** tested (pytest 73/73). **Dev loop:** `tools/capture.ps1`
+gives the agent eyes (screenshot + console). Everything is graybox-skinned — art is Phase 4.
 
 ## 14. Guiding principles
 
