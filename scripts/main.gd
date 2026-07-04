@@ -36,6 +36,7 @@ const C_FLOOR := 4
 const C_DOOR := 5
 const C_CORN := 6
 const C_DIRT := 7
+const C_WEEDS := 8           # dead/overgrown grass — ground texture so it's not a flat sheet
 const CAM_ZOOM := 1.3
 const MARGIN := 14.0
 const PLAYER_SPEED := 300.0
@@ -349,6 +350,7 @@ func _cell_color(c: int) -> Color:
 		C_DOOR:  return Color(0.42, 0.31, 0.18)
 		C_CORN:  return Color(0.30, 0.32, 0.14)
 		C_DIRT:  return Color(0.23, 0.19, 0.15)
+		C_WEEDS: return Color(0.21, 0.23, 0.11)   # dead/overgrown grass patch
 		_:       return Color(0.17, 0.21, 0.14)   # grass
 
 func _road_v(rx: int) -> void:
@@ -367,7 +369,7 @@ func _place_building(x: int, y: int, w: int, h: int) -> void:
 	for yy in range(y - 1, y + h + 1):          # need a clear grass lot (no roads/buildings)
 		for xx in range(x - 1, x + w + 1):
 			var c := _cell(xx, yy)
-			if c != C_GRASS and c != C_DIRT:
+			if c != C_GRASS and c != C_DIRT and c != C_WEEDS:
 				return
 	for yy in range(y, y + h):
 		for xx in range(x, x + w):
@@ -390,10 +392,11 @@ func _gen_town() -> void:
 	for ry in [int(GH * 0.34), int(GH * 0.66)]:
 		_road_h(ry)
 	_buildings = []
-	for by in range(7, GH - 7, 11):              # buildings on a loose lattice
-		for bx in range(7, GW - 7, 14):
-			if randf() < 0.72:
-				_place_building(bx + randi_range(-1, 2), by + randi_range(-1, 2), randi_range(6, 11), randi_range(5, 8))
+	for by in range(7, GH - 7, 9):               # buildings on a tighter lattice
+		for bx in range(7, GW - 7, 11):
+			if randf() < 0.82:
+				_place_building(bx + randi_range(-1, 2), by + randi_range(-1, 2), randi_range(5, 10), randi_range(4, 8))
+	_scatter_ground()                            # dirt/weed patches so grass isn't a flat sheet
 	# scavenge sites = a scatter of the buildings, Midwest-flavored
 	var names := ["FARMHOUSE", "GAS STATION", "BARN", "TRAILER", "DINER", "CHURCH",
 		"FEED STORE", "GRAIN SILO", "POST OFFICE", "BIG-BOX HUSK", "MOTEL", "BAIT SHOP"]
@@ -401,6 +404,21 @@ func _gen_town() -> void:
 	_sites = []
 	for i in range(mini(10, _buildings.size())):
 		_sites.append({"rect": _buildings[i].grow(-TILE), "label": names[i % names.size()], "looted": false})
+
+# Break up the flat green with soft-edged dirt/weed blobs, only over open grass
+# (never roads/buildings/corn). Blobs, not salt-and-pepper noise, so it reads as terrain.
+func _scatter_ground() -> void:
+	var patches := int(GW * GH / 80.0)
+	for _i in range(patches):
+		var cx := randi_range(4, GW - 5)
+		var cy := randi_range(4, GH - 5)
+		var kind := C_WEEDS if randf() < 0.62 else C_DIRT
+		var rad := randi_range(1, 3)
+		for yy in range(cy - rad, cy + rad + 1):
+			for xx in range(cx - rad, cx + rad + 1):
+				if Vector2(xx - cx, yy - cy).length() <= float(rad) + randf() * 0.6:
+					if _cell(xx, yy) == C_GRASS:
+						_set_cell(xx, yy, kind)
 
 # Give each building a light occluder so the flashlight/glow are BLOCKED by walls
 # (no shining through buildings). A rectangle at the footprint = the building is opaque
