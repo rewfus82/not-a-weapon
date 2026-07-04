@@ -23,6 +23,7 @@ const BOOMERANG_SPEED := 600.0   # return speed toward the player
 const BOOMERANG_CURVE := 260.0   # lateral accel — the narrow sideways bow of the arc
 const FIRE_COOLDOWN := 0.16
 const BUILD_TIME := 20.0
+const DAY_LENGTH := 90.0   # seconds for one full day->night->day cycle
 const PLAYER_MAX_HP := 100.0
 const INVULN_TIME := 0.6
 var _debug := false   # NORMAL by default (scavenge for items). F1 toggles DEBUG (all items + G/T).
@@ -130,11 +131,14 @@ var _shake_off := Vector2.ZERO
 var _glitch_mat: ShaderMaterial   # the full-screen simulation-glitch post-process
 var _glitch := 0.0                # transient glitch pulse (decays); base from _awakening
 var _flashlight: PointLight2D     # real 2D light — the flashlight cone (follows aim)
+var _flashlight_on := true        # toggled with F — off = blind but harder to spot (stealth)
 var _player_glow: PointLight2D    # soft glow right around the player
 var _cm: CanvasModulate           # world ambient — lerps day<->night with _dark
 var _fog_mat: ShaderMaterial      # fog density scales with _dark
-var _dark := 0.0                  # 0 = daylight (build), 1 = pitch night (wave climax)
+var _dark := 0.0                  # 0 = daylight, 1 = pitch night (derived from the clock)
 var _wave_total := 0              # zombies this wave — for the darkness progress curve
+var _time_of_day := 0.35         # 0=midnight · 0.25=dawn · 0.5=noon · 0.75=dusk
+var _day_count := 1              # which day you're on (survival counter)
 var _light_pool: Array[PointLight2D] = []   # pooled transient flashes (muzzle/explosions/hits)
 var _light_i := 0
 var _flashes: Array[Dictionary] = []        # active fading flashes: {l, t, dur, e0}
@@ -305,7 +309,8 @@ func _restart() -> void:
 	_rings.clear(); _muzzle = {}; _hitstop = 0.0
 	_invuln = 0.0; _hurt_flash = 0.0; _shake = 0.0; _paused = false
 	_shield = 0.0; _speed_mult = 1.0; _speed_timer = 0.0
-	_dark = 0.0   # every run opens in daylight
+	_dark = 0.0; _time_of_day = 0.35; _day_count = 1   # every run opens on a bright morning
+	_flashlight_on = true
 	_arsenal = [_starter_gadget()]
 	_equipped_idx = 0
 	_equipped = _arsenal[0]
@@ -534,6 +539,10 @@ func _input(event: InputEvent) -> void:
 			_log("[ PAUSED ]" if _paused else "[ unpaused ]")
 		elif event.keycode == KEY_R and _phase != Phase.GAME_OVER:
 			_reload()
+		elif event.keycode == KEY_F and _phase != Phase.GAME_OVER:
+			_flashlight_on = not _flashlight_on
+			_apply_darkness()
+			_log("Flashlight %s." % ("ON" if _flashlight_on else "OFF — you're harder to see, and blind"))
 		elif event.keycode == KEY_BRACKETRIGHT:
 			_awakening = clampf(_awakening + 0.2, 0.0, 1.0)
 			_log("[lucidity] %.2f — %s" % [_awakening, _lucid_tier()])
@@ -1303,24 +1312,28 @@ func _update_juice(delta: float) -> void:
 			fl.append(f)
 	_flashes = fl
 
-# Day during BUILD; night falls as the WAVE is ground down (darkest as it's cleared),
-# then dawn eases back in. Darkness = flashlight + fog gimmick, now paced, not constant.
+# The DAY/NIGHT CLOCK drives the darkness now (replaces the old wave-progress curve).
+# Time advances while you play; darkness = 0 at noon, 1 at midnight, with day & night
+# plateaus and quicker dawn/dusk transitions. The clock holds while paused / game over.
 func _update_atmosphere(delta: float) -> void:
-	var target := _dark
-	match _phase:
-		Phase.BUILD:
-			target = 0.0
-		Phase.WAVE:
-			var remaining := float(_to_spawn + _zombies.size())
-			var total := maxf(1.0, float(_wave_total))
-			var progress := clampf(1.0 - remaining / total, 0.0, 1.0)
-			# dusk at the first kill, full dark by ~35% cleared, then HOLD — so the
-			# darkest, tensest stretch is fought with most of the horde still alive.
-			target = clampf(0.15 + progress * 2.4, 0.0, 1.0)
-		Phase.GAME_OVER:
-			target = _dark   # hold wherever the night was when you died
-	_dark = lerpf(_dark, target, clampf(delta * 0.7, 0.0, 1.0))   # slow ease = real dusk/dawn
+	if _phase != Phase.GAME_OVER and not _paused:
+		_time_of_day += delta / DAY_LENGTH
+		while _time_of_day >= 1.0:
+			_time_of_day -= 1.0
+			_day_count += 1
+	var night := (cos(TAU * _time_of_day) + 1.0) * 0.5   # 1 at midnight, 0 at noon
+	_dark = smoothstep(0.12, 0.88, night)                # flat day/night, snappy dawn/dusk
 	_apply_darkness()
+
+## How far into the night we are (0 = full day, 1 = deepest night) — the threat driver.
+func _night() -> float:
+	return _dark
+
+func _time_label() -> String:
+	if _time_of_day < 0.22 or _time_of_day >= 0.80: return "NIGHT"
+	if _time_of_day < 0.34: return "DAWN"
+	if _time_of_day < 0.66: return "DAY"
+	return "DUSK"
 
 func _apply_darkness() -> void:
 	const DAY := Color(0.98, 0.98, 1.0)
@@ -1329,11 +1342,11 @@ func _apply_darkness() -> void:
 	if _cm != null:
 		_cm.color = DAY.lerp(NIGHT, _dark)
 	if _flashlight != null:
-		_flashlight.energy = 1.6 * _dark
-		_flashlight.visible = lit
+		_flashlight.energy = 1.6 * _dark if _flashlight_on else 0.0
+		_flashlight.visible = lit and _flashlight_on
 	if _player_glow != null:
-		_player_glow.energy = 0.7 * _dark
-		_player_glow.visible = lit
+		_player_glow.energy = 0.7 * _dark if _flashlight_on else 0.0
+		_player_glow.visible = lit and _flashlight_on
 	if _fog_mat != null:
 		_fog_mat.set_shader_parameter("density", 0.16 * _dark)
 
@@ -1569,13 +1582,16 @@ func _draw_hud(ci: CanvasItem) -> void:
 	var lucid_col := Color(0.55, 0.6, 0.7) if _awakening < LUCID_UNIVERSAL else (Color(0.7, 0.8, 0.5) if _awakening < LUCID_JUNK else Color(0.6, 0.9, 1.0))
 	_text_on(ci, Vector2(MARGIN + 6, MARGIN + 16), ("[ DEBUG ]" if _debug else "[ NORMAL ]") + "  F1", mode_col, 13)
 	_text_on(ci, Vector2(MARGIN + 130, MARGIN + 16), "lucidity: %s" % _lucid_tier(), lucid_col, 13)
+	var tod := _time_label()
+	var tod_col := Color(0.55, 0.7, 0.95) if tod == "NIGHT" else (Color(0.95, 0.85, 0.55) if tod == "DAY" else Color(0.9, 0.65, 0.5))
+	_text_on(ci, Vector2(MARGIN + 320, MARGIN + 16), "DAY %d · %s" % [_day_count, tod], tod_col, 13)
 	var status := ""
 	match _phase:
 		Phase.BUILD:    status = "BUILD  /  wave in %ds" % int(ceil(_phase_timer))
 		Phase.WAVE:     status = "WAVE %d  /  %d left" % [_wave, _zombies.size() + _to_spawn]
 		Phase.GAME_OVER: status = "TERMINATED  /  wave %d  /  press R" % _wave
 	_text_on(ci, Vector2(MARGIN + 6, MARGIN + 44), status, Color(0.9, 0.94, 0.96), 24)
-	var hint := "TAB workbench   ·   R reload"
+	var hint := "TAB workbench   ·   R reload   ·   F light"
 	if _phase == Phase.BUILD:
 		hint += "   ·   SPACE start wave"
 	_text_on(ci, Vector2(MARGIN + 6, MARGIN + 66), hint, dim, 12)
