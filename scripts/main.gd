@@ -737,10 +737,17 @@ func _update_world(delta: float) -> void:
 			if dd < float(d["range"]) and dd < bd:
 				bd = dd; target = d["pos"]; z["alert"] = maxf(float(z["alert"]), 0.7)
 		var to_target := target - zpos
+		var vel := Vector2.ZERO
 		if to_target.length() > 2.0:
-			z["pos"] = zpos + to_target.normalized() * spd * delta + z["knock"] * delta
-		else:
-			z["pos"] = zpos + z["knock"] * delta
+			vel = to_target.normalized() * spd
+		var step := vel * delta + (z["knock"] as Vector2) * delta
+		# per-axis wall collision — zombies slide along buildings instead of phasing through
+		var zr := 12.0
+		if not _solid_circle(Vector2(zpos.x + step.x, zpos.y), zr):
+			zpos.x += step.x
+		if not _solid_circle(Vector2(zpos.x, zpos.y + step.y), zr):
+			zpos.y += step.y
+		z["pos"] = zpos
 		z["knock"] = z["knock"].lerp(Vector2.ZERO, 0.12)
 
 		# contact damage
@@ -781,10 +788,14 @@ func _alert_zombies(pos: Vector2, radius: float, amount: float) -> void:
 
 func _spawn_zombie() -> void:
 	# spawn in a ring just beyond view — they emerge from the dark around you, not at map edges
-	var ang := randf() * TAU
-	var p := _player + Vector2(cos(ang), sin(ang)) * randf_range(740.0, 1000.0)
-	p.x = clampf(p.x, MARGIN, WORLD_W - MARGIN)
-	p.y = clampf(p.y, MARGIN, WORLD_H - MARGIN)
+	var p := _player
+	for _try in range(8):                                  # retry until we find an open (non-wall) spot
+		var ang := randf() * TAU
+		p = _player + Vector2(cos(ang), sin(ang)) * randf_range(740.0, 1000.0)
+		p.x = clampf(p.x, MARGIN, WORLD_W - MARGIN)
+		p.y = clampf(p.y, MARGIN, WORLD_H - MARGIN)
+		if not _solid_circle(p, 12.0):
+			break
 	var dc := float(_day_count - 1)                        # difficulty ramps with days survived
 	var hp := 18.0 + dc * 8.0
 	_zombies.append({
