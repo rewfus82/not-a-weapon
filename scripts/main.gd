@@ -849,6 +849,10 @@ func _fire_return(g: Gadget) -> void:
 	p["perp"] = Vector2(-_aim.y, _aim.x) * (1.0 if randf() > 0.5 else -1.0)  # which way it bows
 	p["spin"] = 0.0
 	p["life"] = 4.0                                       # if never caught, it drops to the floor
+	# per-gadget flight tuning (set by a resolver/AI); fall back to the global defaults
+	p["b_range"] = float(g.params.get("range", BOOMERANG_RANGE))
+	p["b_curve"] = float(g.params.get("curve", BOOMERANG_CURVE))
+	p["b_speed"] = float(g.params.get("return_speed", BOOMERANG_SPEED))
 	_projectiles.append(p)
 
 func _use_self(g: Gadget) -> void:
@@ -912,17 +916,18 @@ func _update_projectiles(delta: float) -> void:
 			var rpos: Vector2 = p["pos"]
 			var v: Vector2 = p["vel"]
 			var perp: Vector2 = p["perp"]
+			var b_curve: float = float(p["b_curve"])
 			if not p["returning"]:
 				v = v * maxf(0.0, 1.0 - 1.7 * delta)              # decelerate toward the apex
-				v += perp * BOOMERANG_CURVE * delta               # narrow sideways bow on the way out
-				if (rpos - (p["origin"] as Vector2)).length() > BOOMERANG_RANGE or v.length() < 140.0:
+				v += perp * b_curve * delta                       # narrow sideways bow on the way out
+				if (rpos - (p["origin"] as Vector2)).length() > float(p["b_range"]) or v.length() < 140.0:
 					p["returning"] = true
 					p["target"] = _player                         # where you stood at the apex — it comes back to HERE
 					p["hits"].clear()                             # let it cut the crowd again coming back
 			else:
 				var tgt: Vector2 = p["target"]
-				v = v.lerp((tgt - rpos).normalized() * BOOMERANG_SPEED, 0.12)  # curve back to that spot
-				v += perp * BOOMERANG_CURVE * 0.4 * delta
+				v = v.lerp((tgt - rpos).normalized() * float(p["b_speed"]), 0.12)  # curve back to that spot
+				v += perp * b_curve * 0.4 * delta
 				if rpos.distance_to(_player) < 26.0:
 					_catch_boomerang(p); continue                 # you were there to catch it → refund
 				elif rpos.distance_to(tgt) < 22.0:
@@ -1900,6 +1905,10 @@ func _gadget_from_dict(d: Dictionary) -> Gadget:
 	for e in d.get("effects", []):
 		g.add(str(e.get("kind", "damage")), float(e.get("amount", 0.0)),
 			float(e.get("duration", 0.0)), float(e.get("radius", 0.0)), int(e.get("count", 0)))
+	var ps: Variant = d.get("params", {})   # per-delivery behavior tuning (e.g. boomerang arc)
+	if typeof(ps) == TYPE_DICTIONARY:
+		for k in ps:
+			g.params[String(k)] = float(ps[k])
 	_finalize_ai_gadget(g)
 	return g
 

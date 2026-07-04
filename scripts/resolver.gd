@@ -65,6 +65,9 @@ static func wield(item: Item) -> Gadget:
 		if tags.has(tag):
 			_apply_ops(g, te[tag])
 
+	if g.delivery == Gadget.Delivery.RETURN:     # boomerang flight tuning (blueprint)
+		g.params = _boomerang_params(tags)
+
 	if not _armed(tags):                        # a lone item with no dangerous part is harmless
 		g.harmless = true
 		var d := g.get_effect(Gadget.DAMAGE)
@@ -116,6 +119,22 @@ static func _delivery_rules() -> Array:
 		["suction",   Gadget.Delivery.AURA],
 		["storage",   Gadget.Delivery.AURA],
 	]
+
+## Boomerang (RETURN) flight tuning — the delivery-profile blueprint (DESIGN.md §10).
+## Parts in the build twist how it flies: light/floaty widens + slows the arc; a
+## propellant/spring tightens + speeds it; heavy shortens its reach. The engine reads
+## these off the gadget; defaults match the global BOOMERANG_* constants in main.gd.
+static func _boomerang_params(tags: Dictionary) -> Dictionary:
+	var rng := 300.0
+	var curve := 260.0
+	var rspeed := 600.0
+	if tags.has("light") or tags.has("fluffy"):
+		curve *= 1.6; rspeed *= 0.75; rng *= 1.1     # feathers: a wide, floaty loop
+	if tags.has("pressure") or tags.has("springy"):
+		rspeed *= 1.4; curve *= 0.7                   # propellant/spring: fast + tight
+	if tags.has("heavy"):
+		rng *= 0.8; curve *= 0.7; rspeed *= 1.1       # heavy: short, snappy return
+	return {"range": rng, "curve": curve, "return_speed": rspeed}
 
 ## Tag -> list of effect ops applied during weapon composition.
 ## Op kinds: {"op":"boost", kind, amount}            add to (or create) an effect's amount
@@ -326,6 +345,10 @@ static func _build_generic(items: Array, base: Gadget, tags: Dictionary) -> Gadg
 	for tag in te:
 		if tags.has(tag):
 			_apply_ops(g, te[tag])
+
+	# per-delivery behavior tuning (blueprint): boomerang flight bends with its parts
+	if g.delivery == Gadget.Delivery.RETURN:
+		g.params = _boomerang_params(tags)
 
 	# building something NEW with no dangerous part -> a harmless contraption
 	var armed := _armed(tags)

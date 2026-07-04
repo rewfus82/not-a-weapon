@@ -439,9 +439,25 @@ def deterministic_resolve(build: Build, awakening: Awakening) -> Gadget:
         harmless=harmless,
         homing=homing,
         projectile_speed=min(700.0 * speed_mult, 1400.0),
+        params=(_boomerang_params(build) if chassis is Delivery.RETURN else {}),
         color=(delivery_item.color if delivery_item else "#b0b0b0"),
     )
     return g
+
+
+# Boomerang (RETURN) flight tuning — the delivery-profile blueprint (DESIGN.md §10).
+# Defaults mirror main.gd's BOOMERANG_* constants; the modifier item bends the arc.
+def _boomerang_params(build: Build) -> dict[str, float]:
+    rng, curve, rspeed = 300.0, 260.0, 600.0
+    mod = build.modifier
+    if mod is not None:
+        if mod.id in ("feathers",):                        # floaty: wide, slow loop
+            curve, rspeed, rng = curve * 1.6, rspeed * 0.75, rng * 1.1
+        elif mod.id in ("co2_canister", "garage_spring", "helium_tank"):  # propellant/spring
+            rspeed, curve = rspeed * 1.4, curve * 0.7
+        elif mod.id in ("brick", "car_battery", "propane_tank"):          # heavy: short, snappy
+            rng, curve = rng * 0.8, curve * 0.7
+    return {"range": rng, "curve": curve, "return_speed": rspeed}
 
 
 def resolve(build: Build, awakening: Awakening, client: object | None = None,
@@ -523,6 +539,10 @@ def clamp_gadget(g: Gadget) -> Gadget:
             e.radius = max(e.radius, floors["radius"])
         if "count" in floors:
             e.count = max(e.count, floors["count"])
+    # keep delivery params inside sane bands too (a hallucinated range=99999 can't ship)
+    for key, (lo, hi) in _PARAM_BANDS.items():
+        if key in g.params:
+            g.params[key] = max(lo, min(hi, g.params[key]))
     # harmlessness is DERIVED, not trusted: something with no damaging effect can't
     # be a weapon, and something that hurts isn't harmless — whatever the model said.
     g.harmless = not any(e.kind in _LETHAL for e in g.all_effects())
@@ -531,6 +551,14 @@ def clamp_gadget(g: Gadget) -> Gadget:
                        for e in g.all_effects())
         g.category = Category.CONTROL if controls else Category.TRINKET
     return g
+
+
+# sane bands for the delivery-behavior params (boomerang blueprint)
+_PARAM_BANDS: dict[str, tuple[float, float]] = {
+    "range": (80.0, 600.0),
+    "curve": (0.0, 800.0),
+    "return_speed": (200.0, 1200.0),
+}
 
 
 # --- flavor (deterministic + legible; the LLM makes it witty) ----------------

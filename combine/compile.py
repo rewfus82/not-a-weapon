@@ -66,5 +66,6 @@ def to_engine(gadget: Gadget) -> dict:
         "homing": gadget.homing,
         "harmless": gadget.harmless,
         "projectile_speed": gadget.projectile_speed,
+        "params": dict(gadget.params),
         "color": gadget.color,
     }

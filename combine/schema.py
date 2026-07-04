@@ -106,6 +106,7 @@ class Gadget(BaseModel):
     harmless: bool = False
     homing: bool = False
     projectile_speed: float = Field(default=700.0, ge=0.0, le=1400.0)
+    params: dict[str, float] = Field(default_factory=dict)  # per-delivery behavior tuning (e.g. boomerang arc)
     color: str = "#b0b0b0"
 
     @model_validator(mode="after")
@@ -139,6 +140,7 @@ class GadgetDraft(BaseModel):
     harmless: bool = False
     homing: bool = False
     projectile_speed: float = Field(default=700.0, ge=0.0, le=1400.0)
+    params: dict[str, float] = Field(default_factory=dict)  # per-delivery behavior tuning (e.g. boomerang arc)
 
     @model_validator(mode="after")
     def _stages_present_unless_dud(self) -> "GadgetDraft":

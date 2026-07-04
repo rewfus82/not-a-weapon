@@ -77,6 +77,12 @@ OUTPUT — compose, don't pick from a list:
 - stages   : an ORDERED list. Each stage is a trigger + effects, in the sequence
   they happen (e.g. a trap: on_trigger -> snare, then startle, then swarm).
 - effects  : only these primitives ({_EFFECTS}). Nothing else can be rendered.
+- params   : OPTIONAL numeric delivery-behavior tuning (NOT effects). Only meaningful
+  for the RETURN (boomerang) chassis today: {{"range": how far out before it turns
+  (80-600, default 300), "curve": how wide it arcs (0-800, default 260),
+  "return_speed": how fast it comes back (200-1200, default 600)}}. Bend these from
+  the parts — a light/floaty part widens + slows the loop, a propellant/spring
+  tightens + speeds it, a heavy part shortens it. Omit params for any other chassis.
 
 {_EFFECT_GLOSS}
 

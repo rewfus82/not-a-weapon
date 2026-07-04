@@ -39,6 +39,10 @@ var color := Color(0.7, 0.7, 0.7)
 var native_ammo := ""   # the ammo id this gun "wants" (asleep, only this loads; lucid, anything fits)
 var max_attach := 2               # how many parts can be bolted on at the bench (ATTACH)
 var attached: Array[String] = []  # names of the parts currently attached (limited by max_attach)
+# per-DELIVERY behavior tuning the engine reads (distinct from payload effects). Any
+# resolver (wield/combine/AI) may set these; the engine falls back to its defaults.
+# Boomerang (RETURN) is the worked example: {range, curve, return_speed}. See DESIGN.md §10.
+var params: Dictionary = {}
 
 func add(kind: String, amount := 0.0, duration := 0.0, radius := 0.0, count := 0) -> void:
 	effects.append({"kind": kind, "amount": amount, "duration": duration, "radius": radius, "count": count})
