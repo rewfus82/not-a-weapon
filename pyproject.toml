@@ -10,5 +10,5 @@ ai = ["anthropic>=0.40"]
 dev = ["pytest>=8.0"]
 
 [tool.pytest.ini_options]
-pythonpath = ["."]
-testpaths = ["combine/tests"]
+pythonpath = [".", "tools"]
+testpaths = ["combine/tests", "tools/tests"]
