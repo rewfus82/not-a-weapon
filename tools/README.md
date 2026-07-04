@@ -1,17 +1,23 @@
-# Godot capture harness — agent feedback loop
+# Godot agent harness — feedback loops for "This Is Not A Weapon"
 
-A one-shot tool that runs **This Is Not A Weapon**, screenshots the rendered
-frame, captures all console + GDScript-error output, and reports PASS/FAIL.
+Two ways for an agent to *see and drive* the game without opening the editor.
+Both edit nothing in the game (no `main.gd` / `project.godot` changes) and are
+safe to run anytime.
 
-Use it to *see* whether a change worked without opening the editor. It edits
-nothing in the game (no `main.gd` / `project.godot` changes) and is safe to run
-anytime.
-
-## The loop
+- **One-shot capture** (`capture.ps1`) — launch, screenshot, report PASS/FAIL,
+  exit. Best as a quick smoke test after a change: "does it run and look right?"
+- **Interactive session** (`serve.ps1` + `naw.py`) — keep the game running and
+  drive it command by command: press keys, click, wait, screenshot, and query
+  live state. Best for play-testing a mechanic across many steps.
 
 ```
-edit game code  ->  run capture.ps1  ->  read RESULT + view frame.png  ->  judge
+one-shot:     edit code -> capture.ps1 -> read RESULT + frame.png -> judge
+interactive:  serve.ps1 (once) -> naw.py <cmd> ... -> screenshot/state -> judge -> repeat
 ```
+
+---
+
+# One-shot capture
 
 ## Run it
 
@@ -45,8 +51,9 @@ Parameters:
 ```
 
 Held keys use the game's own bindings: `w a s d` move, `space` pause/start,
-`f` flashlight, `r` reload, `tab` workbench. (Mouse aim defaults to facing
-right; scripted mouse aim isn't supported yet.)
+`f` flashlight, `r` reload, `tab` workbench. For scripted mouse aim/fire in a
+one-shot, use `-Fire`/`-Aim`; for full step-by-step control use the interactive
+session below.
 
 ## What you get back
 
@@ -69,12 +76,81 @@ echoed under `errors:` in the summary.
 keys, waits `-Warmup` seconds, saves the viewport texture as PNG, then quits.
 `--quit-after` is a hard frame-count backstop so a hang can't wedge the loop.
 
+---
+
+# Interactive session
+
+Keeps one game process alive and lets the agent drive it command by command.
+State persists between commands, so calls compose: move, then check where you
+ended up; fire, then count remaining ammo; screenshot the exact moment you want.
+
+## Start / stop
+
+```powershell
+./tools/serve.ps1                 # launch the game + control server on 127.0.0.1:8899
+python tools/naw.py quit          # stop it (or just close the game window)
+```
+
+`serve.ps1` waits until the port is accepting connections before returning, then
+leaves the game running in the background.
+
+> **Launching from inside a Claude Code agent:** the harness reaps child
+> processes when a tool call ends, so `serve.ps1` started via the tool won't
+> survive. Instead launch the server through a **background shell** so it lives
+> across turns, e.g.:
+> ```
+> NAW_PORT=8899 NAW_OUT="<abs>/tools/captures" \
+>   "/c/Users/rewfu/Godot/Godot_v4.7-stable_win64_console.exe" \
+>   --path "<abs>" res://tools/agent_server.tscn --resolution 1600x900
+> ```
+> A human running `serve.ps1` in a normal terminal is fine.
+
+## Commands (`python tools/naw.py <cmd>`)
+
+| Command | Example | Returns |
+|---|---|---|
+| `ping` | `ping` | liveness + frame number |
+| `state` | `state` | hp, day, phase, player xy, zombie count, inventory, arsenal, equipped, flashlight |
+| `eval "<expr>"` | `eval "_zombies.size()"` | value of a GDScript **expression** against the live game node |
+| `key <name> <down\|up\|tap>` | `key w down` | holds/releases/taps a key (game bindings) |
+| `aim <dx> <dy>` | `aim 1 0` | points aim in a world-space direction |
+| `click [x y] [button]` | `click` | one mouse click (fires the equipped weapon) |
+| `wait <frames>` / `wait -s <sec>` | `wait 30` | advances the game, then replies |
+| `screenshot [name]` | `screenshot fight` | saves `tools/captures/<name>.png`, returns its path |
+| `restart` | `restart` | releases held keys + calls the game's `_restart()` |
+| `quit` | `quit` | shuts the server down |
+| `raw '<json>'` | `raw '{"cmd":"key","name":"space","action":"tap"}'` | send any request verbatim |
+
+Every response is one JSON line with `"ok": true|false`; `naw.py` exits `0` on
+success, `1` on `ok:false`, `3` if the server is unreachable.
+
+## Example: drive a fight
+
+```bash
+python tools/naw.py restart
+python tools/naw.py key w down    # walk into the horde
+python tools/naw.py wait 60
+python tools/naw.py key w up
+python tools/naw.py aim 1 0       # face right
+python tools/naw.py click         # fire
+python tools/naw.py eval "_equipped.ammo_count()"   # assert ammo dropped
+python tools/naw.py screenshot after_shot           # then read the PNG
+```
+
+## `eval` scope
+
+`eval` uses Godot's `Expression` class with the game node as base instance, so
+any field/method resolves: `_hp`, `_zombies.size()`, `_arsenal[0].display_name`,
+`_player.distance_to(Vector2(1600,1000))`. It evaluates a **single expression** —
+no statements, no `func` lambdas. For lists of gadget names etc., prefer the
+`state` command (it pre-computes `arsenal`).
+
 ## Extending
 
-- **Scripted input timeline** (press/release at set times) — extend
-  `_press_keys` in `agent_capture.gd` into a parsed schedule.
-- **Mouse aim / clicks** — `Input.warp_mouse()` + synthesized
-  `InputEventMouseButton` in the harness.
-- **Deep state assertions** — the harness holds a reference to the live game
-  node; read fields off it (e.g. `game._hp`, `game._zombies.size()`) and print
-  them for the agent to assert on.
+- **Scripted mouse targeting** — `aim` warps to screen-center + direction
+  (works because the camera tracks the player). For an exact world point, add a
+  command that projects through `_game._cam`.
+- **New state fields** — add them to `_cmd_state` in `agent_server.gd`, or just
+  `eval` them ad hoc.
+- **Assertions** — the server holds the live game node; anything readable in
+  GDScript is reachable via `eval`/`state`.

@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://bnawserver001"]
+
+[ext_resource type="Script" path="res://tools/agent_server.gd" id="1"]
+
+[node name="AgentServer" type="Node"]
+script = ExtResource("1")
