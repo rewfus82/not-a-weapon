@@ -97,6 +97,7 @@ var _pickups_root: Node2D             # container node for Pickup entities (drop
 var _sites: Array[Dictionary] = []    # scavenge points: {rect, label, looted}
 var _cells: Array[PackedByteArray] = [] # the town cell grid [row][col] (cell types above)
 var _buildings: Array[Rect2] = []       # building footprints in world coords
+var _roof_a: Array[float] = []          # per-building roof opacity (1=roofed/hidden, 0=you're inside)
 var _projectiles: Array[Dictionary] = []
 var _dropped_boomerangs: Array[Dictionary] = []   # boomerangs on the floor: {pos, gadget, spin}
 var _zones: Array[Dictionary] = []    # ground hazards (caltrops/puddles): {pos, radius, kind, dmg, slow, burn_amt, burn_dur, snare, life, life0, tick, color}
@@ -404,6 +405,7 @@ func _gen_town() -> void:
 	_sites = []
 	for i in range(mini(10, _buildings.size())):
 		_sites.append({"rect": _buildings[i].grow(-TILE), "label": names[i % names.size()], "looted": false})
+	_roof_a.resize(_buildings.size()); _roof_a.fill(1.0)   # start every roof closed
 
 # Break up the flat green with soft-edged dirt/weed blobs, only over open grass
 # (never roads/buildings/corn). Blobs, not salt-and-pepper noise, so it reads as terrain.
@@ -710,6 +712,11 @@ func _spawn_all_specials() -> void:
 # The continuous world: scavenge anytime, spawn scaled by night, zombies that
 # detect / hunt / disengage. No waves. See DESIGN.md §6.
 func _update_world(delta: float) -> void:
+	# roofs fade open for the building you're standing in, closed for the rest
+	for i in range(_buildings.size()):
+		var tgt := 0.0 if (_buildings[i] as Rect2).grow(6.0).has_point(_player) else 1.0
+		_roof_a[i] = lerpf(_roof_a[i], tgt, 0.18)
+
 	# scavenge: walk into a site to loot it (sites refill at each new dawn, below)
 	for s in _sites:
 		if not s["looted"] and s["rect"].has_point(_player):
@@ -1626,11 +1633,7 @@ func _draw() -> void:
 		for cx in range(x0, x1):
 			draw_rect(Rect2(cx * TILE, cy * TILE, TILE, TILE), _cell_color(row[cx]))
 
-	# scavenge sites: a soft label over the building (only the name, the building draws itself)
-	for s in _sites:
-		var looted: bool = s["looted"]
-		var col := Color(0.6, 0.65, 0.7) if not looted else Color(0.35, 0.35, 0.4)
-		_text((s["rect"] as Rect2).position + Vector2(6, 18), s["label"], col, 12)
+	# (scavenge-site labels ride on top of the roofs — drawn at the end of the world pass)
 
 	# (loot now renders as Pickup nodes in _pickups_root)
 
@@ -1754,6 +1757,21 @@ func _draw() -> void:
 		nc.a = clampf(n["life"] * 1.6, 0.0, 1.0)
 		var nsz := int(13 + 9 * clampf(float(n["life"]) / 0.7, 0.0, 1.0))
 		_text(n["pos"], n["text"], nc, nsz)
+
+	# roofs — hide each building's interior + any horde lurking inside until you step in.
+	# The building you're standing in fades its roof away, revealing the room.
+	for i in range(_buildings.size()):
+		var ra: float = _roof_a[i]
+		if ra <= 0.02: continue
+		var rb: Rect2 = _buildings[i]
+		draw_rect(rb, Color(0.20, 0.17, 0.16, ra))
+		draw_line(rb.position + Vector2(0, rb.size.y * 0.5),
+			rb.position + Vector2(rb.size.x, rb.size.y * 0.5), Color(0.11, 0.09, 0.09, ra * 0.7), 1.0)
+	# scavenge-site labels sit on top of the roofs so you can read a building from outside
+	for s in _sites:
+		var s_looted: bool = s["looted"]
+		var lcol := Color(0.62, 0.67, 0.72) if not s_looted else Color(0.36, 0.36, 0.41)
+		_text((s["rect"] as Rect2).position + Vector2(6, 18), s["label"], lcol, 12)
 
 	# (full-screen overlays — hurt/danger/pause — now render on the HUD CanvasLayer in
 	#  _draw_hud, so they cover the viewport regardless of where the camera is in the world)

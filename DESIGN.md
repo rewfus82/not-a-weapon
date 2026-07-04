@@ -256,8 +256,10 @@ player wall collision, camera-centered draw culling.
 - **Zombies respect walls — DONE.** Per-axis collision: they stack on the outer walls
   and only breach through the door (verified). Blocked chasers now wall-follow around a
   building instead of dead-sticking; full nav/pathing (A*) deferred to entity-scaling.
-- **Interiors** — enter buildings through doors; loot and workbenches inside; interiors
-  dark and can hide the horde (roof-fade / reveal-on-enter TBD).
+- **Interiors** — enter through doors (DONE), walk-in scavenge loot (DONE), and **roof-fade
+  reveal DONE**: buildings are opaque roofed blocks that hide the interior + any horde
+  inside; the roof fades open for the building you're standing in (verified). Remaining:
+  loot *containers* + workbenches placed inside (vs auto-loot / TAB-anywhere today).
 - **Entity scaling** — simulate only what's near the player (active radius) + pooling, so
   the town can grow toward a county without dying.
 - **Density & texture** — DONE: denser building lattice + dirt/weed ground patches, and
@@ -304,7 +306,8 @@ templates out to other deliveries (trap arm-time, turret fire-rate) by adding ke
 
 ## 11. Open questions / to be fleshed out
 
-- World: interior reveal model (roof-fade vs enter-swap), streaming for county scale — see §7.
+- World: interior reveal model **resolved — roof-fade** (opaque roofs, fade open on enter);
+  streaming for county scale still open — see §7.
 - Iso vs top-down (§8) — reopened; decide in the art talk.
 - How lucidity is *earned* (survival time? story beats? specific glitch triggers?). Currently
   debug-only (`[` / `]`); no in-game earn mechanic yet.
