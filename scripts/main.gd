@@ -1542,11 +1542,14 @@ func _draw() -> void:
 	draw_set_transform(shake, 0.0, Vector2.ONE)
 
 	# --- the town grid: draw only the cells in view (cheap even for a huge world) ---
+	# cull around the CAMERA center, not the player — near map edges the camera clamps
+	# and stops centering on you, so player-centered culling leaves black gaps.
+	var cam_c := _cam.get_screen_center_position() if _cam != null else _player
 	var vh := Vector2(PLAY_W, PLAY_H) * (0.5 / CAM_ZOOM) + Vector2(TILE * 2.0, TILE * 2.0)
-	var x0 := maxi(0, int((_player.x - vh.x) / TILE))
-	var x1 := mini(GW, int((_player.x + vh.x) / TILE) + 1)
-	var y0 := maxi(0, int((_player.y - vh.y) / TILE))
-	var y1 := mini(GH, int((_player.y + vh.y) / TILE) + 1)
+	var x0 := maxi(0, int((cam_c.x - vh.x) / TILE))
+	var x1 := mini(GW, int((cam_c.x + vh.x) / TILE) + 1)
+	var y0 := maxi(0, int((cam_c.y - vh.y) / TILE))
+	var y1 := mini(GH, int((cam_c.y + vh.y) / TILE) + 1)
 	for cy in range(y0, y1):
 		var row := _cells[cy]
 		for cx in range(x0, x1):
