@@ -1106,7 +1106,12 @@ func _update_projectiles(delta: float) -> void:
 		tr.append(p["pos"])
 		if tr.size() > 6: tr.pop_front()
 		p["trail"] = tr
-		# walls: ricochet if the round has bounces left, otherwise it's absorbed
+		# building walls stop shots — you can't fire through a building (boomerangs excepted)
+		if not p.get("return", false) and _cell(int((p["pos"] as Vector2).x / TILE), int((p["pos"] as Vector2).y / TILE)) == C_WALL:
+			if p["lobbed"]: _lob_land(p)   # a thrown thing lands/detonates against the wall
+			else: _burst(p["pos"], Color(0.75, 0.75, 0.8), 4, 150.0)   # bullet spark on the wall
+			continue
+		# world edge: ricochet if the round has bounces left, otherwise it's absorbed
 		if int(p["bounce"]) > 0:
 			var pos: Vector2 = p["pos"]
 			var v: Vector2 = p["vel"]
