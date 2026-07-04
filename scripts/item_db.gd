@@ -71,12 +71,12 @@ static func build() -> Dictionary:
 		["brick",         "Brick",             Item.JUNK, "lob",     ["blunt","heavy","dense","kinetic"],                 ["through a window or a skull","a fist-sized argument","dead simple, dead effective"],               Color(0.60,0.30,0.25)],
 
 		# --- AMMO (loaded into guns; asleep only native ammo fits, lucid anything does) ---
-		["bullets",       "Box of Bullets",    Item.AMMO, "inert",   ["lethal","metal"],                                  ["standard rounds","the thing you always need more of"],                                             Color(0.80,0.72,0.35)],
-		["shells",        "Shotgun Shells",    Item.AMMO, "inert",   ["lethal","metal","dense"],                          ["a fistful of buckshot","close-range authority"],                                                   Color(0.80,0.25,0.20)],
+		["bullets",       "Box of Bullets",    Item.AMMO, "inert",   ["lethal"],                                          ["standard rounds","the thing you always need more of"],                                             Color(0.80,0.72,0.35)],
+		["shells",        "Shotgun Shells",    Item.AMMO, "inert",   ["lethal","dense"],                                  ["a fistful of buckshot","close-range authority"],                                                   Color(0.80,0.25,0.20)],
 		["arrows",        "Quiver of Arrows",  Item.AMMO, "inert",   ["sharp","wood"],                                    ["silent and reusable","punches clean through"],                                                     Color(0.60,0.50,0.30)],
-		["bolts",         "Crossbow Bolts",    Item.AMMO, "inert",   ["sharp","metal"],                                   ["short, heavy, mean","nails them to the wall"],                                                     Color(0.55,0.55,0.58)],
+		["bolts",         "Crossbow Bolts",    Item.AMMO, "inert",   ["sharp"],                                           ["short, heavy, mean","nails them to the wall"],                                                     Color(0.55,0.55,0.58)],
 		["gas_canister",  "Gas Canister",      Item.AMMO, "inert",   ["flammable","pressure","gas"],                      ["fuel for a flamethrower","a jet of fire"],                                                         Color(0.85,0.55,0.25)],
-		["rockets",       "Rocket",            Item.AMMO, "inert",   ["explosive","heavy","metal"],                       ["point away from face","clears a room"],                                                            Color(0.70,0.35,0.25)],
+		["rockets",       "Rocket",            Item.AMMO, "inert",   ["explosive","heavy"],                               ["point away from face","clears a room"],                                                            Color(0.70,0.35,0.25)],
 		["energy_cell",   "Energy Cell",       Item.AMMO, "inert",   ["electric","conductive"],                           ["humming with charge","the future's ammo"],                                                         Color(0.35,0.75,0.90)],
 	]
 	var db := {}

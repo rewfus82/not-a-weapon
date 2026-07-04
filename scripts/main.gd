@@ -9,7 +9,14 @@ extends Node2D
 ## Still squares + text, deterministic Resolver (no AI). Controls: WASD move,
 ## mouse aim, left-click use gadget, SPACE start wave early, R restart on death.
 
-enum Phase { BUILD, WAVE, GAME_OVER }
+enum Phase { ALIVE, GAME_OVER }   # no more waves — a continuous day/night world
+
+# zombie detection state (see _update_world). Awareness rises when you're detectable
+# (near / lit / loud) and decays when you're not; the state is derived from it.
+enum ZState { WANDER, ALERT, CHASE }
+const ZOMBIE_LIGHT_RANGE := 360.0   # flashlight ON: this is how far you're spotted
+const ZOMBIE_LOSE := 3.0            # ~seconds of lost contact before a chaser gives up
+const NOISE_GUNSHOT := 430.0        # radius a loud shot alerts zombies
 
 const PANEL_W := 400.0        # (legacy; used only for build-overlay caption widths)
 const PLAY_W := 1600.0        # world is now the full screen — no reserved side panel
@@ -22,7 +29,6 @@ const BOOMERANG_RANGE := 300.0   # how far out it flies before the apex
 const BOOMERANG_SPEED := 600.0   # return speed toward the player
 const BOOMERANG_CURVE := 260.0   # lateral accel — the narrow sideways bow of the arc
 const FIRE_COOLDOWN := 0.16
-const BUILD_TIME := 20.0
 const DAY_LENGTH := 90.0   # seconds for one full day->night->day cycle
 const PLAYER_MAX_HP := 100.0
 const INVULN_TIME := 0.6
@@ -42,9 +48,7 @@ const LUCID_ATTACH := 0.65      # T3: "parts change weapons" — bench ATTACH (b
 const LUCID_BUILD := 0.85       # T4: "build anything from anything" — bench BUILD / AI BUILD
 
 var _db: Dictionary
-var _phase: int = Phase.BUILD
-var _phase_timer := 0.0
-var _wave := 0
+var _phase: int = Phase.ALIVE
 var _paused := false
 
 # --- player ------------------------------------------------------------------
@@ -89,7 +93,6 @@ var _particles: Array[Dictionary] = []
 var _rings: Array[Dictionary] = []    # expanding shockwave rings: {pos, r, max_r, life, life0, col, w}
 var _muzzle: Dictionary = {}          # transient muzzle flash: {pos, life}
 var _hitstop := 0.0                   # brief freeze-frame on impactful hits (game feel)
-var _to_spawn := 0
 var _spawn_timer := 0.0
 var _shake := 0.0
 var _log_lines: Array[String] = []
@@ -136,9 +139,9 @@ var _player_glow: PointLight2D    # soft glow right around the player
 var _cm: CanvasModulate           # world ambient — lerps day<->night with _dark
 var _fog_mat: ShaderMaterial      # fog density scales with _dark
 var _dark := 0.0                  # 0 = daylight, 1 = pitch night (derived from the clock)
-var _wave_total := 0              # zombies this wave — for the darkness progress curve
 var _time_of_day := 0.35         # 0=midnight · 0.25=dawn · 0.5=noon · 0.75=dusk
 var _day_count := 1              # which day you're on (survival counter)
+var _last_day := 1               # detects day rollover to refill scavenge sites
 var _light_pool: Array[PointLight2D] = []   # pooled transient flashes (muzzle/explosions/hits)
 var _light_i := 0
 var _flashes: Array[Dictionary] = []        # active fading flashes: {l, t, dur, e0}
@@ -299,7 +302,8 @@ func _spawn_sites() -> void:
 	]
 
 func _restart() -> void:
-	_wave = 0
+	_phase = Phase.ALIVE
+	_spawn_timer = 0.0
 	_hp = PLAYER_MAX_HP
 	_player = Vector2(PLAY_W * 0.5, PLAY_H * 0.5)
 	_zombies.clear(); _projectiles.clear(); _dropped_boomerangs.clear(); _zones.clear()
@@ -309,7 +313,7 @@ func _restart() -> void:
 	_rings.clear(); _muzzle = {}; _hitstop = 0.0
 	_invuln = 0.0; _hurt_flash = 0.0; _shake = 0.0; _paused = false
 	_shield = 0.0; _speed_mult = 1.0; _speed_timer = 0.0
-	_dark = 0.0; _time_of_day = 0.35; _day_count = 1   # every run opens on a bright morning
+	_dark = 0.0; _time_of_day = 0.35; _day_count = 1; _last_day = 1   # every run opens on a bright morning
 	_flashlight_on = true
 	_arsenal = [_starter_gadget()]
 	_equipped_idx = 0
@@ -319,8 +323,8 @@ func _restart() -> void:
 	# reveal universal-ammo once lucid, and some junk for junk-as-ammo later.
 	_inv = {"bullets": 2, "arrows": 1, "duct_tape": 1, "road_flare": 1,
 			"brick": 1, "nails": 1, "motor_oil": 1, "first_aid": 1}
-	_log("You wake up. Something is very wrong. (WASD move, mouse aim, click to fire.)")
-	_start_build()
+	_log("You wake up. Something is very wrong. (WASD move · mouse aim · click fire · F light · R reload)")
+	for s in _sites: s["looted"] = false
 	if _debug: _grant_all()
 	_refresh_inventory_ui()
 	_refresh_equipped()
@@ -411,25 +415,9 @@ func _starter_gadget() -> Gadget:
 	g.fill_plain()
 	return g
 
-func _start_build() -> void:
-	_phase = Phase.BUILD
-	_phase_timer = BUILD_TIME
-	for s in _sites:
-		s["looted"] = false
-	_log("Scavenge & build. Next wave in %ds — or press SPACE." % int(BUILD_TIME))
-
-func _start_wave() -> void:
-	_wave += 1
-	_phase = Phase.WAVE
-	_to_spawn = 5 + _wave * 3
-	_wave_total = _to_spawn
-	_spawn_timer = 0.0
-	_glitch_pulse(0.22)
-	_log("WAVE %d. They're coming. (%d incoming)" % [_wave, _to_spawn])
-
 func _game_over() -> void:
 	_phase = Phase.GAME_OVER
-	_log("You died on wave %d. Press R to wake up again." % _wave)
+	_log("You died on day %d. Press R to wake up again." % _day_count)
 
 # =============================================================================
 # UPDATE
@@ -490,11 +478,7 @@ func _process(delta: float) -> void:
 	_update_projectiles(delta)
 	_update_dropped_boomerangs(delta)
 	_update_zones(delta)
-
-	if _phase == Phase.BUILD:
-		_update_build(delta)
-	elif _phase == Phase.WAVE:
-		_update_wave(delta)
+	_update_world(delta)
 
 	queue_redraw()
 
@@ -581,56 +565,92 @@ func _spawn_all_specials() -> void:
 	_log("[DEBUG] added %d special weapons to your arsenal." % n)
 	_refresh_arsenal_ui()
 
-func _update_build(delta: float) -> void:
-	_phase_timer -= delta
-	# walk into a scavenge site to loot it (once per build phase)
+# The continuous world: scavenge anytime, spawn scaled by night, zombies that
+# detect / hunt / disengage. No waves. See DESIGN.md §6.
+func _update_world(delta: float) -> void:
+	# scavenge: walk into a site to loot it (sites refill at each new dawn, below)
 	for s in _sites:
 		if not s["looted"] and s["rect"].has_point(_player):
 			s["looted"] = true
-			var id: String = _db.keys().pick_random()
-			_grant(id, "Scavenged %s from the %s." % [_db[id].display_name, s["label"]])
-	if _phase_timer <= 0.0:
-		_start_wave()
+			var iid: String = _db.keys().pick_random()
+			_grant(iid, "Scavenged %s from the %s." % [_db[iid].display_name, s["label"]])
 
-func _update_wave(delta: float) -> void:
-	# spawn the wave over time from the edges
-	if _to_spawn > 0:
+	var night := _night()   # 0 = full day, 1 = deepest night — the threat driver
+
+	# continuous spawning: a few shufflers by day, a mounting horde at night
+	var cap := int(3.0 + night * 26.0 + float(_day_count - 1) * 3.0)
+	if _zombies.size() < cap:
 		_spawn_timer -= delta
 		if _spawn_timer <= 0.0:
 			_spawn_zombie()
-			_to_spawn -= 1
-			_spawn_timer = maxf(0.25, 1.2 - _wave * 0.05)
-	# update zombies
+			_spawn_timer = lerpf(2.6, 0.4, clampf(night, 0.0, 1.0))
+
+	# senses: dull and short-sighted by day (lethargic), keen at night
+	var perceive := lerpf(90.0, 270.0, clampf(night, 0.0, 1.0))
+	var day_speed := lerpf(0.4, 1.0, clampf(night, 0.0, 1.0))
+
 	var alive: Array[Dictionary] = []
 	for z in _zombies:
 		if z.get("dead", false):
-			continue  # killed this frame — drop it (don't re-add)
+			continue
 		z["flash"] = maxf(0.0, z["flash"] - delta)
 		z["slow"] = maxf(0.0, z["slow"] - delta)
 		z["snare"] = maxf(0.0, z["snare"] - delta)
 		z["freeze"] = maxf(0.0, float(z.get("freeze", 0.0)) - delta)
-		z["scale"] = minf(1.0, float(z.get("scale", 1.0)) + delta * 5.0)      # spawn grow-in
-		z["squash"] = maxf(0.0, float(z.get("squash", 0.0)) - delta * 5.0)    # hit-pop decay
+		z["scale"] = minf(1.0, float(z.get("scale", 1.0)) + delta * 5.0)
+		z["squash"] = maxf(0.0, float(z.get("squash", 0.0)) - delta * 5.0)
 		if float(z.get("burn_t", 0.0)) > 0.0:
 			z["burn_t"] = float(z["burn_t"]) - delta
 			z["hp"] = float(z["hp"]) - float(z.get("burn", 0.0)) * delta
 			if z["hp"] <= 0.0:
-				_on_zombie_death(z)
-				continue
-		var spd: float = z["speed"]
+				_on_zombie_death(z); continue
+
+		# --- detection: am I detectable to this one right now? ---
+		var zpos: Vector2 = z["pos"]
+		var dist := zpos.distance_to(_player)
+		var detect := dist < perceive
+		if _flashlight_on and _dark > 0.2 and dist < ZOMBIE_LIGHT_RANGE:
+			detect = true                                   # a lit flashlight (dusk on) gives you away
+		if detect:
+			z["alert"] = minf(1.0, float(z["alert"]) + delta * 2.5)   # awareness rises fast
+			z["known"] = _player                            # remember where you are
+		else:
+			z["alert"] = maxf(0.0, float(z["alert"]) - delta / ZOMBIE_LOSE)  # ...decays slowly
+		var st := ZState.WANDER
+		if float(z["alert"]) >= 0.6: st = ZState.CHASE
+		elif float(z["alert"]) >= 0.15: st = ZState.ALERT
+		z["state"] = st
+
+		# --- movement per state ---
+		var spd: float = float(z["speed"]) * day_speed
 		if z["freeze"] > 0.0 or z["snare"] > 0.0: spd = 0.0
 		elif z["slow"] > 0.0: spd *= 0.35
-		var target: Vector2 = _player
+		var target: Vector2
+		if st == ZState.WANDER:
+			spd *= 0.35                                     # an aimless shuffle
+			var w: Vector2 = z.get("wander", zpos)
+			if zpos.distance_to(w) < 24.0 or randf() < delta * 0.4:
+				w = zpos + Vector2(randf_range(-1, 1), randf_range(-1, 1)).normalized() * randf_range(70.0, 200.0)
+				z["wander"] = w
+			target = w
+		else:
+			target = z["known"]                             # ALERT -> last-known · CHASE -> you
+			if st == ZState.ALERT: spd *= 0.7
+		# a decoy nearby is louder than you — it steals the target
 		var bd := INF
 		for d in _decoys:
-			var dd: float = (z["pos"] as Vector2).distance_to(d["pos"])
+			var dd: float = zpos.distance_to(d["pos"])
 			if dd < float(d["range"]) and dd < bd:
-				bd = dd; target = d["pos"]
-		var to_target: Vector2 = target - (z["pos"] as Vector2)
-		z["pos"] += to_target.normalized() * spd * delta + z["knock"] * delta
+				bd = dd; target = d["pos"]; z["alert"] = maxf(float(z["alert"]), 0.7)
+		var to_target := target - zpos
+		if to_target.length() > 2.0:
+			z["pos"] = zpos + to_target.normalized() * spd * delta + z["knock"] * delta
+		else:
+			z["pos"] = zpos + z["knock"] * delta
 		z["knock"] = z["knock"].lerp(Vector2.ZERO, 0.12)
+
 		# contact damage
-		if z["pos"].distance_to(_player) < PLAYER_RADIUS + 13.0 and _invuln <= 0.0:
+		if (z["pos"] as Vector2).distance_to(_player) < PLAYER_RADIUS + 13.0 and _invuln <= 0.0:
 			var dmg: float = z["dmg"]
 			if _shield > 0.0:
 				var ab := minf(_shield, dmg); _shield -= ab; dmg -= ab
@@ -642,34 +662,48 @@ func _update_wave(delta: float) -> void:
 			_glitch_pulse(0.3)
 			_ring(_player, Color(0.9, 0.2, 0.2), 44.0, 3.0, 0.28)
 			if _hp <= 0.0:
-				_game_over()
-				return
+				_game_over(); return
 		alive.append(z)
 	_zombies = alive
 	_update_aura(delta)
 	_update_traps(delta)
 	_update_turrets(delta)
 	_update_decoys(delta)
-	# wave clear?
-	if _to_spawn <= 0 and _zombies.is_empty():
-		_log("Wave %d cleared." % _wave)
-		_start_build()
+
+	# sites refill each new dawn (dawn ~ time-of-day 0.25); tracked via _last_day
+	if _day_count != _last_day:
+		_last_day = _day_count
+		for s in _sites: s["looted"] = false
+		_log("A new day. Day %d. The scavenge is fresh." % _day_count)
+
+# alert every zombie within `radius` of `pos` — gunfire and explosions draw them
+func _alert_zombies(pos: Vector2, radius: float, amount: float) -> void:
+	for z in _zombies:
+		if z.get("dead", false):
+			continue
+		if (z["pos"] as Vector2).distance_to(pos) < radius:
+			z["alert"] = minf(1.0, float(z.get("alert", 0.0)) + amount)
+			z["known"] = _player
 
 func _spawn_zombie() -> void:
-	var edge := randi() % 4
 	var p := Vector2.ZERO
-	match edge:
-		0: p = Vector2(randf_range(MARGIN, PLAY_W - MARGIN), MARGIN + 6)
-		1: p = Vector2(randf_range(MARGIN, PLAY_W - MARGIN), PLAY_H - MARGIN - 6)
-		2: p = Vector2(MARGIN + 6, randf_range(MARGIN, PLAY_H - MARGIN))
-		_: p = Vector2(PLAY_W - MARGIN - 6, randf_range(MARGIN, PLAY_H - MARGIN))
-	var hp := 18.0 + _wave * 6.0
+	for _try in range(6):                                  # spawn at an edge, not on top of you
+		match randi() % 4:
+			0: p = Vector2(randf_range(MARGIN, PLAY_W - MARGIN), MARGIN + 6)
+			1: p = Vector2(randf_range(MARGIN, PLAY_W - MARGIN), PLAY_H - MARGIN - 6)
+			2: p = Vector2(MARGIN + 6, randf_range(MARGIN, PLAY_H - MARGIN))
+			_: p = Vector2(PLAY_W - MARGIN - 6, randf_range(MARGIN, PLAY_H - MARGIN))
+		if p.distance_to(_player) > 260.0:
+			break
+	var dc := float(_day_count - 1)                        # difficulty ramps with days survived
+	var hp := 18.0 + dc * 8.0
 	_zombies.append({
 		"pos": p, "hp": hp, "max_hp": hp,
-		"speed": minf(70.0 + _wave * 4.0, 150.0),
-		"dmg": 8.0 + _wave, "flash": 0.0, "slow": 0.0, "snare": 0.0,
+		"speed": minf(64.0 + dc * 6.0, 150.0),
+		"dmg": 8.0 + dc, "flash": 0.0, "slow": 0.0, "snare": 0.0,
 		"knock": Vector2.ZERO, "dead": false, "burn": 0.0, "burn_t": 0.0, "freeze": 0.0,
-		"scale": 0.0, "squash": 0.0,   # scale eases in on spawn; squash pops on hit
+		"scale": 0.0, "squash": 0.0,
+		"state": ZState.WANDER, "alert": 0.0, "known": p, "wander": p,   # detection AI
 	})
 
 # --- firing / projectiles ----------------------------------------------------
@@ -714,6 +748,9 @@ func _fire() -> void:
 			_deploy_decoy(_equipped); _fire_timer = 0.6
 		Gadget.Delivery.AURA:
 			_fire_timer = 0.2  # passive; aura ticks each frame
+	# loud weapons make noise — the horde hears gunfire and converges (stealth matters)
+	if _equipped.delivery in [Gadget.Delivery.PROJECTILE, Gadget.Delivery.LOBBED, Gadget.Delivery.CONE, Gadget.Delivery.BEAM]:
+		_alert_zombies(_player, NOISE_GUNSHOT, 0.6)
 
 func _fire_ranged(g: Gadget, lobbed: bool, ap: Dictionary) -> void:
 	_muzzle_kick(g.color)
@@ -1100,6 +1137,7 @@ func _explode_at(at: Vector2, o: Dictionary) -> void:
 	_ring(at, Color(0.98, 0.65, 0.25), r, 4.0, 0.4)
 	_freeze(0.06)
 	_flash(at, Color(1.0, 0.55, 0.2), 2.6, 2.6, 0.25)   # explosion lights the whole area
+	_alert_zombies(at, 560.0, 0.9)                       # a blast is heard far and wide
 	for z in _zombies:
 		if z.get("dead", false):
 			continue
@@ -1586,15 +1624,13 @@ func _draw_hud(ci: CanvasItem) -> void:
 	var tod_col := Color(0.55, 0.7, 0.95) if tod == "NIGHT" else (Color(0.95, 0.85, 0.55) if tod == "DAY" else Color(0.9, 0.65, 0.5))
 	_text_on(ci, Vector2(MARGIN + 320, MARGIN + 16), "DAY %d · %s" % [_day_count, tod], tod_col, 13)
 	var status := ""
-	match _phase:
-		Phase.BUILD:    status = "BUILD  /  wave in %ds" % int(ceil(_phase_timer))
-		Phase.WAVE:     status = "WAVE %d  /  %d left" % [_wave, _zombies.size() + _to_spawn]
-		Phase.GAME_OVER: status = "TERMINATED  /  wave %d  /  press R" % _wave
+	if _phase == Phase.GAME_OVER:
+		status = "TERMINATED  /  day %d  /  press R" % _day_count
+	else:
+		var threat := "calm" if _night() < 0.25 else ("stirring" if _night() < 0.7 else "HUNTING")
+		status = "%d nearby  ·  %s" % [_zombies.size(), threat]
 	_text_on(ci, Vector2(MARGIN + 6, MARGIN + 44), status, Color(0.9, 0.94, 0.96), 24)
-	var hint := "TAB workbench   ·   R reload   ·   F light"
-	if _phase == Phase.BUILD:
-		hint += "   ·   SPACE start wave"
-	_text_on(ci, Vector2(MARGIN + 6, MARGIN + 66), hint, dim, 12)
+	_text_on(ci, Vector2(MARGIN + 6, MARGIN + 66), "TAB workbench   ·   R reload   ·   F light", dim, 12)
 
 	# --- bottom-left console: equipped weapon + ammo + HP ---
 	var bx := MARGIN + 12.0
