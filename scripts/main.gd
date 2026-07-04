@@ -2003,7 +2003,18 @@ func _on_load() -> void:
 	if _equipped == null or not _equipped.uses_ammo:
 		_log("That weapon doesn't take ammo."); return
 	if _pot.is_empty():
-		_log("Put junk on the bench to load as ammo."); return
+		_log("Put ammo or junk on the bench to load."); return
+	# lucidity gate — same ladder as field reload: native ammo always; other ammo at
+	# T1 (universal); junk at T2 (junk-as-ammo). LOAD must not bypass what R enforces.
+	for id in _pot:
+		var pit: Item = _db[id]
+		if id == _equipped.native_ammo:
+			continue
+		if pit.category == Item.AMMO:
+			if _awakening < LUCID_UNIVERSAL:
+				_log("Only its own ammo fits this gun right now — you're not lucid enough for other rounds."); return
+		elif _awakening < LUCID_JUNK:
+			_log("Junk won't chamber yet — you're not lucid enough."); return
 	var items: Array[Item] = []
 	for id in _pot:
 		items.append(_db[id])
