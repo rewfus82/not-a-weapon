@@ -175,6 +175,7 @@ func _ready() -> void:
 	_tex_zombie = _tex(TDS + "Zombie 1/zoimbie1_hold.png")
 	_tex_ground = _tex(TDS + "Tiles/tile_01.png")
 	_gen_town()
+	_build_occluders()
 	_build_ui()
 	_pickups_root = Node2D.new()
 	add_child(_pickups_root)
@@ -229,12 +230,16 @@ func _setup_atmosphere() -> void:
 	_player_glow.color = Color(1.0, 0.84, 0.6)   # warm
 	_player_glow.energy = 0.7
 	_player_glow.texture_scale = 0.9
+	_player_glow.shadow_enabled = true            # walls block your light
+	_player_glow.shadow_filter = Light2D.SHADOW_FILTER_PCF5
 	add_child(_player_glow)
 	_flashlight = PointLight2D.new()
 	_flashlight.texture = _cone_tex(256)
 	_flashlight.color = Color(1.0, 0.9, 0.72)     # warm flashlight vs cold dark
 	_flashlight.energy = 1.6
 	_flashlight.texture_scale = 3.2
+	_flashlight.shadow_enabled = true             # the cone is cut by walls — no seeing through buildings
+	_flashlight.shadow_filter = Light2D.SHADOW_FILTER_PCF5
 	add_child(_flashlight)
 	for i in range(16):
 		var fx := PointLight2D.new()
@@ -383,6 +388,18 @@ func _gen_town() -> void:
 	_sites = []
 	for i in range(mini(10, _buildings.size())):
 		_sites.append({"rect": _buildings[i].grow(-TILE), "label": names[i % names.size()], "looted": false})
+
+# Give each building a light occluder so the flashlight/glow are BLOCKED by walls
+# (no shining through buildings). A rectangle at the footprint = the building is opaque
+# to light; the near wall is lit, everything behind/inside falls into shadow.
+func _build_occluders() -> void:
+	for b in _buildings:
+		var occ := LightOccluder2D.new()
+		var poly := OccluderPolygon2D.new()
+		poly.polygon = PackedVector2Array([
+			b.position, Vector2(b.end.x, b.position.y), b.end, Vector2(b.position.x, b.end.y)])
+		occ.occluder = poly
+		add_child(occ)
 
 # is a circle of radius r at world pos p overlapping a solid wall cell?
 func _solid_circle(p: Vector2, r: float) -> bool:
