@@ -98,6 +98,8 @@ var _sites: Array[Dictionary] = []    # scavenge points: {rect, label, looted}
 var _cells: Array[PackedByteArray] = [] # the town cell grid [row][col] (cell types above)
 var _buildings: Array[Rect2] = []       # building footprints in world coords
 var _roof_a: Array[float] = []          # per-building roof opacity (1=roofed/hidden, 0=you're inside)
+var _road_xs: Array = []                # vertical-road column indices (for door orientation)
+var _road_ys: Array = []                # horizontal-road row indices
 var _projectiles: Array[Dictionary] = []
 var _dropped_boomerangs: Array[Dictionary] = []   # boomerangs on the floor: {pos, gadget, spin}
 var _zones: Array[Dictionary] = []    # ground hazards (caltrops/puddles): {pos, radius, kind, dmg, slow, burn_amt, burn_dur, snare, life, life0, tick, color}
@@ -376,8 +378,28 @@ func _place_building(x: int, y: int, w: int, h: int) -> void:
 		for xx in range(x, x + w):
 			var edge := xx == x or xx == x + w - 1 or yy == y or yy == y + h - 1
 			_set_cell(xx, yy, C_WALL if edge else C_FLOOR)
-	_set_cell(x + int(w / 2.0), y + h - 1, C_DOOR)   # a doorway on the south wall
+	_place_door(x, y, w, h)                          # a doorway facing the nearest road
 	_buildings.append(Rect2(x * TILE, y * TILE, w * TILE, h * TILE))
+
+func _nearest(vals: Array, v: int) -> int:
+	var best: int = v; var bd := 1 << 30
+	for a in vals:
+		var d: int = absi(int(a) - v)
+		if d < bd: bd = d; best = int(a)
+	return best
+
+# Put the doorway on whichever wall faces the nearest road, so buildings open onto the street.
+func _place_door(x: int, y: int, w: int, h: int) -> void:
+	var bxc := x + int(w / 2.0)
+	var byc := y + int(h / 2.0)
+	var nvx := _nearest(_road_xs, bxc)   # nearest vertical road
+	var nhy := _nearest(_road_ys, byc)   # nearest horizontal road
+	if absi(nvx - bxc) <= absi(nhy - byc):
+		if nvx >= bxc: _set_cell(x + w - 1, byc, C_DOOR)   # road to the east
+		else:          _set_cell(x, byc, C_DOOR)           # road to the west
+	else:
+		if nhy >= byc: _set_cell(bxc, y + h - 1, C_DOOR)   # road to the south
+		else:          _set_cell(bxc, y, C_DOOR)           # road to the north
 
 func _gen_town() -> void:
 	_cells = []
@@ -388,9 +410,11 @@ func _gen_town() -> void:
 		for x in range(GW):
 			if x < 3 or x >= GW - 3 or y < 3 or y >= GH - 3:
 				_set_cell(x, y, C_CORN)
-	for rx in [int(GW * 0.25), int(GW * 0.5), int(GW * 0.75)]:
+	_road_xs = [int(GW * 0.25), int(GW * 0.5), int(GW * 0.75)]
+	_road_ys = [int(GH * 0.34), int(GH * 0.66)]
+	for rx in _road_xs:
 		_road_v(rx)
-	for ry in [int(GH * 0.34), int(GH * 0.66)]:
+	for ry in _road_ys:
 		_road_h(ry)
 	_buildings = []
 	for by in range(7, GH - 7, 9):               # buildings on a tighter lattice
