@@ -128,10 +128,23 @@ var _btn_ai: Button
 var _log_label: RichTextLabel
 var _icons: Dictionary = {}   # item_id -> Texture2D (game-icons svg), cached
 
+# New items have no bespoke art yet — borrow a close existing game-icon so the
+# inventory reads as a set instead of half text-only. (Real art is Phase 4.)
+const ICON_ALIAS := {
+	"hornet_nest": "beehive", "skillet": "frying_pan", "drain_cleaner": "oven_cleaner",
+	"bleach": "oven_cleaner", "nails": "nail_gun", "pvc_pipe": "pringles",
+	"sledgehammer": "crowbar", "road_flare": "fireworks", "air_horn": "boombox",
+	"first_aid": "bandages", "painkillers": "caffeine_pills", "energy_drink": "caffeine_pills",
+	"shop_vac": "vacuum", "barbed_wire": "wire_hanger", "motor_oil": "gasoline",
+	"cooking_grease": "gasoline", "chain": "jumper_cables", "mason_jar": "glue",
+	"gas_canister": "propane_tank", "rockets": "grenade",
+}
+
 func _item_icon(id: String) -> Texture2D:
 	if _icons.has(id):
 		return _icons[id]
-	var path := "res://assets/icons/%s.svg" % id
+	var aid := String(ICON_ALIAS.get(id, id))
+	var path := "res://assets/icons/%s.svg" % aid
 	var tex: Texture2D = load(path) if ResourceLoader.exists(path) else null
 	_icons[id] = tex
 	return tex
