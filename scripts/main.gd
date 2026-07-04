@@ -37,6 +37,7 @@ const C_DOOR := 5
 const C_CORN := 6
 const C_DIRT := 7
 const C_WEEDS := 8           # dead/overgrown grass — ground texture so it's not a flat sheet
+const C_TREE := 9            # solid tree — blocks movement + shots, drawn as a canopy
 const CAM_ZOOM := 1.3
 const MARGIN := 14.0
 const PLAYER_SPEED := 300.0
@@ -422,6 +423,7 @@ func _gen_town() -> void:
 			if randf() < 0.82:
 				_place_building(bx + randi_range(-1, 2), by + randi_range(-1, 2), randi_range(5, 10), randi_range(4, 8))
 	_scatter_ground()                            # dirt/weed patches so grass isn't a flat sheet
+	_scatter_trees()                             # solid trees: a treeline by the corn + sparse in town
 	# scavenge sites = a scatter of the buildings, Midwest-flavored
 	var names := ["FARMHOUSE", "GAS STATION", "BARN", "TRAILER", "DINER", "CHURCH",
 		"FEED STORE", "GRAIN SILO", "POST OFFICE", "BIG-BOX HUSK", "MOTEL", "BAIT SHOP"]
@@ -446,6 +448,19 @@ func _scatter_ground() -> void:
 					if _cell(xx, yy) == C_GRASS:
 						_set_cell(xx, yy, kind)
 
+# Solid trees: a dense treeline hugging the cornfield, thinning to the odd yard tree in
+# town. Only over open ground, and never boxing in the player's central spawn.
+func _scatter_trees() -> void:
+	var mid := Vector2i(int(GW / 2.0), int(GH / 2.0))
+	for y in range(4, GH - 4):
+		for x in range(4, GW - 4):
+			var c := _cell(x, y)
+			if c != C_GRASS and c != C_WEEDS: continue
+			if Vector2(x - mid.x, y - mid.y).length() < 4.0: continue   # keep spawn clear
+			var edge := x < 7 or x >= GW - 7 or y < 7 or y >= GH - 7
+			if randf() < (0.09 if edge else 0.012):
+				_set_cell(x, y, C_TREE)
+
 # Give each building a light occluder so the flashlight/glow are BLOCKED by walls
 # (no shining through buildings). A rectangle at the footprint = the building is opaque
 # to light; the near wall is lit, everything behind/inside falls into shadow.
@@ -458,10 +473,11 @@ func _build_occluders() -> void:
 		occ.occluder = poly
 		add_child(occ)
 
-# is a circle of radius r at world pos p overlapping a solid wall cell?
+# is a circle of radius r at world pos p overlapping a solid wall/tree cell?
 func _solid_circle(p: Vector2, r: float) -> bool:
 	for off in [Vector2(-r, -r), Vector2(r, -r), Vector2(-r, r), Vector2(r, r)]:
-		if _cell(int((p.x + off.x) / TILE), int((p.y + off.y) / TILE)) == C_WALL:
+		var c := _cell(int((p.x + off.x) / TILE), int((p.y + off.y) / TILE))
+		if c == C_WALL or c == C_TREE:
 			return true
 	return false
 
@@ -1175,8 +1191,9 @@ func _update_projectiles(delta: float) -> void:
 		tr.append(p["pos"])
 		if tr.size() > 6: tr.pop_front()
 		p["trail"] = tr
-		# building walls stop shots — you can't fire through a building (boomerangs excepted)
-		if not p.get("return", false) and _cell(int((p["pos"] as Vector2).x / TILE), int((p["pos"] as Vector2).y / TILE)) == C_WALL:
+		# building walls + trees stop shots — you can't fire through them (boomerangs excepted)
+		var hit_cell := _cell(int((p["pos"] as Vector2).x / TILE), int((p["pos"] as Vector2).y / TILE))
+		if not p.get("return", false) and (hit_cell == C_WALL or hit_cell == C_TREE):
 			if p["lobbed"]: _lob_land(p)   # a thrown thing lands/detonates against the wall
 			else: _burst(p["pos"], Color(0.75, 0.75, 0.8), 4, 150.0)   # bullet spark on the wall
 			continue
@@ -1655,7 +1672,15 @@ func _draw() -> void:
 	for cy in range(y0, y1):
 		var row := _cells[cy]
 		for cx in range(x0, x1):
-			draw_rect(Rect2(cx * TILE, cy * TILE, TILE, TILE), _cell_color(row[cx]))
+			var c := row[cx]
+			var rr := Rect2(cx * TILE, cy * TILE, TILE, TILE)
+			if c == C_TREE:
+				draw_rect(rr, Color(0.15, 0.19, 0.12))                          # ground under the tree
+				var ctr := rr.position + Vector2(TILE * 0.5, TILE * 0.5)
+				draw_circle(ctr, TILE * 0.46, Color(0.08, 0.13, 0.07))          # canopy
+				draw_circle(ctr, TILE * 0.30, Color(0.12, 0.20, 0.10))          # lit crown
+			else:
+				draw_rect(rr, _cell_color(c))
 
 	# (scavenge-site labels ride on top of the roofs — drawn at the end of the world pass)
 

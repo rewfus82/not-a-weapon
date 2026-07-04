@@ -263,8 +263,9 @@ player wall collision, camera-centered draw culling.
 - **Entity scaling** — simulate only what's near the player (active radius) + pooling, so
   the town can grow toward a county without dying.
 - **Density & texture** — DONE: denser building lattice + dirt/weed ground patches, and
-  item icons via alias map, and doors that face the nearest road. Remaining: more
-  building types, and solid props (trees, cars, fences, poles).
+  item icons via alias map, doors that face the nearest road, and solid trees (treeline
+  by the corn, sparse in town; block movement + shots). Remaining: more building types
+  and the other props (cars, fences, poles).
 - **Workbench placement** in the world (the Tier-4 build is currently anywhere via TAB).
 
 ## 8. Presentation
