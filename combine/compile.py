@@ -41,6 +41,8 @@ _DELIVERY_ENUM: dict[Delivery, str] = {
     Delivery.SELF: "SELF",
     Delivery.TURRET: "TURRET",
     Delivery.DECOY: "DECOY",
+    Delivery.CALTROPS: "CALTROPS",
+    Delivery.PUDDLE: "PUDDLE",
 }
 
 

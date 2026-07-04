@@ -33,6 +33,8 @@ class Delivery(str, Enum):
     SELF = "self"
     TURRET = "turret"
     DECOY = "decoy"
+    CALTROPS = "caltrops"   # thrown -> scatter into a ground hazard field
+    PUDDLE = "puddle"       # thrown -> a liquid ground zone (slick/flammable/caustic)
 
 
 class EffectKind(str, Enum):

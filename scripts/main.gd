@@ -1915,6 +1915,8 @@ func _delivery_from_name(n: String) -> Gadget.Delivery:
 		"SELF": return Gadget.Delivery.SELF
 		"TURRET": return Gadget.Delivery.TURRET
 		"DECOY": return Gadget.Delivery.DECOY
+		"CALTROPS": return Gadget.Delivery.CALTROPS
+		"PUDDLE": return Gadget.Delivery.PUDDLE
 		_: return Gadget.Delivery.PROJECTILE
 
 # mirrors Resolver._finalize: fire mode + ammo capacity from delivery/power
@@ -1924,7 +1926,8 @@ func _finalize_ai_gadget(g: Gadget) -> void:
 		g.semi = false
 	g.uses_ammo = g.delivery in [Gadget.Delivery.PROJECTILE, Gadget.Delivery.LOBBED,
 		Gadget.Delivery.PLACED, Gadget.Delivery.CONE, Gadget.Delivery.SELF,
-		Gadget.Delivery.TURRET, Gadget.Delivery.DECOY, Gadget.Delivery.RETURN]
+		Gadget.Delivery.TURRET, Gadget.Delivery.DECOY, Gadget.Delivery.RETURN,
+		Gadget.Delivery.CALTROPS, Gadget.Delivery.PUDDLE]
 	if g.uses_ammo:
 		var pwr: float = maxf(g.amount_of(Gadget.DAMAGE), g.amount_of(Gadget.EXPLODE))
 		pwr = maxf(pwr, 4.0)
@@ -1933,7 +1936,7 @@ func _finalize_ai_gadget(g: Gadget) -> void:
 				g.ammo_max = 1
 			Gadget.Delivery.SELF, Gadget.Delivery.TURRET, Gadget.Delivery.DECOY:
 				g.ammo_max = 3
-			Gadget.Delivery.LOBBED, Gadget.Delivery.PLACED:
+			Gadget.Delivery.LOBBED, Gadget.Delivery.PLACED, Gadget.Delivery.CALTROPS, Gadget.Delivery.PUDDLE:
 				g.ammo_max = clampi(int(round(60.0 / pwr)), 3, 8)
 			_:
 				g.ammo_max = clampi(int(round(90.0 / pwr)), 6, 30)
