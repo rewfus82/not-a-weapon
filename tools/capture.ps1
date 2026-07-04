@@ -20,6 +20,11 @@ param(
   [string]$Keys = "",          # keys to hold, comma list e.g. "w,d" or "space"
   [double]$Warmup = 1.5,       # seconds before the first capture
   [double]$Duration = 0,       # extra seconds, then a second "frame_end" capture
+  [switch]$Fire,               # hold-fire toward -Aim for a burst before the capture
+  [string]$Aim = "",           # mouse screen "x,y" to aim at (default: right of center)
+  [switch]$Night,              # set time-of-day to midnight (dark) for the shot
+  [string]$Tod = "",           # explicit time-of-day 0..1 (0=midnight, 0.5=noon)
+  [string]$Teleport = "",      # teleport the player to world "x,y" to stage a spot
   [string]$Size = "1600x900",  # capture resolution
   [string]$OutDir = "",        # defaults to tools/captures
   [string]$Godot = ""          # override Godot exe path
@@ -57,6 +62,10 @@ $env:NAW_KEYS     = $Keys
 $env:NAW_WARMUP   = "$Warmup"
 $env:NAW_DURATION = "$Duration"
 $env:NAW_SIZE     = $Size
+$env:NAW_FIRE     = if ($Fire) { "1" } else { "" }
+$env:NAW_AIM      = $Aim
+$env:NAW_TOD      = if ($Night) { "0.0" } elseif ($Tod) { $Tod } else { "" }
+$env:NAW_TP       = $Teleport
 
 # --- run --------------------------------------------------------------------
 # Positional scene arg runs that scene instead of the project's main scene.

@@ -29,9 +29,20 @@ Parameters:
 | `-Keys`     | (none)      | Keys to hold, comma list: `w,d`, `space`, `w,space` |
 | `-Warmup`   | `1.5`       | Seconds to run before the first capture             |
 | `-Duration` | `0`         | Extra seconds, then a second `frame_end.png`        |
+| `-Fire`     | off         | Hold-fire toward `-Aim` for ~0.6s before the shot   |
+| `-Aim`      | right-of-center | Mouse screen `x,y` to aim at (e.g. `1200,450`)  |
+| `-Night`    | off         | Force time-of-day to midnight (dark)                |
+| `-Tod`      | (none)      | Explicit time-of-day `0..1` (0=midnight, 0.5=noon)  |
+| `-Teleport` | (none)      | Teleport the player to world `x,y` to stage a spot  |
 | `-Size`     | `1600x900`  | Capture resolution                                  |
 | `-OutDir`   | `tools/captures` | Where PNGs + `console.log` go                  |
 | `-Godot`    | auto        | Override Godot exe path                             |
+
+```powershell
+./tools/capture.ps1 -Fire                         # aim right, fire a burst
+./tools/capture.ps1 -Night -Fire                  # night combat scene
+./tools/capture.ps1 -Teleport "2200,1500" -Night  # stage a spot at night
+```
 
 Held keys use the game's own bindings: `w a s d` move, `space` pause/start,
 `f` flashlight, `r` reload, `tab` workbench. (Mouse aim defaults to facing
