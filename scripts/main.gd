@@ -293,7 +293,7 @@ func _setup_atmosphere() -> void:
 	_vision.energy = 1.1
 	_vision.texture_scale = 7.5
 	_vision.shadow_enabled = true
-	_vision.shadow_filter = Light2D.SHADOW_FILTER_NONE   # hard shadow edges = hard occlusion
+	_vision.shadow_filter = Light2D.SHADOW_FILTER_PCF13   # soft edges — hard shadows read as shards
 	add_child(_vision)
 	_flashlight = PointLight2D.new()
 	_flashlight.texture = _cone_tex(256)
@@ -658,18 +658,8 @@ func _build_occluders() -> void:
 			b.position, Vector2(b.end.x, b.position.y), b.end, Vector2(b.position.x, b.end.y)])
 		occ.occluder = poly
 		add_child(occ)
-	# trees block sight too — a canopy-sized square occluder per tree cell
-	var tr := TILE * 0.7
-	for cy in range(GH):
-		for cx in range(GW):
-			if _cells[cy][cx] != C_TREE: continue
-			var c := Vector2(cx * TILE + TILE * 0.5, cy * TILE + TILE * 0.5)
-			var occ := LightOccluder2D.new()
-			var poly := OccluderPolygon2D.new()
-			poly.polygon = PackedVector2Array([
-				c + Vector2(-tr, -tr), c + Vector2(tr, -tr), c + Vector2(tr, tr), c + Vector2(-tr, tr)])
-			occ.occluder = poly
-			add_child(occ)
+	# NOTE: trees intentionally do NOT occlude sight — a scattered tree throwing a hard
+	# shadow-wedge across the daytime field is visual noise. They still block movement + shots.
 
 # solid AREAS (trees, furniture, off-map border). Walls are edges, tested separately.
 func _cell_solid(px: float, py: float, r: float) -> bool:
