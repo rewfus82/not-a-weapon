@@ -407,6 +407,11 @@ func _place_building(x: int, y: int, w: int, h: int, t: int) -> void:
 	_buildings.append(Rect2(x * TILE, y * TILE, w * TILE, h * TILE))
 	_btype.append(t)
 
+# is this cell part of a building interior (walkable/furnished)? used to draw thin walls
+func _is_inside(cx: int, cy: int) -> bool:
+	var c := _cell(cx, cy)
+	return c == C_FLOOR or c == C_FURN or c == C_DOOR
+
 # only drop furniture onto open floor (never over walls/doors/windows)
 func _furn(xx: int, yy: int) -> void:
 	if _cell(xx, yy) == C_FLOOR: _set_cell(xx, yy, C_FURN)
@@ -1789,6 +1794,17 @@ func _draw() -> void:
 				var ctr := rr.position + Vector2(TILE * 0.5, TILE * 0.5)
 				draw_circle(ctr, TILE * 0.46, Color(0.08, 0.13, 0.07))          # canopy
 				draw_circle(ctr, TILE * 0.30, Color(0.12, 0.20, 0.10))          # lit crown
+			elif c == C_WALL or c == C_WINDOW:
+				# collision is a whole cell, but draw the wall as a thin band on the interior
+				# edge (where you actually stop) over a shadow, so walls don't read as chunky
+				draw_rect(rr, Color(0.13, 0.11, 0.10))                          # foundation shadow
+				var t := TILE * 0.3
+				var wcol := Color(0.32, 0.40, 0.44) if c == C_WINDOW else Color(0.40, 0.33, 0.29)
+				var pp := rr.position
+				if _is_inside(cx, cy + 1): draw_rect(Rect2(pp + Vector2(0, TILE - t), Vector2(TILE, t)), wcol)
+				if _is_inside(cx, cy - 1): draw_rect(Rect2(pp, Vector2(TILE, t)), wcol)
+				if _is_inside(cx - 1, cy): draw_rect(Rect2(pp, Vector2(t, TILE)), wcol)
+				if _is_inside(cx + 1, cy): draw_rect(Rect2(pp + Vector2(TILE - t, 0), Vector2(t, TILE)), wcol)
 			else:
 				draw_rect(rr, _cell_color(c))
 
