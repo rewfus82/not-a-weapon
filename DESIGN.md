@@ -338,9 +338,13 @@ Systems first; art/iso is its own later phase so it never blocks gameplay.
 - **Phase 2 — Day/night + stealth loop. ✅ DONE.** Day/night clock, flashlight toggle,
   waves retired, continuous night-scaled spawning, zombie detection AI
   (wander/alert/chase, light+sound, disengage), day-lethargy/night-hunting.
-- **Phase 3 — The world (open-world town → county). 🔨 IN PROGRESS.** Landed: grid world +
-  procgen town + collision + edge-culling. Left: zombies-respect-walls + pathing,
-  interiors, entity scaling, density/props, workbench placement. See §7.
+- **Phase 3 — The world (open-world town → county). 🔨 IN PROGRESS (~70%).** Landed: grid
+  world + procgen town + edge-culling; player/zombie/shot wall collision; zombies wall-
+  follow around buildings; **roof-fade interiors** (hide the horde until you enter);
+  doors face the nearest road; density pass (denser lattice, dirt/weed ground, solid
+  trees, item icons). Left: entity scaling (active-radius + pooling for county scale),
+  workbench placement, loot containers inside, more building types + car/fence/pole props,
+  full nav/pathing (A*). See §7.
 - **Phase 4 — Presentation overhaul. ⬜ NOT STARTED.** Art direction, in-hand weapons, full
   UI/HUD revamp, and the **iso-vs-top-down decision** (§8). Gated behind the art talk.
 
@@ -355,8 +359,10 @@ wired to the Python brain, lucidity ladder gating field crafting + the bench, bo
 delivery-profile blueprint (per-delivery `params`). **Loop:** day/night clock + flashlight
 toggle, no waves, continuous night-scaled spawning, zombie detection AI (wander/alert/
 chase, drawn to light + gunfire, disengage on lost contact). **World:** procgen town on a
-code grid — roads/blocks/buildings/doors/cornfields, player wall collision, camera-culled
-draw. **Combat:** RUINER juice, caltrops/puddle ground hazards, real 2D lighting/fog.
+code grid — roads/blocks/buildings/road-facing doors/cornfields/solid trees, full wall
+collision (player + zombies + shots), zombies wall-follow around buildings, roof-fade
+interiors (opaque roofs that fade open on enter), camera-culled draw. **Combat:** RUINER
+juice, caltrops/puddle ground hazards, real 2D lighting/fog.
 **Python `combine/` brain** tested (pytest 73/73). **Dev loop:** `tools/capture.ps1`
 gives the agent eyes (screenshot + console). Everything is graybox-skinned — art is Phase 4.
 
