@@ -1969,7 +1969,7 @@ func _draw() -> void:
 
 	# projectiles (with fading motion trails)
 	for p in _projectiles:
-		var pr: float = 6.0 if not p["homing"] else 8.0
+		var pr: float = 2.5 if not p["homing"] else 3.5
 		var tr: Array = p.get("trail", [])
 		for i in range(tr.size()):
 			var ta := (float(i) + 1.0) / float(tr.size() + 1)
@@ -2012,7 +2012,7 @@ func _draw() -> void:
 	# muzzle flash
 	if not _muzzle.is_empty():
 		var mf := clampf(float(_muzzle["life"]) * 16.0, 0.0, 1.0)
-		draw_circle(_muzzle["pos"], 8.0 * mf, Color(1.0, 0.95, 0.65, mf))
+		draw_circle(_muzzle["pos"], 4.0 * mf, Color(1.0, 0.95, 0.65, mf))
 
 	# particles
 	for pt in _particles:
