@@ -54,7 +54,7 @@ const ROOF_COL := [
 	Color(0.17, 0.16, 0.22),   # church — slate
 	Color(0.24, 0.20, 0.14),   # shed   — rusty tin
 ]
-const CAM_ZOOM := 0.9         # pulled back — see ~more town; player reads small (dynamic camera TBD)
+const CAM_ZOOM := 1.1         # pulled back a bit (dynamic camera in step 2 will vary this)
 const MARGIN := 10.0
 const PLAYER_SPEED := 230.0   # a small, vulnerable figure
 const PLAYER_RADIUS := 9.0    # ≈ half a tile radius → player ~1 tile, dwarfed by buildings
