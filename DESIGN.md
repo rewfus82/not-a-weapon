@@ -271,6 +271,34 @@ player wall collision, camera-centered draw culling.
   poles).
 - **Workbench placement** in the world (the Tier-4 build is currently anywhere via TAB).
 
+## 7b. Scale & world model — RE-ARCHITECTURE (locked 2026-07-04)
+
+The graybox scale was inherited from the wave-arena and is wrong for the endpoint (player
+too big, walls a full chunky cell, world cramped). Locked decisions:
+
+- **Base unit — tile ≈ player.** One tile is ~one floor square, roughly the player's
+  footprint (player Ø 28px). Target **tile ≈ 32px**; everything sized in these units.
+- **Edge-walls (Project Zomboid model).** Walls are thin barriers on tile *edges*, not
+  solid cells — thin by construction, at any zoom. Data: two edge grids (vertical = west
+  side of each cell, horizontal = north side), each edge typed NONE / WALL / WINDOW / DOOR.
+  Collision = crossing a solid edge is blocked (circle-vs-segment, per-axis). Doors = DOOR
+  edges (walkable gap). Light occluders become the wall-edge segments.
+- **Windows** block movement but are **see-through AND shoot-through**: FOV and projectiles
+  pass a WINDOW edge; walls stop both.
+- **FOV / line-of-sight — EVERYWHERE, HARD occlusion (new core pillar).** You see only what
+  is in line of sight; walls, trees, and corners block vision **outdoors and indoors** (a
+  zombie behind a barn is invisible until it rounds the corner — the Darkwood reference).
+  Unseen area is **hard black / unrendered**, not dimmed. Pairs with roof-fade: roofs hide
+  interiors from outside, FOV hides everything else from inside.
+- **Dynamic contextual camera.** One target-zoom that lerps by context:
+  - Default (on foot, outdoors): pulled back, **~45–50 tiles across** (zoom ≈ 1.0, vs 1.3 now).
+  - Inside a building: punch in, **~20–25 tiles** (intimate) (zoom ≈ 2.2).
+  - Scope equipped / binoculars: pull out, **~80 tiles** (zoom ≈ 0.65).
+  - Vehicles (way later): further out still.
+
+**Build order (Phase 3 re-arch):** (1) rescale + edge-walls — fixes "scale is off / chunky
+walls"; (2) dynamic camera; (3) FOV/enclosure — the biggest lift. Each is a checkpoint.
+
 ## 8. Presentation
 
 - **Isometric viewpoint — REOPENED (2026-07-04).** We're currently building **top-down**
@@ -345,9 +373,11 @@ Systems first; art/iso is its own later phase so it never blocks gameplay.
   world + procgen town + edge-culling; player/zombie/shot wall collision; zombies wall-
   follow around buildings; **roof-fade interiors** (hide the horde until you enter);
   doors face the nearest road; density pass (denser lattice, dirt/weed ground, solid
-  trees, item icons). Left: entity scaling (active-radius + pooling for county scale),
-  workbench placement, loot containers inside, more building types + car/fence/pole props,
-  full nav/pathing (A*). See §7.
+  trees, item icons). **RE-ARCH now scoped (§7b, locked 2026-07-04): tile≈player scale,
+  edge-walls, FOV-everywhere (hard occlusion), dynamic contextual camera — the graybox
+  scale was wrong for the endpoint.** Build order: (1) rescale + edge-walls, (2) dynamic
+  camera, (3) FOV/enclosure. Also left: entity scaling (active-radius + pooling), workbench
+  placement, loot containers inside, car/fence/pole props, full nav/pathing (A*). See §7/§7b.
 - **Phase 4 — Presentation overhaul. ⬜ NOT STARTED.** Art direction, in-hand weapons, full
   UI/HUD revamp, and the **iso-vs-top-down decision** (§8). Gated behind the art talk.
 
