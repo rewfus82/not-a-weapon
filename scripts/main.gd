@@ -38,8 +38,18 @@ const C_CORN := 6
 const C_DIRT := 7
 const C_WEEDS := 8           # dead/overgrown grass — ground texture so it's not a flat sheet
 const C_TREE := 9            # solid tree — blocks movement + shots, drawn as a canopy
-const C_WINDOW := 10         # window set into an exterior wall (solid, glassy)
+const C_WINDOW := 10         # (legacy cell type — walls/windows are now EDGES; see below)
 const C_FURN := 11           # furniture/fixture inside a building (solid cover)
+
+# Walls live on tile EDGES, not in cells (PZ model — thin by construction). Two edge grids:
+#   _ev[cy][cx] = edge on the WEST side of cell (cx,cy)   (cx in 0..GW, cy in 0..GH-1)
+#   _eh[cy][cx] = edge on the NORTH side of cell (cx,cy)  (cx in 0..GW-1, cy in 0..GH)
+# East edge of (cx,cy) = _ev[cy][cx+1]; south edge = _eh[cy+1][cx].
+const E_NONE := 0
+const E_WALL := 1            # blocks movement, sight, and shots
+const E_WINDOW := 2          # blocks movement; lets sight + shots through (FOV step)
+const E_DOOR := 3            # open gap you walk through
+const WALL_PX := 3.0         # drawn wall thickness (thin, independent of tile size)
 
 # building archetypes — drive footprint size, interior layout, and roof colour
 const BT_HOUSE := 0
@@ -113,6 +123,8 @@ var _zombies: Array[Dictionary] = []
 var _pickups_root: Node2D             # container node for Pickup entities (dropped loot)
 var _sites: Array[Dictionary] = []    # scavenge points: {rect, label, looted}
 var _cells: Array[PackedByteArray] = [] # the town cell grid [row][col] (cell types above)
+var _ev: Array[PackedByteArray] = []    # vertical wall edges (west side of each cell), GW+1 wide
+var _eh: Array[PackedByteArray] = []    # horizontal wall edges (north side of each cell), GH+1 tall
 var _buildings: Array[Rect2] = []       # building footprints in world coords
 var _roof_a: Array[float] = []          # per-building roof opacity (1=roofed/hidden, 0=you're inside)
 var _btype: Array[int] = []             # per-building archetype (parallel to _buildings)
@@ -362,6 +374,29 @@ func _set_cell(x: int, y: int, c: int) -> void:
 	if x >= 0 and y >= 0 and x < GW and y < GH:
 		_cells[y][x] = c
 
+# --- wall EDGES (thin walls on tile boundaries) ---
+func _ev_at(cx: int, cy: int) -> int:        # vertical edge on the west side of cell (cx,cy)
+	if cy < 0 or cy >= GH or cx < 0 or cx > GW: return E_WALL   # off-map = solid border
+	return _ev[cy][cx]
+
+func _eh_at(cx: int, cy: int) -> int:        # horizontal edge on the north side of cell (cx,cy)
+	if cx < 0 or cx >= GW or cy < 0 or cy > GH: return E_WALL
+	return _eh[cy][cx]
+
+func _set_ev(cx: int, cy: int, t: int) -> void:
+	if cy >= 0 and cy < GH and cx >= 0 and cx <= GW: _ev[cy][cx] = t
+
+func _set_eh(cx: int, cy: int, t: int) -> void:
+	if cx >= 0 and cx < GW and cy >= 0 and cy <= GH: _eh[cy][cx] = t
+
+func _alloc_edges() -> void:
+	_ev = []
+	for cy in range(GH):
+		var r := PackedByteArray(); r.resize(GW + 1); r.fill(E_NONE); _ev.append(r)
+	_eh = []
+	for cy in range(GH + 1):
+		var r := PackedByteArray(); r.resize(GW); r.fill(E_NONE); _eh.append(r)
+
 func _cell_color(c: int) -> Color:
 	match c:
 		C_ROAD:  return Color(0.11, 0.11, 0.13)
@@ -394,16 +429,18 @@ func _place_building(x: int, y: int, w: int, h: int, t: int) -> void:
 			var c := _cell(xx, yy)
 			if c != C_GRASS and c != C_DIRT and c != C_WEEDS:
 				return
-	for yy in range(y, y + h):
+	for yy in range(y, y + h):                       # whole footprint is interior floor now
 		for xx in range(x, x + w):
-			var edge := xx == x or xx == x + w - 1 or yy == y or yy == y + h - 1
-			_set_cell(xx, yy, C_WALL if edge else C_FLOOR)
-	var dcell := _place_door(x, y, w, h)             # doorway facing the nearest road
-	_add_windows(x, y, w, h)                         # windows in the remaining walls
-	_furnish(t, x, y, w, h)                          # partitions + fixtures by archetype
-	# guarantee the door is walkable: clear whatever furnishing landed just inside it
-	var inner := Vector2i(dcell.x + signi(x + int(w / 2.0) - dcell.x), dcell.y + signi(y + int(h / 2.0) - dcell.y))
-	_set_cell(inner.x, inner.y, C_FLOOR)
+			_set_cell(xx, yy, C_FLOOR)
+	for xx in range(x, x + w):                        # perimeter walls live on the edges
+		_set_eh(xx, y, E_WALL)                        # north
+		_set_eh(xx, y + h, E_WALL)                    # south
+	for yy in range(y, y + h):
+		_set_ev(x, yy, E_WALL)                        # west
+		_set_ev(x + w, yy, E_WALL)                    # east
+	_place_door(x, y, w, h)                           # doorway edge facing the nearest road
+	_add_windows(x, y, w, h)                          # window edges in the remaining walls
+	_furnish(t, x, y, w, h)                           # partitions + fixtures by archetype
 	_buildings.append(Rect2(x * TILE, y * TILE, w * TILE, h * TILE))
 	_btype.append(t)
 
@@ -417,15 +454,15 @@ func _furn(xx: int, yy: int) -> void:
 	if _cell(xx, yy) == C_FLOOR: _set_cell(xx, yy, C_FURN)
 
 func _add_windows(x: int, y: int, w: int, h: int) -> void:
-	var step := 3                                     # a window roughly every 3 cells
+	var step := 4                                     # a window roughly every 4 cells
 	for xx in range(x + 2, x + w - 2):
 		if (xx - x) % step == 0:
-			if _cell(xx, y) == C_WALL and randf() < 0.7: _set_cell(xx, y, C_WINDOW)
-			if _cell(xx, y + h - 1) == C_WALL and randf() < 0.7: _set_cell(xx, y + h - 1, C_WINDOW)
+			if _eh_at(xx, y) == E_WALL and randf() < 0.7: _set_eh(xx, y, E_WINDOW)
+			if _eh_at(xx, y + h) == E_WALL and randf() < 0.7: _set_eh(xx, y + h, E_WINDOW)
 	for yy in range(y + 2, y + h - 2):
 		if (yy - y) % step == 0:
-			if _cell(x, yy) == C_WALL and randf() < 0.7: _set_cell(x, yy, C_WINDOW)
-			if _cell(x + w - 1, yy) == C_WALL and randf() < 0.7: _set_cell(x + w - 1, yy, C_WINDOW)
+			if _ev_at(x, yy) == E_WALL and randf() < 0.7: _set_ev(x, yy, E_WINDOW)
+			if _ev_at(x + w, yy) == E_WALL and randf() < 0.7: _set_ev(x + w, yy, E_WINDOW)
 
 func _furnish(t: int, x: int, y: int, w: int, h: int) -> void:
 	if w < 4 or h < 4:                               # too small for a layout — a stray crate
@@ -438,14 +475,16 @@ func _furnish(t: int, x: int, y: int, w: int, h: int) -> void:
 		_:         _furnish_house(x, y, w, h)
 
 func _furnish_house(x: int, y: int, w: int, h: int) -> void:
-	if w >= 6:                                       # a partition wall -> two rooms
+	if w >= h:                                       # a partition wall (edge) -> two rooms
 		var px := x + int(w / 2.0)
-		for yy in range(y + 1, y + h - 1): _set_cell(px, yy, C_WALL)
-		_set_cell(px, y + randi_range(1, h - 2), C_FLOOR)      # inner doorway
-	elif h >= 6:
+		for yy in range(y, y + h): _set_ev(px, yy, E_WALL)
+		var gap := y + randi_range(1, h - 3)
+		_set_ev(px, gap, E_DOOR); _set_ev(px, gap + 1, E_DOOR)   # inner doorway (2 tall)
+	else:
 		var py := y + int(h / 2.0)
-		for xx in range(x + 1, x + w - 1): _set_cell(xx, py, C_WALL)
-		_set_cell(x + randi_range(1, w - 2), py, C_FLOOR)
+		for xx in range(x, x + w): _set_eh(xx, py, E_WALL)
+		var gap := x + randi_range(1, w - 3)
+		_set_eh(gap, py, E_DOOR); _set_eh(gap + 1, py, E_DOOR)
 	_furn(x + 1, y + 1); _furn(x + 1, y + 2)         # a bed against the wall
 	_furn(x + w - 2, y + 1)                          # a dresser
 	_furn(x + w - 2, y + h - 2)                      # a table
@@ -501,25 +540,25 @@ func _nearest(vals: Array, v: int) -> int:
 		if d < bd: bd = d; best = int(a)
 	return best
 
-# Put the doorway on whichever wall faces the nearest road, so buildings open onto the street.
-func _place_door(x: int, y: int, w: int, h: int) -> Vector2i:
+# Put the doorway (a 2-wide gap in the wall edge) on whichever wall faces the nearest road.
+func _place_door(x: int, y: int, w: int, h: int) -> void:
 	var bxc := x + int(w / 2.0)
 	var byc := y + int(h / 2.0)
 	var nvx := _nearest(_road_xs, bxc)   # nearest vertical road
 	var nhy := _nearest(_road_ys, byc)   # nearest horizontal road
-	var d: Vector2i
 	if absi(nvx - bxc) <= absi(nhy - byc):
-		d = Vector2i(x + w - 1, byc) if nvx >= bxc else Vector2i(x, byc)   # east / west
+		var ex := (x + w) if nvx >= bxc else x       # east or west wall (vertical edges)
+		_set_ev(ex, byc, E_DOOR); _set_ev(ex, byc + 1, E_DOOR)
 	else:
-		d = Vector2i(bxc, y + h - 1) if nhy >= byc else Vector2i(bxc, y)   # south / north
-	_set_cell(d.x, d.y, C_DOOR)
-	return d
+		var ey := (y + h) if nhy >= byc else y       # south or north wall (horizontal edges)
+		_set_eh(bxc, ey, E_DOOR); _set_eh(bxc + 1, ey, E_DOOR)
 
 func _gen_town() -> void:
 	_cells = []
 	for y in range(GH):
 		var row := PackedByteArray(); row.resize(GW); row.fill(C_GRASS)
 		_cells.append(row)
+	_alloc_edges()
 	for y in range(GH):                          # cornfield ring around the town
 		for x in range(GW):
 			if x < 8 or x >= GW - 8 or y < 8 or y >= GH - 8:
@@ -591,13 +630,43 @@ func _build_occluders() -> void:
 		occ.occluder = poly
 		add_child(occ)
 
-# is a circle of radius r at world pos p overlapping a solid wall/tree cell?
-func _solid_circle(p: Vector2, r: float) -> bool:
+# solid AREAS (trees, furniture, off-map border). Walls are edges, tested separately.
+func _cell_solid(px: float, py: float, r: float) -> bool:
 	for off in [Vector2(-r, -r), Vector2(r, -r), Vector2(-r, r), Vector2(r, r)]:
-		var c := _cell(int((p.x + off.x) / TILE), int((p.y + off.y) / TILE))
-		if c == C_WALL or c == C_TREE or c == C_WINDOW or c == C_FURN:
+		var c := _cell(int((px + off.x) / TILE), int((py + off.y) / TILE))
+		if c == C_TREE or c == C_FURN or c == C_WALL:   # C_WALL only appears off-map (border)
 			return true
 	return false
+
+# a solid vertical edge overlapping the circle blocks horizontal movement
+func _hits_v_edge(px: float, py: float, r: float) -> bool:
+	var cy0 := int((py - r) / TILE); var cy1 := int((py + r) / TILE)
+	for ecx in range(int((px - r) / TILE), int((px + r) / TILE) + 2):
+		if absf(px - ecx * TILE) < r:
+			for ecy in range(cy0, cy1 + 1):
+				var e := _ev_at(ecx, ecy)
+				if e == E_WALL or e == E_WINDOW: return true
+	return false
+
+# a solid horizontal edge overlapping the circle blocks vertical movement
+func _hits_h_edge(px: float, py: float, r: float) -> bool:
+	var cx0 := int((px - r) / TILE); var cx1 := int((px + r) / TILE)
+	for ecy in range(int((py - r) / TILE), int((py + r) / TILE) + 2):
+		if absf(py - ecy * TILE) < r:
+			for ecx in range(cx0, cx1 + 1):
+				var e := _eh_at(ecx, ecy)
+				if e == E_WALL or e == E_WINDOW: return true
+	return false
+
+func _blocked_x(px: float, py: float, r: float) -> bool:
+	return _cell_solid(px, py, r) or _hits_v_edge(px, py, r)
+
+func _blocked_y(px: float, py: float, r: float) -> bool:
+	return _cell_solid(px, py, r) or _hits_h_edge(px, py, r)
+
+# general "is this circle overlapping anything solid" — used for spawn placement
+func _solid_circle(p: Vector2, r: float) -> bool:
+	return _cell_solid(p.x, p.y, r) or _hits_v_edge(p.x, p.y, r) or _hits_h_edge(p.x, p.y, r)
 
 func _restart() -> void:
 	_phase = Phase.ALIVE
@@ -789,9 +858,9 @@ func _handle_input(delta: float) -> void:
 	if move != Vector2.ZERO:
 		var step := move.normalized() * PLAYER_SPEED * _speed_mult * delta
 		var r := float(PLAYER_RADIUS)
-		if not _solid_circle(Vector2(_player.x + step.x, _player.y), r):   # per-axis = slide on walls
+		if not _blocked_x(_player.x + step.x, _player.y, r):   # per-axis = slide on walls
 			_player.x += step.x
-		if not _solid_circle(Vector2(_player.x, _player.y + step.y), r):
+		if not _blocked_y(_player.x, _player.y + step.y, r):
 			_player.y += step.y
 	_player.x = clampf(_player.x, PLAYER_RADIUS, WORLD_W - PLAYER_RADIUS)
 	_player.y = clampf(_player.y, PLAYER_RADIUS, WORLD_H - PLAYER_RADIUS)
@@ -957,16 +1026,16 @@ func _update_world(delta: float) -> void:
 		# per-axis wall collision — zombies slide along buildings instead of phasing through
 		var zr := 8.0
 		var pre := zpos
-		if not _solid_circle(Vector2(zpos.x + step.x, zpos.y), zr):
+		if not _blocked_x(zpos.x + step.x, zpos.y, zr):
 			zpos.x += step.x
-		if not _solid_circle(Vector2(zpos.x, zpos.y + step.y), zr):
+		if not _blocked_y(zpos.x, zpos.y + step.y, zr):
 			zpos.y += step.y
 		# stuck against a wall while hunting -> wall-follow toward a way around (door/corner)
 		if st != ZState.WANDER and vel.length() > 1.0 and (zpos - pre).length() < spd * delta * 0.5:
 			if not z.has("detour"): z["detour"] = 1.0 if randf() < 0.5 else -1.0
 			var tan := Vector2(-vel.y, vel.x).normalized() * float(z["detour"]) * spd * delta
-			if not _solid_circle(Vector2(zpos.x + tan.x, zpos.y), zr): zpos.x += tan.x
-			if not _solid_circle(Vector2(zpos.x, zpos.y + tan.y), zr): zpos.y += tan.y
+			if not _blocked_x(zpos.x + tan.x, zpos.y, zr): zpos.x += tan.x
+			if not _blocked_y(zpos.x, zpos.y + tan.y, zr): zpos.y += tan.y
 		z["pos"] = zpos
 		z["knock"] = z["knock"].lerp(Vector2.ZERO, 0.12)
 
@@ -1309,9 +1378,18 @@ func _update_projectiles(delta: float) -> void:
 		tr.append(p["pos"])
 		if tr.size() > 6: tr.pop_front()
 		p["trail"] = tr
-		# building walls + trees stop shots — you can't fire through them (boomerangs excepted)
-		var hit_cell := _cell(int((p["pos"] as Vector2).x / TILE), int((p["pos"] as Vector2).y / TILE))
-		if not p.get("return", false) and (hit_cell == C_WALL or hit_cell == C_TREE or hit_cell == C_WINDOW or hit_cell == C_FURN):
+		# walls stop shots; windows + doors let them through (boomerangs excepted)
+		var cxp := int((p["pos"] as Vector2).x / TILE)
+		var cyp := int((p["pos"] as Vector2).y / TILE)
+		var hit_cell := _cell(cxp, cyp)
+		var stop := hit_cell == C_TREE or hit_cell == C_FURN or hit_cell == C_WALL   # solid areas / border
+		if not stop:                                    # did it cross a solid wall edge this frame?
+			var pcx: int = p.get("pcx", cxp)
+			var pcy: int = p.get("pcy", cyp)
+			if cxp != pcx and _ev_at(maxi(cxp, pcx), cyp) == E_WALL: stop = true
+			if cyp != pcy and _eh_at(cxp, maxi(cyp, pcy)) == E_WALL: stop = true
+		p["pcx"] = cxp; p["pcy"] = cyp
+		if not p.get("return", false) and stop:
 			if p["lobbed"]: _lob_land(p)   # a thrown thing lands/detonates against the wall
 			else: _burst(p["pos"], Color(0.75, 0.75, 0.8), 4, 150.0)   # bullet spark on the wall
 			continue
@@ -1773,6 +1851,26 @@ func _out_of_play(p: Vector2) -> bool:
 # DRAW
 # =============================================================================
 
+# thin wall/window lines on tile edges (PZ-style). Drawn after the ground cells,
+# under entities; roofs (drawn last) hide them from outside.
+func _draw_wall_edges(x0: int, x1: int, y0: int, y1: int) -> void:
+	var wall_col := Color(0.42, 0.35, 0.30)
+	var win_col := Color(0.45, 0.60, 0.66)
+	for ecy in range(y0, y1):                         # vertical edges (west side of each cell)
+		for ecx in range(x0, x1 + 1):
+			var ev: int = _ev[ecy][ecx]
+			if ev == E_WALL or ev == E_WINDOW:
+				var ex := ecx * TILE
+				draw_line(Vector2(ex, ecy * TILE), Vector2(ex, (ecy + 1) * TILE),
+					win_col if ev == E_WINDOW else wall_col, WALL_PX)
+	for ecy in range(y0, y1 + 1):                     # horizontal edges (north side of each cell)
+		for ecx in range(x0, x1):
+			var eh: int = _eh[ecy][ecx]
+			if eh == E_WALL or eh == E_WINDOW:
+				var ey := ecy * TILE
+				draw_line(Vector2(ecx * TILE, ey), Vector2((ecx + 1) * TILE, ey),
+					win_col if eh == E_WINDOW else wall_col, WALL_PX)
+
 func _draw() -> void:
 	var shake := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * _shake
 	_shake_off = shake
@@ -1796,19 +1894,9 @@ func _draw() -> void:
 				var ctr := rr.position + Vector2(TILE * 0.5, TILE * 0.5)
 				draw_circle(ctr, TILE * 1.5, Color(0.08, 0.13, 0.07))           # canopy (spans ~3 cells)
 				draw_circle(ctr, TILE * 1.0, Color(0.12, 0.20, 0.10))           # lit crown
-			elif c == C_WALL or c == C_WINDOW:
-				# collision is a whole cell, but draw the wall as a thin band on the interior
-				# edge (where you actually stop) over a shadow, so walls don't read as chunky
-				draw_rect(rr, Color(0.13, 0.11, 0.10))                          # foundation shadow
-				var t := TILE * 0.3
-				var wcol := Color(0.32, 0.40, 0.44) if c == C_WINDOW else Color(0.40, 0.33, 0.29)
-				var pp := rr.position
-				if _is_inside(cx, cy + 1): draw_rect(Rect2(pp + Vector2(0, TILE - t), Vector2(TILE, t)), wcol)
-				if _is_inside(cx, cy - 1): draw_rect(Rect2(pp, Vector2(TILE, t)), wcol)
-				if _is_inside(cx - 1, cy): draw_rect(Rect2(pp, Vector2(t, TILE)), wcol)
-				if _is_inside(cx + 1, cy): draw_rect(Rect2(pp + Vector2(TILE - t, 0), Vector2(t, TILE)), wcol)
 			else:
 				draw_rect(rr, _cell_color(c))
+	_draw_wall_edges(x0, x1, y0, y1)
 
 	# (scavenge-site labels ride on top of the roofs — drawn at the end of the world pass)
 
