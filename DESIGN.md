@@ -285,11 +285,13 @@ too big, walls a full chunky cell, world cramped). Locked decisions:
   edges (walkable gap). Light occluders become the wall-edge segments.
 - **Windows** block movement but are **see-through AND shoot-through**: FOV and projectiles
   pass a WINDOW edge; walls stop both.
-- **FOV / line-of-sight — EVERYWHERE, HARD occlusion (new core pillar).** You see only what
-  is in line of sight; walls, trees, and corners block vision **outdoors and indoors** (a
-  zombie behind a barn is invisible until it rounds the corner — the Darkwood reference).
-  Unseen area is **hard black / unrendered**, not dimmed. Pairs with roof-fade: roofs hide
-  interiors from outside, FOV hides everything else from inside.
+- **FOV / line-of-sight — SHELVED (2026-07-05).** Attempted twice and reverted both times:
+  (a) Godot light+occluder "hard black" occlusion read as swinging black shards/voids;
+  (b) a PZ-style computed fog-of-war grid (seen/visible layers, grey memory, entity-hiding)
+  played badly too. Target model if revisited = **Project Zomboid**: undiscovered = black,
+  discovered-but-out-of-sight = grey (map remembered), in-sight = clear + entities only shown
+  live. Needs a from-the-ground-up, F5-driven pass — do NOT iterate it off screenshots. All
+  FOV code reverted to c02d175; the rest of the re-arch (scale, edge-walls, camera) stands.
 - **Dynamic contextual camera.** One target-zoom that lerps by context:
   - Default (on foot, outdoors): pulled back, **~45–50 tiles across** (zoom ≈ 1.0, vs 1.3 now).
   - Inside a building: punch in, **~20–25 tiles** (intimate) (zoom ≈ 2.2).
