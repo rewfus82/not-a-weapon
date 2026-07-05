@@ -40,6 +40,7 @@ const C_WEEDS := 8           # dead/overgrown grass — ground texture so it's n
 const C_TREE := 9            # solid tree — blocks movement + shots, drawn as a canopy
 const C_WINDOW := 10         # (legacy cell type — walls/windows are now EDGES; see below)
 const C_FURN := 11           # furniture/fixture inside a building (solid cover)
+const C_CONTAINER := 12      # searchable prop (dresser/cabinet/crate…): solid, E to search, 33% loot
 
 # Walls live on tile EDGES, not in cells (PZ model — thin by construction). Two edge grids:
 #   _ev[cy][cx] = edge on the WEST side of cell (cx,cy)   (cx in 0..GW, cy in 0..GH-1)
@@ -128,6 +129,7 @@ var _cells: Array[PackedByteArray] = [] # the town cell grid [row][col] (cell ty
 var _ev: Array[PackedByteArray] = []    # vertical wall edges (west side of each cell), GW+1 wide
 var _eh: Array[PackedByteArray] = []    # horizontal wall edges (north side of each cell), GH+1 tall
 var _buildings: Array[Rect2] = []       # building footprints in world coords
+var _containers: Array[Dictionary] = [] # searchable props: {pos, kind, searched}
 var _roof_a: Array[float] = []          # per-building roof opacity (1=roofed/hidden, 0=you're inside)
 var _btype: Array[int] = []             # per-building archetype (parallel to _buildings)
 var _road_xs: Array = []                # vertical-road column indices (for door orientation)
@@ -413,6 +415,7 @@ func _cell_color(c: int) -> Color:
 		C_WEEDS:  return Color(0.21, 0.23, 0.11)   # dead/overgrown grass patch
 		C_WINDOW: return Color(0.32, 0.40, 0.44)   # glass set in a wall
 		C_FURN:   return Color(0.30, 0.24, 0.18)   # furniture / fixtures
+		C_CONTAINER: return Color(0.17, 0.16, 0.19)  # floor base; the box is drawn in its own pass
 		_:       return Color(0.17, 0.21, 0.14)   # grass
 
 func _road_v(rx: int) -> void:                       # ~5-cell carriageway + a walk on each side
@@ -457,6 +460,14 @@ func _is_inside(cx: int, cy: int) -> bool:
 func _furn(xx: int, yy: int) -> void:
 	if _cell(xx, yy) == C_FLOOR: _set_cell(xx, yy, C_FURN)
 
+# a searchable container prop on open floor (solid, E to search, registered for looting)
+func _container(xx: int, yy: int, kind: String) -> void:
+	if _cell(xx, yy) != C_FLOOR: return
+	_set_cell(xx, yy, C_CONTAINER)
+	_containers.append({
+		"pos": Vector2(xx * TILE + TILE * 0.5, yy * TILE + TILE * 0.5),
+		"kind": kind, "searched": false})
+
 func _add_windows(x: int, y: int, w: int, h: int) -> void:
 	var step := 4                                     # a window roughly every 4 cells
 	for xx in range(x + 2, x + w - 2):
@@ -470,13 +481,26 @@ func _add_windows(x: int, y: int, w: int, h: int) -> void:
 
 func _furnish(t: int, x: int, y: int, w: int, h: int) -> void:
 	if w < 4 or h < 4:                               # too small for a layout — a stray crate
-		_furn(x + 1, y + 1); return
+		_container(x + 1, y + 1, "box"); return
 	match t:
 		BT_STORE:  _furnish_store(x, y, w, h)
 		BT_CHURCH: _furnish_church(x, y, w, h)
 		BT_BARN:   _furnish_barn(x, y, w, h)
 		BT_SHED:   _furn(x + 1, y + 1); _furn(x + w - 2, y + h - 2)
 		_:         _furnish_house(x, y, w, h)
+	# dedicated searchable containers — plenty of them (search-once, ~33% each), scattered on
+	# whatever floor the fixtures left open
+	var n := maxi(2, int(w * h / 30.0))
+	for _i in range(n):
+		_container(randi_range(x, x + w - 1), randi_range(y, y + h - 1), _container_kind(t))
+
+func _container_kind(t: int) -> String:
+	match t:
+		BT_STORE:  return ["shelf", "cooler", "cabinet", "register"].pick_random()
+		BT_BARN:   return ["crate", "toolbox", "locker", "feed bin"].pick_random()
+		BT_CHURCH: return ["cabinet", "donation box"].pick_random()
+		BT_SHED:   return ["crate", "toolbox", "box"].pick_random()
+		_:         return ["dresser", "cabinet", "wardrobe", "nightstand", "cupboard"].pick_random()
 
 func _furnish_house(x: int, y: int, w: int, h: int) -> void:
 	if w >= h:                                       # a partition wall (edge) -> two rooms
@@ -575,6 +599,7 @@ func _gen_town() -> void:
 		_road_h(ry)
 	_buildings = []
 	_btype = []
+	_containers = []
 	for by in range(16, GH - 16, 26):            # buildings on a lattice (finer grid → wider steps)
 		for bx in range(16, GW - 16, 32):
 			if randf() < 0.82:
@@ -638,7 +663,7 @@ func _build_occluders() -> void:
 func _cell_solid(px: float, py: float, r: float) -> bool:
 	for off in [Vector2(-r, -r), Vector2(r, -r), Vector2(-r, r), Vector2(r, r)]:
 		var c := _cell(int((px + off.x) / TILE), int((py + off.y) / TILE))
-		if c == C_TREE or c == C_FURN or c == C_WALL:   # C_WALL only appears off-map (border)
+		if c == C_TREE or c == C_FURN or c == C_CONTAINER or c == C_WALL:   # C_WALL only off-map
 			return true
 	return false
 
@@ -904,6 +929,8 @@ func _input(event: InputEvent) -> void:
 			_flashlight_on = not _flashlight_on
 			_apply_darkness()
 			_log("Flashlight %s." % ("ON" if _flashlight_on else "OFF — you're harder to see, and blind"))
+		elif event.keycode == KEY_E and _phase != Phase.GAME_OVER:
+			_interact()
 		elif event.keycode == KEY_BRACKETRIGHT:
 			_awakening = clampf(_awakening + 0.2, 0.0, 1.0)
 			_log("[lucidity] %.2f — %s" % [_awakening, _lucid_tier()])
@@ -958,13 +985,7 @@ func _update_world(delta: float) -> void:
 		if here: _inside_building = true
 		_roof_a[i] = lerpf(_roof_a[i], 0.0 if here else 1.0, 0.18)
 
-	# scavenge: walk into a site to loot it (sites refill at each new dawn, below)
-	for s in _sites:
-		if not s["looted"] and s["rect"].has_point(_player):
-			s["looted"] = true
-			var iid: String = _db.keys().pick_random()
-			_grant(iid, "Scavenged %s from the %s." % [_db[iid].display_name, s["label"]])
-
+	# (looting is now E-to-search containers inside buildings — no more walk-in auto-loot)
 	var night := _night()   # 0 = full day, 1 = deepest night — the threat driver
 
 	# continuous spawning: a few shufflers by day, a mounting horde at night
@@ -1396,7 +1417,7 @@ func _update_projectiles(delta: float) -> void:
 		var cxp := int((p["pos"] as Vector2).x / TILE)
 		var cyp := int((p["pos"] as Vector2).y / TILE)
 		var hit_cell := _cell(cxp, cyp)
-		var stop := hit_cell == C_TREE or hit_cell == C_FURN or hit_cell == C_WALL   # solid areas / border
+		var stop := hit_cell == C_TREE or hit_cell == C_FURN or hit_cell == C_CONTAINER or hit_cell == C_WALL
 		if not stop:                                    # did it cross a solid wall edge this frame?
 			var pcx: int = p.get("pcx", cxp)
 			var pcy: int = p.get("pcy", cyp)
@@ -1730,6 +1751,25 @@ func _grant(id: String, msg: String) -> void:
 	_burst(_player, Color(0.95, 0.85, 0.3))
 	_refresh_inventory_ui()
 
+# E — search the nearest container in reach. Search-once, ~33% payout.
+const INTERACT_RANGE := 26.0
+func _interact() -> void:
+	var best := -1
+	var bd := INTERACT_RANGE
+	for i in range(_containers.size()):
+		if _containers[i]["searched"]: continue
+		var d: float = (_containers[i]["pos"] as Vector2).distance_to(_player)
+		if d < bd: bd = d; best = i
+	if best < 0:
+		return
+	var c: Dictionary = _containers[best]
+	c["searched"] = true
+	if randf() < 0.33:
+		var iid: String = _db.keys().pick_random()
+		_grant(iid, "You search the %s — %s." % [c["kind"], (_db[iid] as Item).display_name])
+	else:
+		_log("You search the %s. Nothing." % c["kind"])
+
 # --- juice -------------------------------------------------------------------
 
 func _update_juice(delta: float) -> void:
@@ -1911,6 +1951,20 @@ func _draw() -> void:
 			else:
 				draw_rect(rr, _cell_color(c))
 	_draw_wall_edges(x0, x1, y0, y1)
+
+	# searchable containers — a little chest; dims once you've searched it
+	var vx0 := (x0 - 1) * TILE; var vx1 := (x1 + 1) * TILE
+	var vy0 := (y0 - 1) * TILE; var vy1 := (y1 + 1) * TILE
+	for c in _containers:
+		var cp: Vector2 = c["pos"]
+		if cp.x < vx0 or cp.x > vx1 or cp.y < vy0 or cp.y > vy1: continue
+		var done: bool = c["searched"]
+		var body := Color(0.20, 0.19, 0.18) if done else Color(0.44, 0.31, 0.17)
+		var lid := Color(0.24, 0.23, 0.22) if done else Color(0.58, 0.42, 0.23)
+		var r := Rect2(cp - Vector2(TILE * 0.42, TILE * 0.42), Vector2(TILE * 0.84, TILE * 0.84))
+		draw_rect(r, body)
+		draw_rect(Rect2(r.position, Vector2(r.size.x, TILE * 0.3)), lid)   # lid band
+		draw_rect(r, Color(0, 0, 0, 0.5), false, 1.0)
 
 	# (scavenge-site labels ride on top of the roofs — drawn at the end of the world pass)
 
@@ -2097,7 +2151,7 @@ func _draw_hud(ci: CanvasItem) -> void:
 		var threat := "calm" if _night() < 0.25 else ("stirring" if _night() < 0.7 else "HUNTING")
 		status = "%d nearby  ·  %s" % [_zombies.size(), threat]
 	_text_on(ci, Vector2(MARGIN + 6, MARGIN + 44), status, Color(0.9, 0.94, 0.96), 24)
-	_text_on(ci, Vector2(MARGIN + 6, MARGIN + 66), "TAB workbench   ·   R reload   ·   F light", dim, 12)
+	_text_on(ci, Vector2(MARGIN + 6, MARGIN + 66), "E search   ·   TAB workbench   ·   R reload   ·   F light", dim, 12)
 
 	# --- bottom-left console: equipped weapon + ammo + HP ---
 	var bx := MARGIN + 12.0
