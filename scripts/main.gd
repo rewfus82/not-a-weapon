@@ -64,7 +64,9 @@ const ROOF_COL := [
 	Color(0.17, 0.16, 0.22),   # church — slate
 	Color(0.24, 0.20, 0.14),   # shed   — rusty tin
 ]
-const CAM_ZOOM := 1.1         # pulled back a bit (dynamic camera in step 2 will vary this)
+const CAM_ZOOM := 1.1         # default (outdoors, on foot)
+const ZOOM_INTERIOR := 2.2    # punch in for an intimate interior when you step inside
+const ZOOM_OPTIC := 0.65      # pull out when glassing through a scope / binoculars
 const MARGIN := 10.0
 const PLAYER_SPEED := 230.0   # a small, vulnerable figure
 const PLAYER_RADIUS := 9.0    # ≈ half a tile radius → player ~1 tile, dwarfed by buildings
@@ -190,6 +192,8 @@ const PickupNode := preload("res://scripts/pickup.gd")
 const HudNode := preload("res://scripts/hud.gd")
 var _hud_node: Node2D
 var _cam: Camera2D
+var _inside_building := false    # set each frame from the roof-fade check; drives the interior zoom
+var _optic_zoom := false         # scope/binoculars glassing (pull the camera out) — wired later
 var _build_layer: CanvasLayer   # the pause-to-build overlay (hidden until TAB)
 var _tex_player: Texture2D
 var _tex_zombie: Texture2D
@@ -805,6 +809,8 @@ func _process(delta: float) -> void:
 		_player_glow.position = _player
 	if _cam != null:
 		_cam.position = _player
+		var tz := _target_zoom()                       # dynamic camera: pull in indoors, out for optics
+		_cam.zoom = _cam.zoom.lerp(Vector2(tz, tz), clampf(delta * 4.0, 0.0, 1.0))
 	if _speed_timer > 0.0:
 		_speed_timer -= delta
 		if _speed_timer <= 0.0: _speed_mult = 1.0
@@ -938,11 +944,19 @@ func _spawn_all_specials() -> void:
 
 # The continuous world: scavenge anytime, spawn scaled by night, zombies that
 # detect / hunt / disengage. No waves. See DESIGN.md §6.
+# context-driven camera zoom target: intimate indoors, wide through optics, default on foot
+func _target_zoom() -> float:
+	if _optic_zoom: return ZOOM_OPTIC
+	if _inside_building: return ZOOM_INTERIOR
+	return CAM_ZOOM
+
 func _update_world(delta: float) -> void:
 	# roofs fade open for the building you're standing in, closed for the rest
+	_inside_building = false
 	for i in range(_buildings.size()):
-		var tgt := 0.0 if (_buildings[i] as Rect2).grow(6.0).has_point(_player) else 1.0
-		_roof_a[i] = lerpf(_roof_a[i], tgt, 0.18)
+		var here := (_buildings[i] as Rect2).grow(6.0).has_point(_player)
+		if here: _inside_building = true
+		_roof_a[i] = lerpf(_roof_a[i], 0.0 if here else 1.0, 0.18)
 
 	# scavenge: walk into a site to loot it (sites refill at each new dawn, below)
 	for s in _sites:
