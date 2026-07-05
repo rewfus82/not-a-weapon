@@ -22,9 +22,9 @@ const PANEL_W := 400.0        # (legacy; used only for build-overlay caption wid
 const PLAY_W := 1600.0        # SCREEN/design size (HUD, workbench, screen overlays live here)
 const PLAY_H := 900.0
 # --- the world is a GRID of cells: a procgen town you explore. See _gen_town(). ---
-const TILE := 40.0
-const GW := 112              # grid width in cells
-const GH := 74               # grid height in cells
+const TILE := 16.0           # tile ≈ player footprint (PZ scale); world is finer + more tiles
+const GW := 280              # grid width in cells  (× TILE ≈ same physical world as before)
+const GH := 185              # grid height in cells
 const WORLD_W := GW * TILE   # 4480
 const WORLD_H := GH * TILE   # 2960
 # cell types (stored in _grid as bytes)
@@ -54,10 +54,10 @@ const ROOF_COL := [
 	Color(0.17, 0.16, 0.22),   # church — slate
 	Color(0.24, 0.20, 0.14),   # shed   — rusty tin
 ]
-const CAM_ZOOM := 1.3
-const MARGIN := 14.0
-const PLAYER_SPEED := 300.0
-const PLAYER_RADIUS := 14.0
+const CAM_ZOOM := 0.9         # pulled back — see ~more town; player reads small (dynamic camera TBD)
+const MARGIN := 10.0
+const PLAYER_SPEED := 230.0   # a small, vulnerable figure
+const PLAYER_RADIUS := 9.0    # ≈ half a tile radius → player ~1 tile, dwarfed by buildings
 const BOOMERANG_RANGE := 300.0   # how far out it flies before the apex
 const BOOMERANG_SPEED := 600.0   # return speed toward the player
 const BOOMERANG_CURVE := 260.0   # lateral accel — the narrow sideways bow of the arc
@@ -376,15 +376,15 @@ func _cell_color(c: int) -> Color:
 		C_FURN:   return Color(0.30, 0.24, 0.18)   # furniture / fixtures
 		_:       return Color(0.17, 0.21, 0.14)   # grass
 
-func _road_v(rx: int) -> void:
-	for y in range(3, GH - 3):
-		_set_cell(rx - 1, y, C_WALK); _set_cell(rx, y, C_ROAD)
-		_set_cell(rx + 1, y, C_ROAD); _set_cell(rx + 2, y, C_WALK)
+func _road_v(rx: int) -> void:                       # ~5-cell carriageway + a walk on each side
+	for y in range(8, GH - 8):
+		for dx in range(-2, 3): _set_cell(rx + dx, y, C_ROAD)
+		_set_cell(rx - 3, y, C_WALK); _set_cell(rx + 3, y, C_WALK)
 
 func _road_h(ry: int) -> void:
-	for x in range(3, GW - 3):
-		_set_cell(x, ry - 1, C_WALK); _set_cell(x, ry, C_ROAD)
-		_set_cell(x, ry + 1, C_ROAD); _set_cell(x, ry + 2, C_WALK)
+	for x in range(8, GW - 8):
+		for dy in range(-2, 3): _set_cell(x, ry + dy, C_ROAD)
+		_set_cell(x, ry - 3, C_WALK); _set_cell(x, ry + 3, C_WALK)
 
 func _place_building(x: int, y: int, w: int, h: int, t: int) -> void:
 	if x < 5 or y < 5 or x + w >= GW - 5 or y + h >= GH - 5:
@@ -417,12 +417,15 @@ func _furn(xx: int, yy: int) -> void:
 	if _cell(xx, yy) == C_FLOOR: _set_cell(xx, yy, C_FURN)
 
 func _add_windows(x: int, y: int, w: int, h: int) -> void:
-	for xx in range(x + 1, x + w - 1):
-		if _cell(xx, y) == C_WALL and randf() < 0.4: _set_cell(xx, y, C_WINDOW)
-		if _cell(xx, y + h - 1) == C_WALL and randf() < 0.4: _set_cell(xx, y + h - 1, C_WINDOW)
-	for yy in range(y + 1, y + h - 1):
-		if _cell(x, yy) == C_WALL and randf() < 0.4: _set_cell(x, yy, C_WINDOW)
-		if _cell(x + w - 1, yy) == C_WALL and randf() < 0.4: _set_cell(x + w - 1, yy, C_WINDOW)
+	var step := 3                                     # a window roughly every 3 cells
+	for xx in range(x + 2, x + w - 2):
+		if (xx - x) % step == 0:
+			if _cell(xx, y) == C_WALL and randf() < 0.7: _set_cell(xx, y, C_WINDOW)
+			if _cell(xx, y + h - 1) == C_WALL and randf() < 0.7: _set_cell(xx, y + h - 1, C_WINDOW)
+	for yy in range(y + 2, y + h - 2):
+		if (yy - y) % step == 0:
+			if _cell(x, yy) == C_WALL and randf() < 0.7: _set_cell(x, yy, C_WINDOW)
+			if _cell(x + w - 1, yy) == C_WALL and randf() < 0.7: _set_cell(x + w - 1, yy, C_WINDOW)
 
 func _furnish(t: int, x: int, y: int, w: int, h: int) -> void:
 	if w < 4 or h < 4:                               # too small for a layout — a stray crate
@@ -477,11 +480,11 @@ func _pick_btype() -> int:
 
 func _btype_size(t: int) -> Vector2i:
 	match t:
-		BT_BARN:   return Vector2i(randi_range(8, 12), randi_range(6, 9))
-		BT_STORE:  return Vector2i(randi_range(7, 11), randi_range(5, 8))
-		BT_CHURCH: return Vector2i(randi_range(5, 7), randi_range(6, 9))
-		BT_SHED:   return Vector2i(randi_range(3, 4), randi_range(3, 4))
-		_:         return Vector2i(randi_range(5, 8), randi_range(4, 6))   # house
+		BT_BARN:   return Vector2i(randi_range(20, 30), randi_range(15, 22))
+		BT_STORE:  return Vector2i(randi_range(18, 28), randi_range(13, 20))
+		BT_CHURCH: return Vector2i(randi_range(13, 18), randi_range(15, 22))
+		BT_SHED:   return Vector2i(randi_range(8, 10), randi_range(8, 10))
+		_:         return Vector2i(randi_range(13, 20), randi_range(10, 15))   # house
 
 func _btype_label(t: int) -> String:
 	match t:
@@ -519,7 +522,7 @@ func _gen_town() -> void:
 		_cells.append(row)
 	for y in range(GH):                          # cornfield ring around the town
 		for x in range(GW):
-			if x < 3 or x >= GW - 3 or y < 3 or y >= GH - 3:
+			if x < 8 or x >= GW - 8 or y < 8 or y >= GH - 8:
 				_set_cell(x, y, C_CORN)
 	_road_xs = [int(GW * 0.25), int(GW * 0.5), int(GW * 0.75)]
 	_road_ys = [int(GH * 0.34), int(GH * 0.66)]
@@ -529,8 +532,8 @@ func _gen_town() -> void:
 		_road_h(ry)
 	_buildings = []
 	_btype = []
-	for by in range(7, GH - 7, 9):               # buildings on a tighter lattice
-		for bx in range(7, GW - 7, 11):
+	for by in range(16, GH - 16, 26):            # buildings on a lattice (finer grid → wider steps)
+		for bx in range(16, GW - 16, 32):
 			if randf() < 0.82:
 				var t := _pick_btype()
 				var sz := _btype_size(t)
@@ -551,12 +554,12 @@ func _gen_town() -> void:
 # Break up the flat green with soft-edged dirt/weed blobs, only over open grass
 # (never roads/buildings/corn). Blobs, not salt-and-pepper noise, so it reads as terrain.
 func _scatter_ground() -> void:
-	var patches := int(GW * GH / 80.0)
+	var patches := int(GW * GH / 220.0)
 	for _i in range(patches):
 		var cx := randi_range(4, GW - 5)
 		var cy := randi_range(4, GH - 5)
 		var kind := C_WEEDS if randf() < 0.62 else C_DIRT
-		var rad := randi_range(1, 3)
+		var rad := randi_range(2, 6)
 		for yy in range(cy - rad, cy + rad + 1):
 			for xx in range(cx - rad, cx + rad + 1):
 				if Vector2(xx - cx, yy - cy).length() <= float(rad) + randf() * 0.6:
@@ -571,9 +574,9 @@ func _scatter_trees() -> void:
 		for x in range(4, GW - 4):
 			var c := _cell(x, y)
 			if c != C_GRASS and c != C_WEEDS: continue
-			if Vector2(x - mid.x, y - mid.y).length() < 4.0: continue   # keep spawn clear
-			var edge := x < 7 or x >= GW - 7 or y < 7 or y >= GH - 7
-			if randf() < (0.09 if edge else 0.012):
+			if Vector2(x - mid.x, y - mid.y).length() < 10.0: continue   # keep spawn clear
+			var edge := x < 18 or x >= GW - 18 or y < 18 or y >= GH - 18
+			if randf() < (0.05 if edge else 0.006):
 				_set_cell(x, y, C_TREE)
 
 # Give each building a light occluder so the flashlight/glow are BLOCKED by walls
@@ -952,7 +955,7 @@ func _update_world(delta: float) -> void:
 			vel = to_target.normalized() * spd
 		var step := vel * delta + (z["knock"] as Vector2) * delta
 		# per-axis wall collision — zombies slide along buildings instead of phasing through
-		var zr := 12.0
+		var zr := 8.0
 		var pre := zpos
 		if not _solid_circle(Vector2(zpos.x + step.x, zpos.y), zr):
 			zpos.x += step.x
@@ -968,7 +971,7 @@ func _update_world(delta: float) -> void:
 		z["knock"] = z["knock"].lerp(Vector2.ZERO, 0.12)
 
 		# contact damage
-		if (z["pos"] as Vector2).distance_to(_player) < PLAYER_RADIUS + 13.0 and _invuln <= 0.0:
+		if (z["pos"] as Vector2).distance_to(_player) < PLAYER_RADIUS + 8.0 and _invuln <= 0.0:
 			var dmg: float = z["dmg"]
 			if _shield > 0.0:
 				var ab := minf(_shield, dmg); _shield -= ab; dmg -= ab
@@ -1008,10 +1011,10 @@ func _spawn_zombie() -> void:
 	var p := _player
 	for _try in range(8):                                  # retry until we find an open (non-wall) spot
 		var ang := randf() * TAU
-		p = _player + Vector2(cos(ang), sin(ang)) * randf_range(740.0, 1000.0)
+		p = _player + Vector2(cos(ang), sin(ang)) * randf_range(950.0, 1300.0)  # beyond the wider view
 		p.x = clampf(p.x, MARGIN, WORLD_W - MARGIN)
 		p.y = clampf(p.y, MARGIN, WORLD_H - MARGIN)
-		if not _solid_circle(p, 12.0):
+		if not _solid_circle(p, 8.0):
 			break
 	var dc := float(_day_count - 1)                        # difficulty ramps with days survived
 	var hp := 18.0 + dc * 8.0
@@ -1790,10 +1793,9 @@ func _draw() -> void:
 			var c := row[cx]
 			var rr := Rect2(cx * TILE, cy * TILE, TILE, TILE)
 			if c == C_TREE:
-				draw_rect(rr, Color(0.15, 0.19, 0.12))                          # ground under the tree
 				var ctr := rr.position + Vector2(TILE * 0.5, TILE * 0.5)
-				draw_circle(ctr, TILE * 0.46, Color(0.08, 0.13, 0.07))          # canopy
-				draw_circle(ctr, TILE * 0.30, Color(0.12, 0.20, 0.10))          # lit crown
+				draw_circle(ctr, TILE * 1.5, Color(0.08, 0.13, 0.07))           # canopy (spans ~3 cells)
+				draw_circle(ctr, TILE * 1.0, Color(0.12, 0.20, 0.10))           # lit crown
 			elif c == C_WALL or c == C_WINDOW:
 				# collision is a whole cell, but draw the wall as a thin band on the interior
 				# edge (where you actually stop) over a shadow, so walls don't read as chunky
@@ -1840,12 +1842,12 @@ func _draw() -> void:
 		var sc: float = float(z.get("scale", 1.0)) * (1.0 + 0.3 * float(z.get("squash", 0.0)))
 		var zrot: float = (_player - (z["pos"] as Vector2)).angle()
 		if _tex_zombie != null:
-			_blit(_tex_zombie, z["pos"], zrot, 42.0 * sc, tint)
+			_blit(_tex_zombie, z["pos"], zrot, 22.0 * sc, tint)
 		else:
-			draw_circle(z["pos"], 13.0 * sc, Color(0.4, 0.65, 0.38))
+			draw_circle(z["pos"], 8.0 * sc, Color(0.4, 0.65, 0.38))
 		var f: float = clampf(z["hp"] / z["max_hp"], 0.0, 1.0)
 		if f < 1.0:
-			draw_rect(Rect2(z["pos"] + Vector2(-16, -26), Vector2(32.0 * f, 4)), Color(0.85, 0.3, 0.3))
+			draw_rect(Rect2(z["pos"] + Vector2(-8, -14), Vector2(16.0 * f, 3)), Color(0.85, 0.3, 0.3))
 
 	# traps
 	for t in _traps:
@@ -1920,7 +1922,7 @@ func _draw() -> void:
 	var ptint := Color(1, 1, 1)
 	if _invuln > 0.0 and int(_invuln * 20.0) % 2 == 0: ptint = Color(1.6, 0.6, 0.6)
 	if _tex_player != null:
-		_blit(_tex_player, _player, _aim.angle(), 46.0, ptint)
+		_blit(_tex_player, _player, _aim.angle(), 22.0, ptint)
 	else:
 		draw_circle(_player, PLAYER_RADIUS, Color(0.88, 0.88, 0.92))
 	if _shield > 0.0:
