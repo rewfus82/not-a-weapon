@@ -256,16 +256,19 @@ player wall collision, camera-centered draw culling.
 - **Zombies respect walls — DONE.** Per-axis collision: they stack on the outer walls
   and only breach through the door (verified). Blocked chasers now wall-follow around a
   building instead of dead-sticking; full nav/pathing (A*) deferred to entity-scaling.
-- **Interiors** — enter through doors (DONE), walk-in scavenge loot (DONE), and **roof-fade
-  reveal DONE**: buildings are opaque roofed blocks that hide the interior + any horde
-  inside; the roof fades open for the building you're standing in (verified). Remaining:
+- **Interiors** — enter through doors (DONE), walk-in scavenge loot (DONE), **roof-fade
+  reveal DONE** (opaque roofs hide interior + horde, fade open on enter), and **furnished
+  interiors DONE**: 5 building archetypes (house/barn/store/church/shed) each with its own
+  footprint, roof colour (ridge + eave), windows, interior partitions, and solid furniture
+  (beds/shelves/counters/pews/stalls); scavenge labels match the archetype. Remaining:
   loot *containers* + workbenches placed inside (vs auto-loot / TAB-anywhere today).
 - **Entity scaling** — simulate only what's near the player (active radius) + pooling, so
   the town can grow toward a county without dying.
 - **Density & texture** — DONE: denser building lattice + dirt/weed ground patches, and
   item icons via alias map, doors that face the nearest road, and solid trees (treeline
-  by the corn, sparse in town; block movement + shots). Remaining: more building types
-  and the other props (cars, fences, poles).
+  by the corn, sparse in town; block movement + shots), and 5 building archetypes with
+  distinct roofs/interiors (see Interiors above). Remaining: outdoor props (cars, fences,
+  poles).
 - **Workbench placement** in the world (the Tier-4 build is currently anywhere via TAB).
 
 ## 8. Presentation

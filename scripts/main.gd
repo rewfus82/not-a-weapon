@@ -38,6 +38,22 @@ const C_CORN := 6
 const C_DIRT := 7
 const C_WEEDS := 8           # dead/overgrown grass — ground texture so it's not a flat sheet
 const C_TREE := 9            # solid tree — blocks movement + shots, drawn as a canopy
+const C_WINDOW := 10         # window set into an exterior wall (solid, glassy)
+const C_FURN := 11           # furniture/fixture inside a building (solid cover)
+
+# building archetypes — drive footprint size, interior layout, and roof colour
+const BT_HOUSE := 0
+const BT_BARN := 1
+const BT_STORE := 2
+const BT_CHURCH := 3
+const BT_SHED := 4
+const ROOF_COL := [
+	Color(0.26, 0.21, 0.20),   # house  — brown shingle
+	Color(0.34, 0.13, 0.12),   # barn   — faded red
+	Color(0.19, 0.20, 0.22),   # store  — grey flat
+	Color(0.17, 0.16, 0.22),   # church — slate
+	Color(0.24, 0.20, 0.14),   # shed   — rusty tin
+]
 const CAM_ZOOM := 1.3
 const MARGIN := 14.0
 const PLAYER_SPEED := 300.0
@@ -99,6 +115,7 @@ var _sites: Array[Dictionary] = []    # scavenge points: {rect, label, looted}
 var _cells: Array[PackedByteArray] = [] # the town cell grid [row][col] (cell types above)
 var _buildings: Array[Rect2] = []       # building footprints in world coords
 var _roof_a: Array[float] = []          # per-building roof opacity (1=roofed/hidden, 0=you're inside)
+var _btype: Array[int] = []             # per-building archetype (parallel to _buildings)
 var _road_xs: Array = []                # vertical-road column indices (for door orientation)
 var _road_ys: Array = []                # horizontal-road row indices
 var _projectiles: Array[Dictionary] = []
@@ -354,7 +371,9 @@ func _cell_color(c: int) -> Color:
 		C_DOOR:  return Color(0.42, 0.31, 0.18)
 		C_CORN:  return Color(0.30, 0.32, 0.14)
 		C_DIRT:  return Color(0.23, 0.19, 0.15)
-		C_WEEDS: return Color(0.21, 0.23, 0.11)   # dead/overgrown grass patch
+		C_WEEDS:  return Color(0.21, 0.23, 0.11)   # dead/overgrown grass patch
+		C_WINDOW: return Color(0.32, 0.40, 0.44)   # glass set in a wall
+		C_FURN:   return Color(0.30, 0.24, 0.18)   # furniture / fixtures
 		_:       return Color(0.17, 0.21, 0.14)   # grass
 
 func _road_v(rx: int) -> void:
@@ -367,7 +386,7 @@ func _road_h(ry: int) -> void:
 		_set_cell(x, ry - 1, C_WALK); _set_cell(x, ry, C_ROAD)
 		_set_cell(x, ry + 1, C_ROAD); _set_cell(x, ry + 2, C_WALK)
 
-func _place_building(x: int, y: int, w: int, h: int) -> void:
+func _place_building(x: int, y: int, w: int, h: int, t: int) -> void:
 	if x < 5 or y < 5 or x + w >= GW - 5 or y + h >= GH - 5:
 		return
 	for yy in range(y - 1, y + h + 1):          # need a clear grass lot (no roads/buildings)
@@ -379,8 +398,93 @@ func _place_building(x: int, y: int, w: int, h: int) -> void:
 		for xx in range(x, x + w):
 			var edge := xx == x or xx == x + w - 1 or yy == y or yy == y + h - 1
 			_set_cell(xx, yy, C_WALL if edge else C_FLOOR)
-	_place_door(x, y, w, h)                          # a doorway facing the nearest road
+	var dcell := _place_door(x, y, w, h)             # doorway facing the nearest road
+	_add_windows(x, y, w, h)                         # windows in the remaining walls
+	_furnish(t, x, y, w, h)                          # partitions + fixtures by archetype
+	# guarantee the door is walkable: clear whatever furnishing landed just inside it
+	var inner := Vector2i(dcell.x + signi(x + int(w / 2.0) - dcell.x), dcell.y + signi(y + int(h / 2.0) - dcell.y))
+	_set_cell(inner.x, inner.y, C_FLOOR)
 	_buildings.append(Rect2(x * TILE, y * TILE, w * TILE, h * TILE))
+	_btype.append(t)
+
+# only drop furniture onto open floor (never over walls/doors/windows)
+func _furn(xx: int, yy: int) -> void:
+	if _cell(xx, yy) == C_FLOOR: _set_cell(xx, yy, C_FURN)
+
+func _add_windows(x: int, y: int, w: int, h: int) -> void:
+	for xx in range(x + 1, x + w - 1):
+		if _cell(xx, y) == C_WALL and randf() < 0.4: _set_cell(xx, y, C_WINDOW)
+		if _cell(xx, y + h - 1) == C_WALL and randf() < 0.4: _set_cell(xx, y + h - 1, C_WINDOW)
+	for yy in range(y + 1, y + h - 1):
+		if _cell(x, yy) == C_WALL and randf() < 0.4: _set_cell(x, yy, C_WINDOW)
+		if _cell(x + w - 1, yy) == C_WALL and randf() < 0.4: _set_cell(x + w - 1, yy, C_WINDOW)
+
+func _furnish(t: int, x: int, y: int, w: int, h: int) -> void:
+	if w < 4 or h < 4:                               # too small for a layout — a stray crate
+		_furn(x + 1, y + 1); return
+	match t:
+		BT_STORE:  _furnish_store(x, y, w, h)
+		BT_CHURCH: _furnish_church(x, y, w, h)
+		BT_BARN:   _furnish_barn(x, y, w, h)
+		BT_SHED:   _furn(x + 1, y + 1); _furn(x + w - 2, y + h - 2)
+		_:         _furnish_house(x, y, w, h)
+
+func _furnish_house(x: int, y: int, w: int, h: int) -> void:
+	if w >= 6:                                       # a partition wall -> two rooms
+		var px := x + int(w / 2.0)
+		for yy in range(y + 1, y + h - 1): _set_cell(px, yy, C_WALL)
+		_set_cell(px, y + randi_range(1, h - 2), C_FLOOR)      # inner doorway
+	elif h >= 6:
+		var py := y + int(h / 2.0)
+		for xx in range(x + 1, x + w - 1): _set_cell(xx, py, C_WALL)
+		_set_cell(x + randi_range(1, w - 2), py, C_FLOOR)
+	_furn(x + 1, y + 1); _furn(x + 1, y + 2)         # a bed against the wall
+	_furn(x + w - 2, y + 1)                          # a dresser
+	_furn(x + w - 2, y + h - 2)                      # a table
+
+func _furnish_store(x: int, y: int, w: int, h: int) -> void:
+	for ax in range(x + 2, x + w - 2, 2):            # shelf aisles
+		for yy in range(y + 2, y + h - 2):
+			if randf() < 0.85: _furn(ax, yy)
+	for xx in range(x + 1, x + w - 1):               # a checkout counter along the back wall
+		if randf() < 0.7: _furn(xx, y + 1)
+
+func _furnish_church(x: int, y: int, w: int, h: int) -> void:
+	var aisle := x + int(w / 2.0)
+	for ry in range(y + 2, y + h - 1, 2):            # pew rows split by a centre aisle
+		for xx in range(x + 1, x + w - 1):
+			if xx != aisle: _furn(xx, ry)
+	_furn(aisle, y + 1)                              # the altar
+
+func _furnish_barn(x: int, y: int, w: int, h: int) -> void:
+	for yy in range(y + 1, y + h - 1, 2):            # stalls down one side
+		_furn(x + 1, yy); _furn(x + 2, yy)
+	_furn(x + w - 2, y + 1); _furn(x + w - 3, y + 1) # hay bales
+	_furn(x + w - 2, y + h - 2)
+
+func _pick_btype() -> int:
+	var r := randf()
+	if r < 0.12: return BT_SHED
+	if r < 0.24: return BT_STORE
+	if r < 0.32: return BT_BARN
+	if r < 0.36: return BT_CHURCH
+	return BT_HOUSE
+
+func _btype_size(t: int) -> Vector2i:
+	match t:
+		BT_BARN:   return Vector2i(randi_range(8, 12), randi_range(6, 9))
+		BT_STORE:  return Vector2i(randi_range(7, 11), randi_range(5, 8))
+		BT_CHURCH: return Vector2i(randi_range(5, 7), randi_range(6, 9))
+		BT_SHED:   return Vector2i(randi_range(3, 4), randi_range(3, 4))
+		_:         return Vector2i(randi_range(5, 8), randi_range(4, 6))   # house
+
+func _btype_label(t: int) -> String:
+	match t:
+		BT_BARN:   return ["BARN", "GRAIN SILO"].pick_random()
+		BT_STORE:  return ["FEED STORE", "GAS STATION", "BIG-BOX HUSK", "BAIT SHOP", "DINER"].pick_random()
+		BT_CHURCH: return "CHURCH"
+		BT_SHED:   return ["TOOL SHED", "PUMP HOUSE"].pick_random()
+		_:         return ["FARMHOUSE", "TRAILER", "MOTEL"].pick_random()
 
 func _nearest(vals: Array, v: int) -> int:
 	var best: int = v; var bd := 1 << 30
@@ -390,17 +494,18 @@ func _nearest(vals: Array, v: int) -> int:
 	return best
 
 # Put the doorway on whichever wall faces the nearest road, so buildings open onto the street.
-func _place_door(x: int, y: int, w: int, h: int) -> void:
+func _place_door(x: int, y: int, w: int, h: int) -> Vector2i:
 	var bxc := x + int(w / 2.0)
 	var byc := y + int(h / 2.0)
 	var nvx := _nearest(_road_xs, bxc)   # nearest vertical road
 	var nhy := _nearest(_road_ys, byc)   # nearest horizontal road
+	var d: Vector2i
 	if absi(nvx - bxc) <= absi(nhy - byc):
-		if nvx >= bxc: _set_cell(x + w - 1, byc, C_DOOR)   # road to the east
-		else:          _set_cell(x, byc, C_DOOR)           # road to the west
+		d = Vector2i(x + w - 1, byc) if nvx >= bxc else Vector2i(x, byc)   # east / west
 	else:
-		if nhy >= byc: _set_cell(bxc, y + h - 1, C_DOOR)   # road to the south
-		else:          _set_cell(bxc, y, C_DOOR)           # road to the north
+		d = Vector2i(bxc, y + h - 1) if nhy >= byc else Vector2i(bxc, y)   # south / north
+	_set_cell(d.x, d.y, C_DOOR)
+	return d
 
 func _gen_town() -> void:
 	_cells = []
@@ -418,19 +523,24 @@ func _gen_town() -> void:
 	for ry in _road_ys:
 		_road_h(ry)
 	_buildings = []
+	_btype = []
 	for by in range(7, GH - 7, 9):               # buildings on a tighter lattice
 		for bx in range(7, GW - 7, 11):
 			if randf() < 0.82:
-				_place_building(bx + randi_range(-1, 2), by + randi_range(-1, 2), randi_range(5, 10), randi_range(4, 8))
+				var t := _pick_btype()
+				var sz := _btype_size(t)
+				_place_building(bx + randi_range(-1, 2), by + randi_range(-1, 2), sz.x, sz.y, t)
 	_scatter_ground()                            # dirt/weed patches so grass isn't a flat sheet
 	_scatter_trees()                             # solid trees: a treeline by the corn + sparse in town
-	# scavenge sites = a scatter of the buildings, Midwest-flavored
-	var names := ["FARMHOUSE", "GAS STATION", "BARN", "TRAILER", "DINER", "CHURCH",
-		"FEED STORE", "GRAIN SILO", "POST OFFICE", "BIG-BOX HUSK", "MOTEL", "BAIT SHOP"]
-	_buildings.shuffle()
+	# scavenge sites = a scatter of the buildings, labelled by archetype (keep _btype aligned:
+	# shuffle an index list, don't reorder _buildings)
+	var order := []
+	for i in range(_buildings.size()): order.append(i)
+	order.shuffle()
 	_sites = []
-	for i in range(mini(10, _buildings.size())):
-		_sites.append({"rect": _buildings[i].grow(-TILE), "label": names[i % names.size()], "looted": false})
+	for i in range(mini(10, order.size())):
+		var bi: int = order[i]
+		_sites.append({"rect": _buildings[bi].grow(-TILE), "label": _btype_label(_btype[bi]), "looted": false})
 	_roof_a.resize(_buildings.size()); _roof_a.fill(1.0)   # start every roof closed
 
 # Break up the flat green with soft-edged dirt/weed blobs, only over open grass
@@ -477,7 +587,7 @@ func _build_occluders() -> void:
 func _solid_circle(p: Vector2, r: float) -> bool:
 	for off in [Vector2(-r, -r), Vector2(r, -r), Vector2(-r, r), Vector2(r, r)]:
 		var c := _cell(int((p.x + off.x) / TILE), int((p.y + off.y) / TILE))
-		if c == C_WALL or c == C_TREE:
+		if c == C_WALL or c == C_TREE or c == C_WINDOW or c == C_FURN:
 			return true
 	return false
 
@@ -1193,7 +1303,7 @@ func _update_projectiles(delta: float) -> void:
 		p["trail"] = tr
 		# building walls + trees stop shots — you can't fire through them (boomerangs excepted)
 		var hit_cell := _cell(int((p["pos"] as Vector2).x / TILE), int((p["pos"] as Vector2).y / TILE))
-		if not p.get("return", false) and (hit_cell == C_WALL or hit_cell == C_TREE):
+		if not p.get("return", false) and (hit_cell == C_WALL or hit_cell == C_TREE or hit_cell == C_WINDOW or hit_cell == C_FURN):
 			if p["lobbed"]: _lob_land(p)   # a thrown thing lands/detonates against the wall
 			else: _burst(p["pos"], Color(0.75, 0.75, 0.8), 4, 150.0)   # bullet spark on the wall
 			continue
@@ -1813,9 +1923,14 @@ func _draw() -> void:
 		var ra: float = _roof_a[i]
 		if ra <= 0.02: continue
 		var rb: Rect2 = _buildings[i]
-		draw_rect(rb, Color(0.20, 0.17, 0.16, ra))
-		draw_line(rb.position + Vector2(0, rb.size.y * 0.5),
-			rb.position + Vector2(rb.size.x, rb.size.y * 0.5), Color(0.11, 0.09, 0.09, ra * 0.7), 1.0)
+		var rc: Color = ROOF_COL[_btype[i]]; rc.a = ra
+		draw_rect(rb, rc)
+		var dk := Color(rc.r * 0.55, rc.g * 0.55, rc.b * 0.55, ra)   # ridge + eave shading
+		if rb.size.x >= rb.size.y:                                   # gable ridge along the long axis
+			draw_line(rb.position + Vector2(0, rb.size.y * 0.5), rb.position + Vector2(rb.size.x, rb.size.y * 0.5), dk, 2.0)
+		else:
+			draw_line(rb.position + Vector2(rb.size.x * 0.5, 0), rb.position + Vector2(rb.size.x * 0.5, rb.size.y), dk, 2.0)
+		draw_rect(rb, dk, false, 1.5)
 	# scavenge-site labels sit on top of the roofs so you can read a building from outside
 	for s in _sites:
 		var s_looted: bool = s["looted"]
