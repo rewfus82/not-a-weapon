@@ -204,7 +204,8 @@ var _glitch := 0.0                # transient glitch pulse (decays); base from _
 var _flashlight: PointLight2D     # real 2D light — the flashlight cone (follows aim)
 var _flashlight_on := true        # toggled with F — off = blind but harder to spot (stealth)
 var _player_glow: PointLight2D    # soft glow right around the player
-var _cm: CanvasModulate           # world ambient — lerps day<->night with _dark
+var _vision: PointLight2D         # FOV: always-on sight light, radius rides day<->night, walls shadow it
+var _cm: CanvasModulate           # world ambient = the UNSEEN base (kept dark; vision light reveals)
 var _fog_mat: ShaderMaterial      # fog density scales with _dark
 var _dark := 0.0                  # 0 = daylight, 1 = pitch night (derived from the clock)
 var _time_of_day := 0.35         # 0=midnight · 0.25=dawn · 0.5=noon · 0.75=dusk
@@ -284,6 +285,16 @@ func _setup_atmosphere() -> void:
 	_player_glow.shadow_enabled = true            # walls block your light
 	_player_glow.shadow_filter = Light2D.SHADOW_FILTER_PCF5
 	add_child(_player_glow)
+	# FOV: an always-on sight light. Walls/trees (occluders) cast HARD shadows -> the unseen.
+	# Its radius is huge by day (you see the whole view minus what's blocked) and small at night.
+	_vision = PointLight2D.new()
+	_vision.texture = _vision_tex(256)
+	_vision.color = Color(1, 1, 1)
+	_vision.energy = 1.1
+	_vision.texture_scale = 7.5
+	_vision.shadow_enabled = true
+	_vision.shadow_filter = Light2D.SHADOW_FILTER_NONE   # hard shadow edges = hard occlusion
+	add_child(_vision)
 	_flashlight = PointLight2D.new()
 	_flashlight.texture = _cone_tex(256)
 	_flashlight.color = Color(1.0, 0.9, 0.72)     # warm flashlight vs cold dark
@@ -311,6 +322,20 @@ func _setup_atmosphere() -> void:
 	fog.material = _fog_mat
 	fog_layer.add_child(fog)
 	_apply_darkness()   # start in daylight (_dark = 0) so BUILD isn't a permanent night
+
+# flat-topped radial light: uniformly lit disc with a soft edge — reads as a vision radius,
+# not a spotlight vignette (used for the FOV sight light).
+func _vision_tex(size: int) -> Texture2D:
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, 0.78, 1.0])
+	g.colors = PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 1), Color(1, 1, 1, 0)])
+	var gt := GradientTexture2D.new()
+	gt.gradient = g
+	gt.fill = GradientTexture2D.FILL_RADIAL
+	gt.fill_from = Vector2(0.5, 0.5)
+	gt.fill_to = Vector2(1.0, 0.5)
+	gt.width = size; gt.height = size
+	return gt
 
 func _radial_tex(size: int) -> Texture2D:
 	var g := Gradient.new()
@@ -633,6 +658,18 @@ func _build_occluders() -> void:
 			b.position, Vector2(b.end.x, b.position.y), b.end, Vector2(b.position.x, b.end.y)])
 		occ.occluder = poly
 		add_child(occ)
+	# trees block sight too — a canopy-sized square occluder per tree cell
+	var tr := TILE * 0.7
+	for cy in range(GH):
+		for cx in range(GW):
+			if _cells[cy][cx] != C_TREE: continue
+			var c := Vector2(cx * TILE + TILE * 0.5, cy * TILE + TILE * 0.5)
+			var occ := LightOccluder2D.new()
+			var poly := OccluderPolygon2D.new()
+			poly.polygon = PackedVector2Array([
+				c + Vector2(-tr, -tr), c + Vector2(tr, -tr), c + Vector2(tr, tr), c + Vector2(-tr, tr)])
+			occ.occluder = poly
+			add_child(occ)
 
 # solid AREAS (trees, furniture, off-map border). Walls are edges, tested separately.
 func _cell_solid(px: float, py: float, r: float) -> bool:
@@ -807,6 +844,8 @@ func _process(delta: float) -> void:
 		_flashlight.rotation = _aim.angle()
 	if _player_glow != null:
 		_player_glow.position = _player
+	if _vision != null:
+		_vision.position = _player
 	if _cam != null:
 		_cam.position = _player
 		var tz := _target_zoom()                       # dynamic camera: pull in indoors, out for optics
@@ -1793,17 +1832,20 @@ func _time_label() -> String:
 	return "DUSK"
 
 func _apply_darkness() -> void:
-	const DAY := Color(0.98, 0.98, 1.0)
-	const NIGHT := Color(0.12, 0.13, 0.18)
-	var lit := _dark > 0.02   # daylight kills the flashlight/glow entirely (no washed-out day)
+	# FOV model: the ambient is the UNSEEN base (kept dark day+night); the player vision light
+	# reveals line-of-sight. Day/night no longer changes ambient brightness — it changes how FAR
+	# you can see (vision radius huge by day, a small bubble at night).
 	if _cm != null:
-		_cm.color = DAY.lerp(NIGHT, _dark)
-	if _flashlight != null:
-		_flashlight.energy = 1.6 * _dark if _flashlight_on else 0.0
-		_flashlight.visible = lit and _flashlight_on
+		_cm.color = Color(0.075, 0.075, 0.10).lerp(Color(0.028, 0.028, 0.05), _dark)
+	if _vision != null:
+		_vision.texture_scale = lerpf(10.0, 1.4, _dark)   # daylight fills the view -> tight night bubble
+		_vision.energy = lerpf(1.4, 1.0, _dark)
+	if _flashlight != null:                               # a cone that extends sight where you aim
+		_flashlight.energy = lerpf(0.6, 1.7, _dark) if _flashlight_on else 0.0
+		_flashlight.visible = _flashlight_on
 	if _player_glow != null:
-		_player_glow.energy = 0.7 * _dark if _flashlight_on else 0.0
-		_player_glow.visible = lit and _flashlight_on
+		_player_glow.energy = 0.0                         # superseded by the vision light
+		_player_glow.visible = false
 	if _fog_mat != null:
 		_fog_mat.set_shader_parameter("density", 0.16 * _dark)
 
