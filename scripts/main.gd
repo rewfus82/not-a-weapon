@@ -1828,8 +1828,10 @@ func _apply_darkness() -> void:
 	if _cm != null:
 		_cm.color = Color(0.075, 0.075, 0.10).lerp(Color(0.028, 0.028, 0.05), _dark)
 	if _vision != null:
-		_vision.texture_scale = lerpf(10.0, 1.4, _dark)   # daylight fills the view -> tight night bubble
-		_vision.energy = lerpf(1.4, 1.0, _dark)
+		# a MODERATE bubble even by day, so building shadows blend into the dark surround
+		# instead of gashing a bright field (which read as 3D shadows shooting off-screen)
+		_vision.texture_scale = lerpf(4.5, 1.4, _dark)
+		_vision.energy = lerpf(1.35, 1.0, _dark)
 	if _flashlight != null:                               # a cone that extends sight where you aim
 		_flashlight.energy = lerpf(0.6, 1.7, _dark) if _flashlight_on else 0.0
 		_flashlight.visible = _flashlight_on
