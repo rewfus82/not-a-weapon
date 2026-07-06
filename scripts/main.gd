@@ -676,10 +676,13 @@ func _build_occluders() -> void:
 
 # solid AREAS (trees, furniture, off-map border). Walls are edges, tested separately.
 func _cell_solid(px: float, py: float, r: float) -> bool:
-	for off in [Vector2(-r, -r), Vector2(r, -r), Vector2(-r, r), Vector2(r, r)]:
-		var c := _cell(int((px + off.x) / TILE), int((py + off.y) / TILE))
-		if c == C_TREE or c == C_FURN or c == C_CONTAINER or c == C_BENCH or c == C_WALL:
-			return true
+	# check EVERY cell the hitbox overlaps, not just the 4 corners — a 1-tile prop can sit
+	# between the corners, so you clip onto it and then a corner catches you (one-way trap).
+	for cy in range(int((py - r) / TILE), int((py + r) / TILE) + 1):
+		for cx in range(int((px - r) / TILE), int((px + r) / TILE) + 1):
+			var c := _cell(cx, cy)
+			if c == C_TREE or c == C_FURN or c == C_CONTAINER or c == C_BENCH or c == C_WALL:
+				return true
 	return false
 
 # a solid vertical edge overlapping the circle blocks horizontal movement
@@ -906,9 +909,11 @@ func _handle_input(delta: float) -> void:
 	if move != Vector2.ZERO:
 		var step := move.normalized() * PLAYER_SPEED * _speed_mult * delta
 		var r := float(PLAYER_RADIUS)
-		if not _blocked_x(_player.x + step.x, _player.y, r):   # per-axis = slide on walls
+		# if somehow embedded in a prop, let cell-collision go so you can push out; walls still hold
+		var embedded := _cell_solid(_player.x, _player.y, r)
+		if not _hits_v_edge(_player.x + step.x, _player.y, r) and (embedded or not _cell_solid(_player.x + step.x, _player.y, r)):
 			_player.x += step.x
-		if not _blocked_y(_player.x, _player.y + step.y, r):
+		if not _hits_h_edge(_player.x, _player.y + step.y, r) and (embedded or not _cell_solid(_player.x, _player.y + step.y, r)):
 			_player.y += step.y
 	_player.x = clampf(_player.x, PLAYER_RADIUS, WORLD_W - PLAYER_RADIUS)
 	_player.y = clampf(_player.y, PLAYER_RADIUS, WORLD_H - PLAYER_RADIUS)
