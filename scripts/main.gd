@@ -88,6 +88,7 @@ var _http: HTTPRequest
 var _ai_busy := false
 var _ai_pending: Array[String] = []
 var _awakening := 0.15  # 0..1 lucidity. Starts ASLEEP; rises as you wake up (debug: [ / ])
+var _woke_firsts := {}  # one-time lucidity bumps already granted (junk reload, attach, build…)
 # The lucidity ladder (DESIGN.md §3) — each rung unlocks deeper crafting:
 const LUCID_UNIVERSAL := 0.25   # T1: "all bullets fit all guns" — any ammo loads any gun
 const LUCID_JUNK := 0.45        # T2: "reload with anything" — junk-as-ammo unlocks
@@ -724,6 +725,8 @@ func _restart() -> void:
 	_invuln = 0.0; _hurt_flash = 0.0; _shake = 0.0; _paused = false
 	_shield = 0.0; _speed_mult = 1.0; _speed_timer = 0.0
 	_dark = 0.0; _time_of_day = 0.35; _day_count = 1; _last_day = 1   # every run opens on a bright morning
+	_awakening = 1.0 if _debug else 0.15   # each run you start ASLEEP and wake up again
+	_woke_firsts = {}
 	_flashlight_on = true
 	_arsenal = [_starter_gadget()]
 	_equipped_idx = 0
@@ -1117,11 +1120,10 @@ func _update_world(delta: float) -> void:
 	_update_turrets(delta)
 	_update_decoys(delta)
 
-	# sites refill each new dawn (dawn ~ time-of-day 0.25); tracked via _last_day
+	# a full day/night cycle survived — endure the dark and your grip on the sim frays
 	if _day_count != _last_day:
 		_last_day = _day_count
-		for s in _sites: s["looted"] = false
-		_log("A new day. Day %d. The scavenge is fresh." % _day_count)
+		_wake(0.10, "Day %d. You endured the night. Something behind your eyes flickers." % _day_count)
 
 # alert every zombie within `radius` of `pos` — gunfire and explosions draw them
 func _alert_zombies(pos: Vector2, radius: float, amount: float) -> void:
@@ -1732,6 +1734,7 @@ func _on_zombie_death(z: Dictionary) -> void:
 	_flash(z["pos"], Color(0.9, 0.3, 0.2), 0.5, 0.7, 0.1)
 	_shake = maxf(_shake, 4.0)
 	_freeze(0.045)   # brief hit-stop so a kill lands
+	_wake(0.0015)    # every kill frays reality a hair — active play wakes you faster
 	if randf() < 0.45:
 		var id: String = _db.keys().pick_random()
 		_spawn_pickup(z["pos"], id)
@@ -2171,7 +2174,7 @@ func _draw_hud(ci: CanvasItem) -> void:
 	var mode_col := Color(0.95, 0.6, 0.3) if _debug else accent
 	var lucid_col := Color(0.55, 0.6, 0.7) if _awakening < LUCID_UNIVERSAL else (Color(0.7, 0.8, 0.5) if _awakening < LUCID_JUNK else Color(0.6, 0.9, 1.0))
 	_text_on(ci, Vector2(MARGIN + 6, MARGIN + 16), ("[ DEBUG ]" if _debug else "[ NORMAL ]") + "  F1", mode_col, 13)
-	_text_on(ci, Vector2(MARGIN + 130, MARGIN + 16), "lucidity: %s" % _lucid_tier(), lucid_col, 13)
+	_text_on(ci, Vector2(MARGIN + 130, MARGIN + 16), "lucidity: %s  %d%%" % [_lucid_tier(), int(_awakening * 100.0)], lucid_col, 13)
 	var tod := _time_label()
 	var tod_col := Color(0.55, 0.7, 0.95) if tod == "NIGHT" else (Color(0.95, 0.85, 0.55) if tod == "DAY" else Color(0.9, 0.65, 0.5))
 	_text_on(ci, Vector2(MARGIN + 320, MARGIN + 16), "DAY %d · %s" % [_day_count, tod], tod_col, 13)
@@ -2578,6 +2581,7 @@ func _on_combine() -> void:
 		items.append(_db[id]); names.append(_db[id].display_name)
 	var result := Resolver.combine(items)
 	_glitch_pulse(0.4)
+	_wake_first("build", 0.04)
 	_consume_pot()
 	_arsenal.append(result)
 	_equip(_arsenal.size() - 1)
@@ -2615,6 +2619,7 @@ func _on_modify() -> void:
 	_arsenal[_equipped_idx] = result   # replace in place
 	_equipped = result
 	_log("Attached %s to [b]%s[/b] -> [b]%s[/b]  (%d/%d slots)" % [" + ".join(names), old_name, result.display_name, result.attached.size(), result.max_attach])
+	_wake_first("attach", 0.03)
 	_pot.clear()
 	_refresh_pot(); _refresh_inventory_ui(); _refresh_equipped(); _refresh_arsenal_ui()
 
@@ -2672,6 +2677,32 @@ func _lucid_tier() -> String:
 	if _awakening >= LUCID_UNIVERSAL: return "STIRRING"
 	return "ASLEEP"
 
+# what each tier unlocks — shown when you cross into it
+func _tier_wake_msg(tier: String) -> String:
+	match tier:
+		"STIRRING": return "⟨ STIRRING ⟩  The calibers blur — any round loads any gun now."
+		"WAKING":   return "⟨ WAKING ⟩  You can chamber... anything. Reload with junk."
+		"LUCID":    return "⟨ LUCID ⟩  Parts want to snap onto your weapons — attach at will."
+		"AWAKE":    return "⟨ AWAKE ⟩  At a workbench you can build anything from anything."
+		_:          return ""
+
+# The one earn path for lucidity. Rising past a tier threshold fires a "waking" beat.
+func _wake(amt: float, reason := "") -> void:
+	if amt <= 0.0 or _awakening >= 1.0: return
+	var before := _lucid_tier()
+	_awakening = clampf(_awakening + amt, 0.0, 1.0)
+	if reason != "": _log(reason)
+	var after := _lucid_tier()
+	if after != before:
+		_glitch_pulse(0.7)
+		_log(_tier_wake_msg(after))
+		_refresh_bench_locks()
+
+func _wake_first(key: String, amt: float, reason := "") -> void:
+	if _woke_firsts.has(key): return
+	_woke_firsts[key] = true
+	_wake(amt, reason)
+
 func _reload() -> void:
 	if _equipped == null or not _equipped.uses_ammo:
 		_log("Nothing here takes ammo."); return
@@ -2688,8 +2719,12 @@ func _reload() -> void:
 	_inv[id] = int(_inv[id]) - 1
 	if _inv[id] <= 0: _inv.erase(id)
 	var flavor := ""
-	if it.category == Item.JUNK: flavor = "  — you jam it in. It fits. It shouldn't."
-	elif _equipped.native_ammo != "" and id != _equipped.native_ammo: flavor = "  — wrong caliber. Doesn't matter anymore."
+	if it.category == Item.JUNK:
+		flavor = "  — you jam it in. It fits. It shouldn't."
+		_wake_first("junk_ammo", 0.05)   # the anchovy-in-the-rifle moment cracks you open
+	elif _equipped.native_ammo != "" and id != _equipped.native_ammo:
+		flavor = "  — wrong caliber. Doesn't matter anymore."
+		_wake_first("universal_ammo", 0.03)
 	_log("Reloaded [b]%s[/b] with %s (+%d → %d/%d)%s" % [_equipped.display_name, it.display_name, loaded, _equipped.ammo_count(), _equipped.ammo_max, flavor])
 	_refresh_inventory_ui()
 
