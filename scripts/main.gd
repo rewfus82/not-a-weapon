@@ -1281,7 +1281,7 @@ func _melee_swing(g: Gadget) -> void:
 		if z.get("dead", false):
 			continue
 		var to_z: Vector2 = (z["pos"] as Vector2) - _player
-		if to_z.length() < 77.0 and to_z.normalized().dot(_aim) > 0.35:
+		if to_z.length() < 38.0 and to_z.normalized().dot(_aim) > 0.35:   # melee reach (rescaled)
 			_apply_onhit(g, z, z["pos"])
 
 func _place_trap(g: Gadget) -> void:
@@ -1367,7 +1367,7 @@ func _deploy_turret(g: Gadget) -> void:
 
 func _deploy_decoy(g: Gadget) -> void:
 	if _decoys.size() >= 3: _decoys.pop_front()
-	_decoys.append({"pos": _player, "life": 12.0, "range": 320.0})
+	_decoys.append({"pos": _player, "life": 12.0, "range": 150.0})
 	_log("Dropped %s. The horde turns to look." % g.display_name)
 
 func _update_turrets(delta: float) -> void:
@@ -1694,7 +1694,7 @@ func _update_traps(delta: float) -> void:
 		var tg: Gadget = t["gadget"]
 		var triggered := false
 		for z in _zombies:
-			if not z.get("dead", false) and (z["pos"] as Vector2).distance_to(t["pos"]) < 42.0:
+			if not z.get("dead", false) and (z["pos"] as Vector2).distance_to(t["pos"]) < 18.0:
 				triggered = true; break
 		if triggered:
 			_burst(t["pos"], Color(0.8, 0.5, 0.3))
@@ -2039,7 +2039,7 @@ func _draw() -> void:
 	# traps
 	for t in _traps:
 		draw_rect(Rect2((t["pos"] as Vector2) - Vector2(8, 8), Vector2(16, 16)), Color(0.8, 0.5, 0.2))
-		draw_arc(t["pos"], 42.0, 0.0, TAU, 24, Color(0.8, 0.5, 0.2, 0.25), 1.0)
+		draw_arc(t["pos"], 18.0, 0.0, TAU, 24, Color(0.8, 0.5, 0.2, 0.25), 1.0)
 
 	# turrets
 	for tu in _turrets:
@@ -2074,7 +2074,7 @@ func _draw() -> void:
 	if not _melee_anim.is_empty():
 		var ma: Vector2 = _melee_anim["aim"]
 		var mc := Color(0.95, 0.95, 0.7, clampf(float(_melee_anim["life"]) * 6.0, 0.0, 1.0))
-		draw_arc(_melee_anim["pos"], 60.0, ma.angle() - 0.6, ma.angle() + 0.6, 16, mc, 4.0)
+		draw_arc(_melee_anim["pos"], 30.0, ma.angle() - 0.6, ma.angle() + 0.6, 16, mc, 3.0)
 
 	# beam
 	if not _beam_anim.is_empty():
