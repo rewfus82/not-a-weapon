@@ -3,6 +3,18 @@
 > The canonical statement of what this game *is*. If a decision conflicts with this
 > doc, either the decision is wrong or this doc needs an explicit, dated update.
 
+> **STRATEGIC PIVOT — 2026-07-06. Godot frontend SHELVED; brain-first.** The Godot game
+> is the durable IP's *thin renderer*, and iterating it (visuals, FOV, collision, F5-only)
+> was the whole cost. So we're **shelving the Godot game (kept as reference, not deleted)**
+> and focusing on the engine-agnostic **combine brain** (`combine/`), with a **web console**
+> as the lightweight test/debug frontend. `combine/serve.py` now serves `tools/combine_console.html`
+> at `http://127.0.0.1:8777/` (CORS + `GET /catalog` + a debug-rich `POST /resolve`) so you
+> can drive a build, see the resolved gadget (chassis + ordered stages + logic readback) and
+> the exact prompt, and iterate the resolver fast. **First push: sharpening the LLM resolver**
+> — model default moved `claude-haiku-4-5` → **`claude-sonnet-5`** (`COMBINE_MODEL` overrides).
+> The survival-game vision below is not dead — it's deferred until the brain is worth a real
+> frontend. Godot Phase-3 progress (edge-walls, containers, lucidity earn, etc.) stands on the branch.
+
 > **MAJOR REVISION — 2026-07-03.** The vision was refined and sharpened. Key changes
 > from prior versions of this doc: (1) the game is now framed as a **real zombie-survival
 > shooter** whose weapons are genuinely useful — the absurd junk-combining is a *glitch

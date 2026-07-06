@@ -18,10 +18,10 @@ from .items import Item
 from .lucidity import Awakening, MismatchPolicy
 from .schema import Delivery, EffectKind, Gadget, GadgetDraft
 
-# Haiku is the cheap/fast POC default. NOTE: switch back to Sonnet
-# (COMBINE_MODEL=claude-sonnet-4-6) for the shipped/authored catalog or whenever
-# max wit matters — Sonnet keeps sharper names + tighter normalize/era-discipline.
-MODEL = os.environ.get("COMBINE_MODEL", "claude-haiku-4-5")
+# Sonnet is the quality default now that we're tuning the resolver itself (sharper
+# names, tighter normalize/era-discipline than Haiku). Override with COMBINE_MODEL —
+# e.g. claude-haiku-4-5-20251001 for cheap/fast iteration, claude-opus-4-8 for the ceiling.
+MODEL = os.environ.get("COMBINE_MODEL", "claude-sonnet-5")
 
 _DELIVERIES = " | ".join(d.value for d in Delivery)
 _EFFECTS = " | ".join(k.value for k in EffectKind)

@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Combine Console — This Is Not A Weapon</title>
+<style>
+  :root{
+    --bg:#0d0f12; --panel:#14181d; --panel2:#1b2027; --line:#262d36;
+    --ink:#c9d3dc; --dim:#7c8896; --accent:#5fd0c0; --accent2:#e0c060;
+    --dmg:#e05a5a; --ctrl:#5a9de0; --util:#8a8fe0; --dud:#6a7280;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  a{color:var(--accent)}
+  header{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;
+    padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+  header h1{font-size:16px;margin:0;letter-spacing:.5px}
+  header .sub{color:var(--dim);font-size:12px}
+  #status{margin-left:auto;font-size:12px}
+  .wrap{max-width:1080px;margin:0 auto;padding:20px}
+  .build{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+  @media(max-width:760px){.build{grid-template-columns:repeat(2,1fr)}}
+  .slot label{display:block;color:var(--accent);font-size:11px;text-transform:uppercase;
+    letter-spacing:.8px;margin-bottom:4px}
+  .slot select{width:100%;background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+    border-radius:5px;padding:7px 8px;font:inherit}
+  .slot .hint{color:var(--dim);font-size:11px;margin-top:3px;min-height:14px}
+  .controls{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+  .lucid{flex:1;min-width:240px}
+  .lucid .row{display:flex;justify-content:space-between;color:var(--dim);font-size:12px}
+  .lucid input{width:100%}
+  button{background:var(--accent);color:#06110f;border:0;border-radius:6px;
+    padding:9px 18px;font:inherit;font-weight:700;cursor:pointer}
+  button.ghost{background:var(--panel2);color:var(--ink);border:1px solid var(--line);font-weight:400}
+  button:disabled{opacity:.5;cursor:default}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;
+    padding:18px 20px;margin-bottom:14px}
+  .empty{color:var(--dim);text-align:center;padding:40px}
+  .gname{font-size:20px;font-weight:700;letter-spacing:.3px}
+  .badges{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0 4px}
+  .badge{font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--line);
+    text-transform:uppercase;letter-spacing:.6px}
+  .badge.cat-weapon{background:#3a1717;color:#ffb0b0;border-color:#5a2020}
+  .badge.cat-control{background:#152a3a;color:#a9d0ff;border-color:#20415a}
+  .badge.cat-support,.badge.cat-mobility{background:#16223a;color:#b7c0ff}
+  .badge.cat-utility,.badge.cat-trinket{background:#20222a;color:#bfc7d0}
+  .badge.cat-dud{background:#1a1c20;color:var(--dud)}
+  .badge.chassis{background:#12241f;color:var(--accent);border-color:#1e4038}
+  .badge.flag{background:#241f10;color:var(--accent2);border-color:#3a3016}
+  .desc{color:var(--ink);margin:10px 0}
+  .logic{color:var(--accent2);font-style:italic;margin:6px 0 14px;border-left:2px solid #3a3016;padding-left:10px}
+  .stages{list-style:none;margin:0;padding:0}
+  .stage{border-left:2px solid var(--line);padding:2px 0 12px 14px;position:relative;margin-left:6px}
+  .stage:before{content:"";position:absolute;left:-5px;top:6px;width:8px;height:8px;border-radius:50%;
+    background:var(--accent)}
+  .trig{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.7px}
+  .eff{display:inline-block;margin:4px 6px 0 0;padding:3px 9px;border-radius:5px;
+    background:var(--panel2);border:1px solid var(--line)}
+  .eff .k{font-weight:700}
+  .eff.dmg .k{color:var(--dmg)} .eff.ctrl .k{color:var(--ctrl)} .eff.util .k{color:var(--util)}
+  .eff .n{color:var(--dim);font-size:12px}
+  .stage .snote{color:var(--dim);font-size:12px;margin-top:4px}
+  .params{color:var(--dim);font-size:12px;margin-top:10px}
+  .srcline{color:var(--dim);font-size:12px;margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+  details{background:var(--panel);border:1px solid var(--line);border-radius:8px;margin-bottom:10px}
+  details summary{cursor:pointer;padding:10px 16px;color:var(--dim);user-select:none}
+  details pre{margin:0;padding:0 16px 16px;white-space:pre-wrap;word-break:break-word;
+    color:var(--dim);font-size:12px;max-height:400px;overflow:auto}
+  .err{color:var(--dmg)}
+</style>
+</head>
+<body>
+<header>
+  <h1>◈ COMBINE CONSOLE</h1>
+  <span class="sub" id="modelline">connecting…</span>
+  <span id="status"></span>
+</header>
+
+<div class="wrap">
+  <div class="build" id="build"></div>
+
+  <div class="controls">
+    <div class="lucid">
+      <div class="row"><span>lucidity / awakening</span><span id="lucidval">1.00 — LUCID</span></div>
+      <input id="lucid" type="range" min="0" max="1" step="0.05" value="1">
+    </div>
+    <button id="go">Resolve</button>
+    <button id="rand" class="ghost">Random</button>
+  </div>
+
+  <div id="out"><div class="card empty">Pick items and hit <b>Resolve</b>. Delivery is the chassis; the other slots are its instructions.</div></div>
+
+  <details><summary>prompt sent to the model (user message)</summary><pre id="prompt"></pre></details>
+  <details><summary>raw gadget JSON</summary><pre id="raw"></pre></details>
+  <details><summary>system prompt (static)</summary><pre id="system"></pre></details>
+</div>
+
+<script>
+const SLOTS = ["delivery","damage","utility","modifier"];
+let CATALOG = [];
+
+const CTRL = new Set(["slow","snare","knockback","freeze"]);
+const DMG  = new Set(["damage","explode","burn","spawn","chain","pierce"]);
+function effClass(k){ return DMG.has(k) ? "dmg" : CTRL.has(k) ? "ctrl" : "util"; }
+function eraFor(a){ return a<0.34 ? "ASLEEP" : a<0.67 ? "WAKING" : "LUCID"; }
+
+async function boot(){
+  try{
+    const c = await (await fetch("/catalog")).json();
+    CATALOG = c.items.sort((x,y)=>x.name.localeCompare(y.name));
+    document.getElementById("system").textContent = c.system || "";
+    buildSlots(c.slots || SLOTS);
+    document.getElementById("modelline").textContent = "brain up";
+    setStatus("ready", false);
+  }catch(e){
+    setStatus("brain offline — run: python -m combine.serve", true);
+  }
+}
+
+function buildSlots(slots){
+  const wrap = document.getElementById("build"); wrap.innerHTML = "";
+  for(const s of slots){
+    const div = document.createElement("div"); div.className = "slot";
+    const opts = ['<option value="">— empty —</option>']
+      .concat(CATALOG.map(it=>`<option value="${it.id}">${it.name}</option>`)).join("");
+    div.innerHTML = `<label>${s}</label><select id="sel-${s}">${opts}</select><div class="hint" id="hint-${s}"></div>`;
+    wrap.appendChild(div);
+    div.querySelector("select").addEventListener("change", ()=>updateHint(s));
+  }
+}
+
+function updateHint(s){
+  const id = document.getElementById("sel-"+s).value;
+  const it = CATALOG.find(x=>x.id===id);
+  const hint = document.getElementById("hint-"+s);
+  if(!it){ hint.textContent=""; return; }
+  hint.textContent = (s==="delivery" && it.shape ? "form: "+it.shape+" · " : "") + (it.assoc||[]).slice(0,2).join(" · ");
+}
+
+const lucid = document.getElementById("lucid");
+lucid.addEventListener("input", ()=>{
+  const v = parseFloat(lucid.value);
+  document.getElementById("lucidval").textContent = v.toFixed(2)+" — "+eraFor(v);
+});
+
+function setStatus(msg, err){
+  const el = document.getElementById("status");
+  el.textContent = msg; el.className = err ? "err" : "";
+}
+
+async function resolve(){
+  const body = { awakening: parseFloat(lucid.value) };
+  for(const s of SLOTS){ const v = document.getElementById("sel-"+s).value; if(v) body[s]=v; }
+  if(!body.delivery){ setStatus("delivery slot is required (it's the chassis)", true); return; }
+  document.getElementById("go").disabled = true; setStatus("resolving…", false);
+  try{
+    const r = await fetch("/resolve", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+    const data = await r.json();
+    if(data.error){ setStatus("error: "+data.error, true); }
+    else { render(data); setStatus(data.source, data.source.startsWith("deterministic")); }
+    document.getElementById("modelline").textContent = "model: "+(data.model||"?");
+  }catch(e){ setStatus("brain offline — run: python -m combine.serve", true); }
+  document.getElementById("go").disabled = false;
+}
+
+function render(data){
+  const g = data.gadget;
+  document.getElementById("prompt").textContent = data.prompt?.user || "";
+  document.getElementById("raw").textContent = JSON.stringify(g, null, 2);
+
+  const flags = [];
+  if(g.homing) flags.push("homing");
+  if(g.harmless) flags.push("harmless");
+  const stages = (g.stages||[]).map(st=>{
+    const effs = (st.effects||[]).map(e=>{
+      const bits = [];
+      if(e.amount) bits.push("amt "+e.amount);
+      if(e.duration) bits.push(e.duration+"s");
+      if(e.radius) bits.push("r"+e.radius);
+      if(e.count) bits.push("x"+e.count);
+      const meta = bits.length ? ` <span class="n">${bits.join(" · ")}</span>` : "";
+      const note = e.note ? ` <span class="n">— ${esc(e.note)}</span>` : "";
+      return `<span class="eff ${effClass(e.kind)}"><span class="k">${e.kind}</span>${meta}${note}</span>`;
+    }).join("");
+    const snote = st.note ? `<div class="snote">${esc(st.note)}</div>` : "";
+    return `<li class="stage"><div class="trig">${st.trigger}</div>${effs||'<span class="n">(no effects)</span>'}${snote}</li>`;
+  }).join("");
+
+  const params = g.params && Object.keys(g.params).length
+    ? `<div class="params">params: ${Object.entries(g.params).map(([k,v])=>k+"="+v).join(" · ")}</div>` : "";
+
+  document.getElementById("out").innerHTML = `
+    <div class="card">
+      <div class="gname">${esc(g.name)}</div>
+      <div class="badges">
+        <span class="badge cat-${g.category}">${g.category}</span>
+        <span class="badge chassis">${g.chassis}</span>
+        ${flags.map(f=>`<span class="badge flag">${f}</span>`).join("")}
+      </div>
+      ${g.description ? `<div class="desc">${esc(g.description)}</div>` : ""}
+      ${g.logic ? `<div class="logic">${esc(g.logic)}</div>` : ""}
+      <ul class="stages">${stages}</ul>
+      ${params}
+      <div class="srcline">source: ${esc(data.source)}</div>
+    </div>`;
+}
+
+function esc(s){ return String(s).replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+
+document.getElementById("go").addEventListener("click", resolve);
+document.getElementById("rand").addEventListener("click", ()=>{
+  const pick = ()=>CATALOG[Math.floor(Math.random()*CATALOG.length)].id;
+  document.getElementById("sel-delivery").value = pick();
+  document.getElementById("sel-damage").value = Math.random()<0.8 ? pick() : "";
+  document.getElementById("sel-utility").value = Math.random()<0.5 ? pick() : "";
+  document.getElementById("sel-modifier").value = Math.random()<0.5 ? pick() : "";
+  SLOTS.forEach(updateHint);
+});
+boot();
+</script>
+</body>
+</html>
