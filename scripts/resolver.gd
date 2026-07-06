@@ -175,16 +175,16 @@ static func _tag_effects() -> Dictionary:
 ##       dmg_add (additive to dmg_mult). Order matters only for set-vs-add interplay.
 static func _tag_ammo() -> Dictionary:
 	return {
-		"light":     {"dmg_mult": 0.0, "drag": 3.5},   # fast, then floats to a stop
-		"fluffy":    {"dmg_mult": 0.0, "drag": 3.5},
-		"powder":    {"dmg_mult": 0.0, "drag": 3.5},
-		"sugar":     {"dmg_mult": 0.0},
+		"light":     {"dmg_mult": 0.2, "drag": 3.5},   # weird-but-not-zero: floats, taps for a little
+		"fluffy":    {"dmg_mult": 0.2, "drag": 3.5},
+		"powder":    {"dmg_mult": 0.2, "drag": 3.5},
+		"sugar":     {"dmg_mult": 0.2},
 		"canned":    {"bounce": 3},                     # ricochets off walls
 		"metal":     {"bounce": 3},
-		"lethal":    {"dmg_add": 0.5},
-		"dense":     {"dmg_add": 0.3},
+		"lethal":    {"dmg_add": 0.7},                  # real rounds hit hard
+		"dense":     {"dmg_add": 0.5},                  # buckshot: close-range authority
 		"sticky":    {"slow": 2.5},
-		"explosive": {"explode_r": 80.0, "explode_dmg": 14.0},
+		"explosive": {"explode_r": 80.0, "explode_dmg": 22.0},   # rockets actually boom
 		"electric":  {"burn_amt": 4.0, "burn_dur": 3.0},
 		"attract":   {"homing": true},
 		"rubber":    {"bounce": 4},
@@ -192,7 +192,7 @@ static func _tag_ammo() -> Dictionary:
 		"caustic":   {"burn_amt": 5.0, "burn_dur": 3.0},
 		"spicy":     {"burn_amt": 3.0, "burn_dur": 2.0},
 		"heavy":     {"dmg_add": 0.4},
-		"sharp":     {"pierce": 1},
+		"sharp":     {"pierce": 2},                     # arrows/bolts punch clean through
 		"cold":      {"freeze": 1.8},
 		"conductive":{"chain_count": 2, "chain_dmg": 6.0, "chain_range": 100.0},
 		"poison":    {"burn_amt": 3.0, "burn_dur": 4.0},
