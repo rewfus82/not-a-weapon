@@ -371,15 +371,15 @@ Systems first; art/iso is its own later phase so it never blocks gameplay.
 - **Phase 2 — Day/night + stealth loop. ✅ DONE.** Day/night clock, flashlight toggle,
   waves retired, continuous night-scaled spawning, zombie detection AI
   (wander/alert/chase, light+sound, disengage), day-lethargy/night-hunting.
-- **Phase 3 — The world (open-world town → county). 🔨 IN PROGRESS (~70%).** Landed: grid
-  world + procgen town + edge-culling; player/zombie/shot wall collision; zombies wall-
-  follow around buildings; **roof-fade interiors** (hide the horde until you enter);
-  doors face the nearest road; density pass (denser lattice, dirt/weed ground, solid
-  trees, item icons). **RE-ARCH now scoped (§7b, locked 2026-07-04): tile≈player scale,
-  edge-walls, FOV-everywhere (hard occlusion), dynamic contextual camera — the graybox
-  scale was wrong for the endpoint.** Build order: (1) rescale + edge-walls, (2) dynamic
-  camera, (3) FOV/enclosure. Also left: entity scaling (active-radius + pooling), workbench
-  placement, loot containers inside, car/fence/pole props, full nav/pathing (A*). See §7/§7b.
+- **Phase 3 — The world (open-world town → county). 🔨 IN PROGRESS (~75%).** Landed: grid
+  procgen town + edge-culling; full wall collision + zombie wall-follow; **roof-fade
+  interiors**; road-facing doors; density (solid trees, ground texture, item icons); **5
+  building archetypes** with furnished interiors; **scale re-arch (§7b): tile≈player
+  rescale + edge-walls + dynamic camera**; **searchable containers + E-interact** (PZ loot,
+  search-once ~33%); **workbench placement** (T4 BUILD/AI-BUILD anchored to physical benches,
+  ~1 in 3 buildings). **FOV SHELVED** (§7b — two attempts reverted; PZ fog is the target for a
+  from-scratch, F5-driven pass). Left: entity scaling (active-radius + pooling), car/fence/
+  pole props, container/bench visual variety, full nav/pathing (A*), ammo tuning. See §7/§7b.
 - **Phase 4 — Presentation overhaul. ⬜ NOT STARTED.** Art direction, in-hand weapons, full
   UI/HUD revamp, and the **iso-vs-top-down decision** (§8). Gated behind the art talk.
 

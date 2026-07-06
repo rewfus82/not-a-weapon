@@ -41,6 +41,7 @@ const C_TREE := 9            # solid tree — blocks movement + shots, drawn as 
 const C_WINDOW := 10         # (legacy cell type — walls/windows are now EDGES; see below)
 const C_FURN := 11           # furniture/fixture inside a building (solid cover)
 const C_CONTAINER := 12      # searchable prop (dresser/cabinet/crate…): solid, E to search, 33% loot
+const C_BENCH := 13          # workbench prop: solid; standing near one unlocks T4 BUILD / AI BUILD
 
 # Walls live on tile EDGES, not in cells (PZ model — thin by construction). Two edge grids:
 #   _ev[cy][cx] = edge on the WEST side of cell (cx,cy)   (cx in 0..GW, cy in 0..GH-1)
@@ -130,6 +131,8 @@ var _ev: Array[PackedByteArray] = []    # vertical wall edges (west side of each
 var _eh: Array[PackedByteArray] = []    # horizontal wall edges (north side of each cell), GH+1 tall
 var _buildings: Array[Rect2] = []       # building footprints in world coords
 var _containers: Array[Dictionary] = [] # searchable props: {pos, kind, searched}
+var _benches: Array[Vector2] = []       # workbench prop positions (world)
+var _at_bench := false                   # player is within reach of a workbench (gates T4 build)
 var _roof_a: Array[float] = []          # per-building roof opacity (1=roofed/hidden, 0=you're inside)
 var _btype: Array[int] = []             # per-building archetype (parallel to _buildings)
 var _road_xs: Array = []                # vertical-road column indices (for door orientation)
@@ -416,6 +419,7 @@ func _cell_color(c: int) -> Color:
 		C_WINDOW: return Color(0.32, 0.40, 0.44)   # glass set in a wall
 		C_FURN:   return Color(0.30, 0.24, 0.18)   # furniture / fixtures
 		C_CONTAINER: return Color(0.17, 0.16, 0.19)  # floor base; the box is drawn in its own pass
+		C_BENCH:  return Color(0.17, 0.16, 0.19)     # floor base; the bench is drawn in its own pass
 		_:       return Color(0.17, 0.21, 0.14)   # grass
 
 func _road_v(rx: int) -> void:                       # ~5-cell carriageway + a walk on each side
@@ -468,6 +472,12 @@ func _container(xx: int, yy: int, kind: String) -> void:
 		"pos": Vector2(xx * TILE + TILE * 0.5, yy * TILE + TILE * 0.5),
 		"kind": kind, "searched": false})
 
+# a workbench prop on open floor (solid; being near it unlocks the T4 build actions)
+func _bench(xx: int, yy: int) -> void:
+	if _cell(xx, yy) != C_FLOOR: return
+	_set_cell(xx, yy, C_BENCH)
+	_benches.append(Vector2(xx * TILE + TILE * 0.5, yy * TILE + TILE * 0.5))
+
 func _add_windows(x: int, y: int, w: int, h: int) -> void:
 	var step := 4                                     # a window roughly every 4 cells
 	for xx in range(x + 2, x + w - 2):
@@ -493,6 +503,9 @@ func _furnish(t: int, x: int, y: int, w: int, h: int) -> void:
 	var n := maxi(2, int(w * h / 30.0))
 	for _i in range(n):
 		_container(randi_range(x, x + w - 1), randi_range(y, y + h - 1), _container_kind(t))
+	# ~1 in 3 buildings has a workbench (T4 crafting is anchored to them, not TAB-anywhere)
+	if randf() < 0.35:
+		_bench(randi_range(x, x + w - 1), randi_range(y, y + h - 1))
 
 func _container_kind(t: int) -> String:
 	match t:
@@ -600,6 +613,7 @@ func _gen_town() -> void:
 	_buildings = []
 	_btype = []
 	_containers = []
+	_benches = []
 	for by in range(16, GH - 16, 26):            # buildings on a lattice (finer grid → wider steps)
 		for bx in range(16, GW - 16, 32):
 			if randf() < 0.82:
@@ -663,7 +677,7 @@ func _build_occluders() -> void:
 func _cell_solid(px: float, py: float, r: float) -> bool:
 	for off in [Vector2(-r, -r), Vector2(r, -r), Vector2(-r, r), Vector2(r, r)]:
 		var c := _cell(int((px + off.x) / TILE), int((py + off.y) / TILE))
-		if c == C_TREE or c == C_FURN or c == C_CONTAINER or c == C_WALL:   # C_WALL only off-map
+		if c == C_TREE or c == C_FURN or c == C_CONTAINER or c == C_BENCH or c == C_WALL:
 			return true
 	return false
 
@@ -984,6 +998,14 @@ func _update_world(delta: float) -> void:
 		var here := (_buildings[i] as Rect2).grow(6.0).has_point(_player)
 		if here: _inside_building = true
 		_roof_a[i] = lerpf(_roof_a[i], 0.0 if here else 1.0, 0.18)
+
+	# near a workbench? (unlocks the T4 build actions; refresh the bench panel if it changed)
+	var was_at := _at_bench
+	_at_bench = false
+	for b in _benches:
+		if b.distance_to(_player) < BENCH_RANGE:
+			_at_bench = true; break
+	if _at_bench != was_at: _refresh_bench_locks()
 
 	# (looting is now E-to-search containers inside buildings — no more walk-in auto-loot)
 	var night := _night()   # 0 = full day, 1 = deepest night — the threat driver
@@ -1417,7 +1439,7 @@ func _update_projectiles(delta: float) -> void:
 		var cxp := int((p["pos"] as Vector2).x / TILE)
 		var cyp := int((p["pos"] as Vector2).y / TILE)
 		var hit_cell := _cell(cxp, cyp)
-		var stop := hit_cell == C_TREE or hit_cell == C_FURN or hit_cell == C_CONTAINER or hit_cell == C_WALL
+		var stop := hit_cell == C_TREE or hit_cell == C_FURN or hit_cell == C_CONTAINER or hit_cell == C_BENCH or hit_cell == C_WALL
 		if not stop:                                    # did it cross a solid wall edge this frame?
 			var pcx: int = p.get("pcx", cxp)
 			var pcy: int = p.get("pcy", cyp)
@@ -1753,6 +1775,7 @@ func _grant(id: String, msg: String) -> void:
 
 # E — search the nearest container in reach. Search-once, ~33% payout.
 const INTERACT_RANGE := 26.0
+const BENCH_RANGE := 34.0   # how close to a workbench you must be for T4 build actions
 func _interact() -> void:
 	var best := -1
 	var bd := INTERACT_RANGE
@@ -1965,6 +1988,14 @@ func _draw() -> void:
 		draw_rect(r, body)
 		draw_rect(Rect2(r.position, Vector2(r.size.x, TILE * 0.3)), lid)   # lid band
 		draw_rect(r, Color(0, 0, 0, 0.5), false, 1.0)
+
+	# workbenches — a table with a teal "you can craft here" accent
+	for bp in _benches:
+		if bp.x < vx0 or bp.x > vx1 or bp.y < vy0 or bp.y > vy1: continue
+		var br := Rect2(bp - Vector2(TILE * 0.46, TILE * 0.34), Vector2(TILE * 0.92, TILE * 0.68))
+		draw_rect(br, Color(0.30, 0.26, 0.22))
+		draw_rect(br, Color(0.5, 0.45, 0.38), false, 1.0)
+		draw_rect(Rect2(bp - Vector2(TILE * 0.16, TILE * 0.16), Vector2(TILE * 0.32, TILE * 0.32)), Color(0.35, 0.78, 0.72))
 
 	# (scavenge-site labels ride on top of the roofs — drawn at the end of the world pass)
 
@@ -2209,13 +2240,20 @@ func _refresh_bench_locks() -> void:
 	if _btn_attach == null:
 		return
 	var can_attach := _awakening >= LUCID_ATTACH
-	var can_build := _awakening >= LUCID_BUILD
+	var can_build := _awakening >= LUCID_BUILD and _at_bench   # T4 build is anchored to a workbench
 	_btn_attach.disabled = not can_attach
 	_btn_build.disabled = not can_build
 	_btn_ai.disabled = not can_build
 	_btn_attach.tooltip_text = "bolt the bench parts onto your equipped weapon" if can_attach else "🔒 locked — reach LUCID (T3) to attach parts"
-	_btn_build.tooltip_text = "assemble the bench parts into a NEW weapon/tool" if can_build else "🔒 locked — reach AWAKE (T4) to build from scratch"
-	_btn_ai.tooltip_text = "AI freeform build (needs combine/serve.py)" if can_build else "🔒 locked — reach AWAKE (T4) for AI builds"
+	if _awakening < LUCID_BUILD:
+		_btn_build.tooltip_text = "🔒 locked — reach AWAKE (T4) to build from scratch"
+		_btn_ai.tooltip_text = "🔒 locked — reach AWAKE (T4) for AI builds"
+	elif not _at_bench:
+		_btn_build.tooltip_text = "🔧 stand at a workbench to build from scratch"
+		_btn_ai.tooltip_text = "🔧 stand at a workbench for AI builds"
+	else:
+		_btn_build.tooltip_text = "assemble the bench parts into a NEW weapon/tool"
+		_btn_ai.tooltip_text = "AI freeform build (needs combine/serve.py)"
 
 func _make_ui_theme() -> Theme:
 	var theme := Theme.new()
@@ -2316,7 +2354,7 @@ func _build_ui() -> void:
 	var lb := Button.new(); lb.text = "  LOAD  "; lb.tooltip_text = "load the bench parts into the equipped weapon as AMMO"; lb.pressed.connect(_on_load); row.add_child(lb)
 	var cl := Button.new(); cl.text = " Clear "; cl.pressed.connect(_on_clear); row.add_child(cl)
 	# advanced — the AI brain (Tier-4 freeform)
-	_caption(root, "ADVANCED  (freeform AI build — needs the combine server)")
+	_caption(root, "ADVANCED  (freeform build — needs a WORKBENCH + the combine server)")
 	var airow := HBoxContainer.new()
 	root.add_child(airow)
 	_btn_ai = Button.new(); _btn_ai.text = "  AI BUILD  "; _btn_ai.tooltip_text = "let the AI brain compose something wild from the bench parts (Tier-4; needs combine/serve.py)"; _btn_ai.pressed.connect(_on_ai_build); airow.add_child(_btn_ai)
@@ -2423,6 +2461,8 @@ func _on_clear() -> void:
 func _on_ai_build() -> void:
 	if _awakening < LUCID_BUILD:
 		_log("The deeper builds are still beyond you — not lucid enough."); return
+	if not _at_bench:
+		_log("You need a workbench for that. Find one out in the world."); return
 	if _ai_busy:
 		_log("The AI is still thinking..."); return
 	if _pot.is_empty():
@@ -2528,6 +2568,8 @@ func _finalize_ai_gadget(g: Gadget) -> void:
 func _on_combine() -> void:
 	if _awakening < LUCID_BUILD:
 		_log("You can't picture building something new yet — you're not lucid enough."); return
+	if not _at_bench:
+		_log("You need a workbench to build from scratch. Find one out in the world."); return
 	if _pot.is_empty():
 		_log("Nothing on the bench."); return
 	var items: Array[Item] = []
