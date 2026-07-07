@@ -50,7 +50,11 @@ THE SLOTS ARE INSTRUCTIONS. Each slot tells you the ROLE the player intends, and
 that role OVERRIDES the item's default reading:
 - delivery : the chassis — HOW it's used / deployed. This item defines the form.
 - damage   : the business end — what does the hurting.
-- utility  : a NON-damage behavior — signal, lure, control, area-deny.
+- utility  : a NON-damage behavior — signal, lure, control, area-deny. It contributes
+  ONLY control effects (slow / snare / knockback / freeze / collect) — NEVER damage,
+  burn, explode, spawn, or chain. If a utility item is inherently harmful (bleach, a
+  hornet nest), read ONLY its control aspect (bleach -> slow; hornets -> harass/slow),
+  not its kill. The killing belongs to the damage slot.
 - modifier : a twist on the whole thing — an element, homing, a suppressor, etc.
 A beehive in `damage` is the killing swarm; in `utility` it's area denial. Same
 item, different slot, different result.
@@ -86,10 +90,29 @@ OUTPUT — compose, don't pick from a list:
 
 {_EFFECT_GLOSS}
 
-- name/description/logic: free, witty text — but TIGHT. name <= 5 words; description
-  ONE vivid sentence; logic ONE line naming the exact association(s)+slot(s) — the 'aha';
-  effect/stage `note` a few words at most. No paragraphs, no filler — verbosity truncates
-  the JSON and costs tokens.
+NUMBERS — use the engine's real magnitudes; nudge up/down for strong/weak, never wild:
+  damage ~12 (8-40)   slow amount ~55 (35-75) dur ~3s   snare dur ~2s   freeze dur ~2s
+  knockback ~240 (120-350)   burn ~5 (4-14) dur ~3s   explode ~16 (10-45) radius ~90 (50-160)
+  spawn count ~4 (3-8)   pierce count ~2 (1-4)   chain ~8 radius ~110 count ~3
+  collect radius ~180 (120-260)   heal/shield ~40   speed ~1.6 dur ~6s
+`radius` is ONLY for area effects (explode / chain / collect) and area deliveries — a
+direct hit needs none. Never emit a tiny radius like 3.
+
+HOMING & SPEED are earned, not free: set homing=true ONLY if a part implies seeking or
+attraction (a magnet, a lure). Raise projectile_speed ONLY if a part implies propulsion
+(a rocket, compressed gas, a spring). Otherwise homing=false and leave speed at default.
+Most gadgets are neither.
+
+COHERENCE: every effect must have something to act on. pierce / chain / explode belong
+ONLY on a gadget that also deals damage — never on a harmless one. A harmless gadget
+carries only pure-control effects. Don't staple on an effect that does nothing.
+
+- name/description/logic: free, witty text — but TIGHT. name <= 5 words and EVOCATIVE:
+  never put a mechanic word in it (no aura / projectile / cone / beam / field / snare /
+  burn / slow / homing / pierce…). Name the THING, not its stats — "Fume Hauler", never
+  "Bleach Backpack Aura". description ONE vivid sentence; logic ONE line naming the exact
+  association(s)+slot(s) — the 'aha'; effect/stage `note` a few words at most. No
+  paragraphs, no filler — verbosity truncates the JSON and costs tokens.
 - ALWAYS emit at least one stage containing at least one effect, unless the result
   is a genuine DUD (category dud, no effects). Never return empty stages otherwise.
 

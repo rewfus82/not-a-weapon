@@ -83,8 +83,10 @@
 
   <div class="controls">
     <div class="lucid">
-      <div class="row"><span>lucidity / awakening</span><span id="lucidval">1.00 — LUCID</span></div>
-      <input id="lucid" type="range" min="0" max="1" step="0.05" value="1">
+      <div class="row"><span>lucidity / awakening</span><span id="lucidval">0.90 — LUCID</span></div>
+      <input id="lucid" type="range" min="0" max="1" step="0.05" value="0.9">
+      <div class="row" style="justify-content:flex-start;color:var(--dim);font-size:11px">
+        freeform combine is a LUCID (≥0.75) unlock in-game — below is debug-only</div>
     </div>
     <button id="go">Resolve</button>
     <button id="rand" class="ghost">Random</button>
@@ -104,7 +106,10 @@ let CATALOG = [];
 const CTRL = new Set(["slow","snare","knockback","freeze"]);
 const DMG  = new Set(["damage","explode","burn","spawn","chain","pierce"]);
 function effClass(k){ return DMG.has(k) ? "dmg" : CTRL.has(k) ? "ctrl" : "util"; }
-function eraFor(a){ return a<0.34 ? "ASLEEP" : a<0.67 ? "WAKING" : "LUCID"; }
+function eraFor(a){   // mirrors combine/lucidity.py thresholds
+  const e = a<0.25 ? "ASLEEP" : a<0.50 ? "STIRRING" : a<0.75 ? "WAKING" : "LUCID";
+  return a<0.75 ? e+" · debug" : e;
+}
 
 async function boot(){
   try{
