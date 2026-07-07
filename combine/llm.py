@@ -50,11 +50,12 @@ THE SLOTS ARE INSTRUCTIONS. Each slot tells you the ROLE the player intends, and
 that role OVERRIDES the item's default reading:
 - delivery : the chassis — HOW it's used / deployed. This item defines the form.
 - damage   : the business end — what does the hurting.
-- utility  : a NON-damage behavior — signal, lure, control, area-deny. It contributes
-  ONLY control effects (slow / snare / knockback / freeze / collect) — NEVER damage,
-  burn, explode, spawn, or chain. If a utility item is inherently harmful (bleach, a
-  hornet nest), read ONLY its control aspect (bleach -> slow; hornets -> harass/slow),
-  not its kill. The killing belongs to the damage slot.
+- utility  : a NON-damage behavior. It may contribute control (slow / snare / knockback /
+  freeze), collect, OR a self-buff to YOU (speed / heal / shield) — whatever the item's
+  non-damage nature implies (caffeine -> speed, bandages -> heal, painkillers -> shield).
+  NEVER damage, burn, explode, spawn, pierce, or chain. If a utility item is inherently
+  harmful (bleach, a hornet nest), read ONLY its control aspect (bleach -> slow; hornets
+  -> harass/slow), not its kill. The killing belongs to the damage slot.
 - modifier : a twist on the whole thing — an element, homing, a suppressor, etc.
 A beehive in `damage` is the killing swarm; in `utility` it's area denial. Same
 item, different slot, different result.
@@ -76,8 +77,14 @@ Most builds are NOT weapons, and an empty damage slot is almost never a weapon �
 but do NOT under-call WEAPON when the thing clearly hurts.
 
 OUTPUT — compose, don't pick from a list:
-- chassis  : one delivery primitive ({_DELIVERIES}). Take it from the delivery
-  item's nature.
+- chassis  : the delivery item's NATURAL FORM. Emit EXACTLY the `[natural form: X]`
+  value shown for the delivery item — the chassis is fixed by the delivery slot ALONE.
+  The damage / utility / modifier items NEVER change it: they fill the payload (effects),
+  never the form. Do not "upgrade" a lobbed thing into a projectile because a part
+  suggests a barrel, or swap forms to suit the payload. If the delivery item's natural
+  form is non-offensive (e.g. `self`), KEEP it and build the gadget around that form —
+  a `self` gadget can still carry damage. Wanting a different form means picking a
+  different delivery item; that's the player's decision, not yours to override.
 - stages   : an ORDERED list. Each stage is a trigger + effects, in the sequence
   they happen (e.g. a trap: on_trigger -> snare, then startle, then swarm).
 - effects  : only these primitives ({_EFFECTS}). Nothing else can be rendered.
@@ -156,6 +163,13 @@ def build_user_message(build: Build, awakening: Awakening) -> str:
     for p in build.placements():
         lines.append(_item_line(p.slot, p.item, insight))
     lines.append("")
+    if build.delivery is not None:
+        form = SHAPE.get(build.delivery.id, Delivery.PROJECTILE).value
+        lines.append(
+            f"CHASSIS IS LOCKED to `{form}` (the delivery item's form — code enforces this). "
+            f"The gadget IS a {form} thing: write the name, stages, and description to fit a "
+            f"{form}. Do NOT reforge it into another form to suit the payload.")
+        lines.append("")
     lines.append("Compose the gadget. Reason from the associations and the slots.")
     return "\n".join(lines)
 
@@ -182,7 +196,10 @@ def llm_resolve(build: Build, awakening: Awakening, client: object, attempts: in
             )
             draft = getattr(resp, "parsed_output", None)
             if draft is not None:
-                return draft.to_gadget(color)  # code sets color, not the model
+                g = draft.to_gadget(color)  # code sets color, not the model
+                if build.delivery is not None:   # and the chassis is the delivery's FORM, not the model's whim
+                    g.chassis = SHAPE.get(build.delivery.id, Delivery.PROJECTILE)
+                return g
             last_exc = RuntimeError(f"no parseable gadget (stop={getattr(resp, 'stop_reason', '?')})")
         except Exception as exc:  # noqa: BLE001 - retry on any transport/parse failure
             last_exc = exc

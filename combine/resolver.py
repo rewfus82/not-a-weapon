@@ -298,9 +298,11 @@ _MAG: dict[EffectKind, dict] = {
 # effects that mean "this can actually hurt something"
 _LETHAL = {EffectKind.DAMAGE, EffectKind.EXPLODE, EffectKind.BURN,
            EffectKind.SPAWN, EffectKind.CHAIN}
-# effects a UTILITY placement is allowed to keep (non-damage behaviors)
+# effects a UTILITY placement is allowed to keep — non-damage behaviors + self-buffs.
+# (spawn is a damaging swarm -> it belongs in the damage slot, not utility.)
 _CONTROL = {EffectKind.SNARE, EffectKind.SLOW, EffectKind.KNOCKBACK,
-            EffectKind.FREEZE, EffectKind.COLLECT, EffectKind.SPAWN}
+            EffectKind.FREEZE, EffectKind.COLLECT,
+            EffectKind.SPEED, EffectKind.HEAL, EffectKind.SHIELD}
 
 _CHASSIS_WORD: dict[Delivery, str] = {
     Delivery.PROJECTILE: "Gun", Delivery.LOBBED: "Bomb", Delivery.PLACED: "Trap",
