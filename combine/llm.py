@@ -86,8 +86,10 @@ OUTPUT — compose, don't pick from a list:
 
 {_EFFECT_GLOSS}
 
-- name/description/logic: free, witty text. `logic` names the exact association(s)
-  and slot(s) you followed — the 'aha'.
+- name/description/logic: free, witty text — but TIGHT. name <= 5 words; description
+  ONE vivid sentence; logic ONE line naming the exact association(s)+slot(s) — the 'aha';
+  effect/stage `note` a few words at most. No paragraphs, no filler — verbosity truncates
+  the JSON and costs tokens.
 - ALWAYS emit at least one stage containing at least one effect, unless the result
   is a genuine DUD (category dud, no effects). Never return empty stages otherwise.
 
@@ -150,7 +152,7 @@ def llm_resolve(build: Build, awakening: Awakening, client: object, attempts: in
         try:
             resp = client.messages.parse(
                 model=MODEL,
-                max_tokens=1500,
+                max_tokens=4096,
                 system=[{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}],
                 messages=[{"role": "user", "content": user}],
                 output_format=GadgetDraft,
