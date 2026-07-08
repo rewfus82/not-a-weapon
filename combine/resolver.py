@@ -48,8 +48,8 @@ SHAPE: dict[str, Delivery] = {
     "co2_canister": Delivery.CONE,
     "leaf_blower": Delivery.CONE,
     "potato": Delivery.PROJECTILE,
-    "spaghetti": Delivery.CONE,
-    "feathers": Delivery.CONE,
+    "spaghetti": Delivery.CALTROPS,   # a thrown, tangling floor mess, not an aerosol cone
+    "feathers": Delivery.AURA,        # a drifting cloud that lingers, not a spray
     "boombox": Delivery.DECOY,
     "nerf_gun": Delivery.PROJECTILE,
     "anchovies": Delivery.PROJECTILE,
@@ -72,7 +72,7 @@ SHAPE: dict[str, Delivery] = {
     "nail_gun": Delivery.PROJECTILE,
     "power_drill": Delivery.MELEE,
     "propane_tank": Delivery.LOBBED,
-    "car_battery": Delivery.PLACED,
+    "car_battery": Delivery.BEAM,   # an electric source -> an arc, like jumper cables/taser
     "crowbar": Delivery.MELEE,
     "screwdriver": Delivery.MELEE,
     "weed_whacker": Delivery.MELEE,
