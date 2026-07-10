@@ -20,7 +20,10 @@ class LLMResolver:
     def resolve(self, build: Build, tier: Tier) -> GadgetDraft:
         response = self.client.messages.parse(
             model=self.model,
-            max_tokens=2000,
+            # Sonnet's adaptive thinking shares this budget with the structured
+            # output; too small and thinking starves the JSON, truncating it
+            # mid-token and failing schema validation. Give generous headroom.
+            max_tokens=8000,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": render_user_message(build, tier)}],
             output_format=GadgetDraft,
