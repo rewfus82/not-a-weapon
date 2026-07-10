@@ -36,6 +36,7 @@ def run(resolver_fn: ResolverFn, build_keys: list[str], repeats: int) -> list[Ru
     totals: dict[Tier, int] = {t: schedule.count(t) for t in set(schedule)}
     for key in build_keys:
         build = DEFAULT_BUILDS[key]
+        # per-tier instance counter so high-tier runs are labelled 1..repeats
         counters: dict[Tier, int] = {}
         for tier in schedule:
             counters[tier] = counters.get(tier, 0) + 1

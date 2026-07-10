@@ -1,3 +1,5 @@
+import pytest
+
 from resolver.contract import Tier
 from resolver import fallback, harness
 
@@ -55,6 +57,20 @@ def test_run_survives_total_refusal_with_all_fallbacks():
     results = harness.run(always_refuse, build_keys=["broom+oil"], repeats=3)
     assert len(results) == 12
     assert all(r.source == "fallback" for r in results)
+
+
+def test_fallback_resolve_failure_propagates(monkeypatch):
+    # Only the live call is wrapped; a bug in the deterministic fallback must
+    # surface, not be silently swallowed into another fallback attempt.
+    def always_refuse(build, tier):
+        raise RuntimeError("refused")
+
+    def broken_fallback(build, tier):
+        raise ValueError("deterministic bug")
+
+    monkeypatch.setattr(harness, "fallback_resolve", broken_fallback)
+    with pytest.raises(ValueError, match="deterministic bug"):
+        harness.run(always_refuse, build_keys=["broom+oil"], repeats=1)
 
 
 def test_main_prints_fallback_summary(capsys):
