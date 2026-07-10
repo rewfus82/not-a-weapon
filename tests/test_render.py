@@ -38,3 +38,15 @@ def test_render_prints_build_header_once_per_build():
     ]
     out = render_run(results)
     assert out.count("BUILD: broom+oil") == 1
+
+
+def test_render_marks_fallback_slots_with_tag_and_reason():
+    results = [
+        RunResult("fan+duck", _resolved("Plan B", Tier.RARE, Category.WEAPON, False), 1, 3,
+                  source="fallback", reason="RuntimeError: no GadgetDraft (stop_reason='refusal')"),
+        RunResult("fan+duck", _resolved("Live One", Tier.RARE, Category.WEAPON, False), 2, 3),
+    ]
+    out = render_run(results)
+    assert out.count("[fallback]") == 1          # only the fallback slot is tagged
+    assert "RuntimeError: no GadgetDraft" in out # its reason is shown
+    assert "Plan B" in out and "Live One" in out

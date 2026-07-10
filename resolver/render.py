@@ -16,6 +16,8 @@ class RunResult:
     resolved: ResolvedGadget
     run_index: int
     run_total: int
+    source: str = "llm"
+    reason: str | None = None
 
 
 def _render_effect(effect) -> str:
@@ -34,13 +36,16 @@ def _render_effect(effect) -> str:
 
 def _render_one(result: RunResult) -> str:
     rg = result.resolved
+    tag = "  [fallback]" if result.source == "fallback" else ""
     lines = [
         f"--- {rg.tier.value} ---  ({rg.category.value}, harmless={rg.harmless})  "
-        f"[run {result.run_index}/{result.run_total}]",
+        f"[run {result.run_index}/{result.run_total}]{tag}",
         f"  name:  {rg.draft.name}",
         f"  logic: {rg.draft.logic}",
-        "  stages:",
     ]
+    if result.source == "fallback" and result.reason:
+        lines.append(f"  fallback: {result.reason}")
+    lines.append("  stages:")
     for stage in rg.draft.stages:
         lines.append(f"    {stage.trigger.value}:")
         for effect in stage.effects:
