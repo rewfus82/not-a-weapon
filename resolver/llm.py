@@ -28,4 +28,12 @@ class LLMResolver:
             messages=[{"role": "user", "content": render_user_message(build, tier)}],
             output_format=GadgetDraft,
         )
-        return response.parsed_output
+        draft = response.parsed_output
+        if draft is None:
+            # No parseable GadgetDraft: a refusal, or thinking consumed the
+            # whole budget leaving no text block. Surface it so the harness
+            # can record the failed slot instead of crashing on a None draft.
+            raise RuntimeError(
+                f"resolver returned no GadgetDraft (stop_reason={response.stop_reason!r})"
+            )
+        return draft

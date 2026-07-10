@@ -34,14 +34,25 @@ def tier_schedule(repeats: int) -> list[Tier]:
 def run(resolver_fn: ResolverFn, build_keys: list[str], repeats: int) -> list[RunResult]:
     results: list[RunResult] = []
     schedule = tier_schedule(repeats)
+    totals: dict[Tier, int] = {t: schedule.count(t) for t in set(schedule)}
     for key in build_keys:
         build = DEFAULT_BUILDS[key]
         # per-tier instance counter so high-tier runs are labelled 1..repeats
         counters: dict[Tier, int] = {}
-        totals: dict[Tier, int] = {t: schedule.count(t) for t in set(schedule)}
         for tier in schedule:
             counters[tier] = counters.get(tier, 0) + 1
-            draft = resolver_fn(build, tier)
+            try:
+                draft = resolver_fn(build, tier)
+            except Exception as exc:  # one bad call must not abort the whole run
+                # Record the failure as a visible slot (empty stages -> DUD) so
+                # the spread still shows which (build, tier) failed and why,
+                # rather than losing the other 40+ results.
+                draft = GadgetDraft(
+                    name="[resolution failed]",
+                    description="",
+                    logic=f"{type(exc).__name__}: {exc}",
+                    stages=[],
+                )
             resolved = clamp_apply(draft, build, tier)
             results.append(RunResult(key, resolved, counters[tier], totals[tier]))
     return results
