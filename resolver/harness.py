@@ -13,7 +13,7 @@ from resolver.clamp import apply as clamp_apply
 from resolver.contract import GadgetDraft, Tier
 from resolver.fallback import resolve as fallback_resolve
 from resolver.items import DEFAULT_BUILDS, Build
-from resolver.render import RunResult, render_run
+from resolver.render import RunResult, render_fallback_summary, render_run
 
 ResolverFn = Callable[[Build, Tier], GadgetDraft]
 
@@ -36,24 +36,21 @@ def run(resolver_fn: ResolverFn, build_keys: list[str], repeats: int) -> list[Ru
     totals: dict[Tier, int] = {t: schedule.count(t) for t in set(schedule)}
     for key in build_keys:
         build = DEFAULT_BUILDS[key]
-        # per-tier instance counter so high-tier runs are labelled 1..repeats
         counters: dict[Tier, int] = {}
         for tier in schedule:
             counters[tier] = counters.get(tier, 0) + 1
             try:
                 draft = resolver_fn(build, tier)
-            except Exception as exc:  # one bad call must not abort the whole run
-                # Record the failure as a visible slot (empty stages -> DUD) so
-                # the spread still shows which (build, tier) failed and why,
-                # rather than losing the other 40+ results.
-                draft = GadgetDraft(
-                    name="[resolution failed]",
-                    description="",
-                    logic=f"{type(exc).__name__}: {exc}",
-                    stages=[],
-                )
+                source, reason = "llm", None
+            except Exception as exc:
+                # A refusal or transport error is a normal, expected outcome for a
+                # fraction of builds. Fall back to the deterministic resolver (always
+                # a valid instance) and record the slot. We never classify *why*.
+                draft = fallback_resolve(build, tier)
+                source = "fallback"
+                reason = f"{type(exc).__name__}: {exc}"
             resolved = clamp_apply(draft, build, tier)
-            results.append(RunResult(key, resolved, counters[tier], totals[tier]))
+            results.append(RunResult(key, resolved, counters[tier], totals[tier], source, reason))
     return results
 
 
@@ -88,6 +85,8 @@ def main(argv: list[str] | None = None) -> int:
 
     results = run(resolver_fn, build_keys, args.repeats)
     print(render_run(results))
+    print()
+    print(render_fallback_summary(results))
     return 0
 
 
