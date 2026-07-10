@@ -1,0 +1,22 @@
+[project]
+name = "resolver"
+version = "0.0.0"
+description = "Junk-to-weapon resolver test harness (engine-agnostic brain)"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.6",
+    "anthropic>=0.69",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["resolver"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
