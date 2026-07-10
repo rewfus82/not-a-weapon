@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import sys
 from collections.abc import Callable
 
 from resolver.clamp import apply as clamp_apply

@@ -11,6 +11,11 @@ from resolver.contract import GadgetDraft, Tier
 from resolver.items import Build
 from resolver.prompt import SYSTEM_PROMPT, render_user_message
 
+# Adaptive thinking (on by default for Sonnet/Opus) shares this budget with the
+# structured output; too small and thinking starves the JSON, truncating it
+# mid-token and failing schema validation. Generous headroom, no streaming.
+MAX_TOKENS = 8000
+
 
 class LLMResolver:
     def __init__(self, client, model: str) -> None:
@@ -20,10 +25,7 @@ class LLMResolver:
     def resolve(self, build: Build, tier: Tier) -> GadgetDraft:
         response = self.client.messages.parse(
             model=self.model,
-            # Sonnet's adaptive thinking shares this budget with the structured
-            # output; too small and thinking starves the JSON, truncating it
-            # mid-token and failing schema validation. Give generous headroom.
-            max_tokens=8000,
+            max_tokens=MAX_TOKENS,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": render_user_message(build, tier)}],
             output_format=GadgetDraft,
