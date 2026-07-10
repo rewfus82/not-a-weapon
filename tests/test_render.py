@@ -1,7 +1,7 @@
 from resolver.contract import (
     Category, Delivery, Effect, EffectKind, GadgetDraft, ResolvedGadget, Stage, Tier, Trigger,
 )
-from resolver.render import RunResult, render_run
+from resolver.render import RunResult, render_run, render_fallback_summary
 
 
 def _resolved(name, tier, category, harmless):
@@ -50,3 +50,18 @@ def test_render_marks_fallback_slots_with_tag_and_reason():
     assert out.count("[fallback]") == 1          # only the fallback slot is tagged
     assert "RuntimeError: no GadgetDraft" in out # its reason is shown
     assert "Plan B" in out and "Live One" in out
+
+
+def test_fallback_summary_reports_rate_including_zero_builds():
+    results = [
+        RunResult("broom+oil", _resolved("A", Tier.DUD, Category.WEAPON, False), 1, 1),
+        RunResult("fan+duck", _resolved("B", Tier.RARE, Category.WEAPON, False), 1, 3,
+                  source="fallback", reason="x"),
+        RunResult("fan+duck", _resolved("C", Tier.RARE, Category.WEAPON, False), 2, 3,
+                  source="fallback", reason="x"),
+        RunResult("fan+duck", _resolved("D", Tier.RARE, Category.WEAPON, False), 3, 3),
+    ]
+    summary = render_fallback_summary(results)
+    assert summary.startswith("fallbacks:")
+    assert "broom+oil 0/1" in summary            # zero-fallback build still shown, no percent
+    assert "fan+duck 2/3 (67%)" in summary       # round(100*2/3) == 67

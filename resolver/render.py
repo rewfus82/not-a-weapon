@@ -68,3 +68,26 @@ def render_run(results: list[RunResult]) -> str:
         out.append("")
         out.append(_render_one(result))
     return "\n".join(out).strip() + "\n"
+
+
+def render_fallback_summary(results: list[RunResult]) -> str:
+    order: list[str] = []
+    total: dict[str, int] = {}
+    fell: dict[str, int] = {}
+    for result in results:
+        key = result.build_key
+        if key not in total:
+            order.append(key)
+            total[key] = 0
+            fell[key] = 0
+        total[key] += 1
+        if result.source == "fallback":
+            fell[key] += 1
+    parts: list[str] = []
+    for key in order:
+        n, k = total[key], fell[key]
+        part = f"{key} {k}/{n}"
+        if k:
+            part += f" ({round(100 * k / n)}%)"
+        parts.append(part)
+    return "fallbacks: " + " | ".join(parts)
