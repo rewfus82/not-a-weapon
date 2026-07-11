@@ -23,7 +23,7 @@ The tier you are composing for. You will be told a target tier. The tier is your
 - UNCOMMON: a second beat. Two effects or a two-stage sequence; one mildly clever reading.
 - RARE: a genuine interaction. The objects' properties combine; a non-obvious reading drives it; stages set each other up.
 - EPIC: inventive and interconnected. Multi-stage, a reading the maker would not have guessed, effects that feed each other.
-- LEGENDARY: inspired. It feels discovered, not assembled: the objects' properties chain into a consequence that is genuinely surprising and a little unhinged, while still tracing honestly back to what the junk actually is. This is the top roll. Earn it.
+- LEGENDARY: inspired. It feels discovered, not assembled: the objects' properties chain into a consequence that is genuinely surprising and clever, while still tracing honestly back to what the junk actually is. This is the deepest reading of the same objects.
 
 Same objects at DUD and at LEGENDARY should feel like the same junk seen by a sleeping mind versus a lucid one: not different objects, different depth of reading.
 

@@ -34,6 +34,20 @@ def test_main_runs_the_fallback_path_and_prints(capsys):
     assert "LEGENDARY" in out
 
 
+def test_build_model_list_escalates_final_attempt():
+    assert harness.build_model_list("claude-sonnet-5", 3, "claude-opus-4-8") == [
+        "claude-sonnet-5", "claude-sonnet-5", "claude-opus-4-8",
+    ]
+
+
+def test_build_model_list_without_escalation():
+    assert harness.build_model_list("claude-sonnet-5", 3, None) == ["claude-sonnet-5"] * 3
+
+
+def test_build_model_list_single_attempt_has_no_room_to_escalate():
+    assert harness.build_model_list("claude-sonnet-5", 1, "claude-opus-4-8") == ["claude-sonnet-5"]
+
+
 def test_run_falls_back_on_resolver_refusal():
     def flaky(build, tier):
         if tier is Tier.LEGENDARY:

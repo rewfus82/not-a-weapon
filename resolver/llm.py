@@ -18,24 +18,34 @@ MAX_TOKENS = 8000
 
 
 class LLMResolver:
-    def __init__(self, client, model: str) -> None:
+    def __init__(self, client, models: list[str]) -> None:
+        if not models:
+            raise ValueError("LLMResolver needs at least one model")
         self.client = client
-        self.model = model
+        self.models = list(models)
 
     def resolve(self, build: Build, tier: Tier) -> GadgetDraft:
-        response = self.client.messages.parse(
-            model=self.model,
-            max_tokens=MAX_TOKENS,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": render_user_message(build, tier)}],
-            output_format=GadgetDraft,
+        # Try each model in order; the first parseable draft wins. A refusal
+        # (parsed_output is None) or a transport error advances to the next
+        # model — retries with escalation, the way the POC did. Only when every
+        # attempt fails do we raise, so the harness records a fallback slot.
+        user = render_user_message(build, tier)
+        last_reason: str | None = None
+        for model in self.models:
+            try:
+                response = self.client.messages.parse(
+                    model=model,
+                    max_tokens=MAX_TOKENS,
+                    system=SYSTEM_PROMPT,
+                    messages=[{"role": "user", "content": user}],
+                    output_format=GadgetDraft,
+                )
+                draft = response.parsed_output
+                if draft is not None:
+                    return draft
+                last_reason = f"no GadgetDraft (stop_reason={response.stop_reason!r})"
+            except Exception as exc:  # noqa: BLE001 - retry on any transport/parse failure
+                last_reason = f"{type(exc).__name__}: {exc}"
+        raise RuntimeError(
+            f"resolver exhausted {len(self.models)} attempt(s); last: {last_reason}"
         )
-        draft = response.parsed_output
-        if draft is None:
-            # No parseable GadgetDraft: a refusal, or thinking consumed the
-            # whole budget leaving no text block. Surface it so the harness
-            # can record the failed slot instead of crashing on a None draft.
-            raise RuntimeError(
-                f"resolver returned no GadgetDraft (stop_reason={response.stop_reason!r})"
-            )
-        return draft

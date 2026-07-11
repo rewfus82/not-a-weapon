@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import os
 from collections.abc import Callable
+from itertools import groupby
 
 from resolver.clamp import apply as clamp_apply
 from resolver.contract import GadgetDraft, Tier
@@ -21,6 +22,27 @@ TIERS: list[Tier] = [Tier.DUD, Tier.COMMON, Tier.UNCOMMON, Tier.RARE, Tier.EPIC,
 REPEAT_TIERS: list[Tier] = [Tier.RARE, Tier.EPIC, Tier.LEGENDARY]
 
 DEFAULT_MODEL = "claude-sonnet-5"
+DEFAULT_ESCALATE_MODEL = "claude-opus-4-8"
+
+
+def build_model_list(primary: str, attempts: int, escalate: str | None) -> list[str]:
+    """The ordered attempt list for one slot. `attempts` is the total call
+    budget; escalation replaces the final attempt (never adds beyond budget).
+    e.g. ("sonnet", 3, "opus") -> [sonnet, sonnet, opus]; escalate None or ==
+    primary -> [sonnet]*attempts; attempts 1 -> [sonnet] (no room to escalate).
+    """
+    attempts = max(1, attempts)
+    if escalate and escalate != primary and attempts >= 2:
+        return [primary] * (attempts - 1) + [escalate]
+    return [primary] * attempts
+
+
+def _label_models(models: list[str]) -> str:
+    parts = []
+    for model, grp in groupby(models):
+        n = sum(1 for _ in grp)
+        parts.append(f"{model} x{n}" if n > 1 else model)
+    return " -> ".join(parts)
 
 
 def tier_schedule(repeats: int) -> list[Tier]:
@@ -55,14 +77,17 @@ def run(resolver_fn: ResolverFn, build_keys: list[str], repeats: int) -> list[Ru
     return results
 
 
-def _build_resolver(use_fallback: bool, model: str) -> tuple[ResolverFn, str]:
+def _build_resolver(
+    use_fallback: bool, model: str, attempts: int, escalate: str | None
+) -> tuple[ResolverFn, str]:
     if use_fallback or not os.environ.get("ANTHROPIC_API_KEY"):
         return fallback_resolve, "deterministic fallback (no API)"
     import anthropic  # imported lazily so the fallback path needs no SDK auth
 
     from resolver.llm import LLMResolver
 
-    return LLMResolver(anthropic.Anthropic(), model).resolve, f"live LLM ({model})"
+    models = build_model_list(model, attempts, escalate)
+    return LLMResolver(anthropic.Anthropic(), models).resolve, f"live LLM ({_label_models(models)})"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -75,10 +100,16 @@ def main(argv: list[str] | None = None) -> int:
                         help="model id (env RESOLVER_MODEL; default claude-sonnet-5)")
     parser.add_argument("--fallback", action="store_true",
                         help="force the deterministic fallback even if a key is set")
+    parser.add_argument("--attempts", type=int, default=3,
+                        help="live LLM attempts per slot before the deterministic fallback (default 3)")
+    parser.add_argument("--escalate-model", default=DEFAULT_ESCALATE_MODEL,
+                        help="model for the final attempt; 'none' disables escalation "
+                             f"(default {DEFAULT_ESCALATE_MODEL})")
     args = parser.parse_args(argv)
 
     build_keys = args.builds or list(DEFAULT_BUILDS)
-    resolver_fn, label = _build_resolver(args.fallback, args.model)
+    escalate = None if args.escalate_model.lower() == "none" else args.escalate_model
+    resolver_fn, label = _build_resolver(args.fallback, args.model, args.attempts, escalate)
 
     print(f"resolver: {label}")
     print(f"builds:   {', '.join(build_keys)}")
