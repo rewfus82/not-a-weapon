@@ -53,17 +53,22 @@ _ITEMS: list[Item] = [
         "leaks corrosive acid",
         "a hard enough knock cracks the case and spills the acid",
     ]),
+    # These two read as a harmless build, yet every model refused the plain
+    # wording 100% of the time (uncorrelated with danger); a cartoon register is
+    # the only lever that moves it, and retries/escalation cannot. The other six
+    # items keep their real associations — see HANDOFF "Refusals are an expected
+    # pipeline outcome" for the data/framing-lever note.
     Item("rubber duck", [
-        "buoyant and harmless-looking",
-        "squeaks loudly when squeezed",
-        "an obvious decoy nobody takes seriously",
-        "its squeak draws attention to wherever you leave it",
+        "bobbing, wide-eyed, and utterly harmless-looking",
+        "lets out a loud indignant SQUEAK when squeezed",
+        "the world's most obvious decoy, taken seriously by no one",
+        "its squeak yanks every eye toward wherever you plop it",
     ]),
     Item("box fan", [
-        "pushes a steady wall of air",
-        "spinning blades behind a thin grille",
-        "shoves light objects across the floor",
-        "aimed down a hall it can carry mist, dust, or heat with the airflow",
+        "blasts out a steady whooshing wall of wind",
+        "whirring cartoon blades buzzing behind a flimsy grille",
+        "strong enough to shove light junk skittering across the floor",
+        "aim it down a hall and its wind ferries along whatever's floating — mist, dust, sparks",
     ]),
 ]
 
