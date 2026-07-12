@@ -33,6 +33,16 @@ BATCH_MODIFIERS: tuple[str, ...] = (
 )
 
 
+BATCH_SUBSTANCES: tuple[str, ...] = (
+    "gasoline", "motor oil", "thermite", "road flare", "hairspray",
+    "pool chlorine", "ammonia cleaner", "bleach", "liquid nitrogen",
+    "dry ice", "wet cement", "expanding foam", "overripe produce",
+    ".22 rounds", "9mm rounds", ".357 rounds", "5.56 rounds",
+    "12-gauge shells", ".30-06 rounds",
+    "box of nails", "ball bearings", "marbles", "bag of gravel",
+)
+
+
 def _expected_line_range(item) -> tuple[int, int]:
     if Flag.FIREARM in item.flags:
         return (2, 3)
@@ -66,3 +76,18 @@ def test_contact_batch_cloud_shape(name):
 @pytest.mark.parametrize("name", BATCH_MODIFIERS)
 def test_modifier_batch_cloud_shape(name):
     _assert_cloud(name)
+
+
+@pytest.mark.parametrize("name", BATCH_SUBSTANCES)
+def test_substance_batch_cloud_shape(name):
+    _assert_cloud(name)
+
+
+def test_every_item_has_a_cloud():
+    for item in CATALOG.values():
+        assert item.associations, f"{item.name} has no associations"
+
+
+def test_batches_cover_the_whole_catalog():
+    covered = set(BATCH_RANGED) | set(BATCH_CONTACT) | set(BATCH_MODIFIERS) | set(BATCH_SUBSTANCES)
+    assert covered == set(CATALOG)
