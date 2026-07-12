@@ -1,83 +1,52 @@
-# HANDOFF — resolver test harness (first task)
+# HANDOFF — implement the reimagined catalog + behavior taxonomy + composer/router
 
-For a fresh Claude Code session. Read `CLAUDE.md` and `docs/GAME_IDENTITY.md` first — this brief assumes those constraints and won't repeat them.
+For a fresh Claude Code session. **Read `CLAUDE.md` and `docs/GAME_IDENTITY.md` first** — this brief assumes those constraints and won't repeat them. This repo uses **Superpowers**; let it drive workflow.
 
-## Context in one paragraph
+## Where things stand (what's done)
 
-The design is settled (see `docs/GAME_IDENTITY.md`). We are building the **resolver** — the system that turns a diver's junk-in-slots into a resolved weapon — before any Unreal work. A prior proof-of-concept ("combine brain") validated the *pattern* (LLM resolver + deterministic fallback, code-owned balance, enums-as-contract) but was built for a different, top-down survival game; its content and vocabulary are being rebuilt for a melee-and-guns 3D FPS. The immediate goal is not the final resolver — it's a **test harness** to answer one question empirically.
+The **design phase for this task is complete and committed.** Do **not** re-brainstorm or re-open the design — execute the plan below.
 
-## The one question this task exists to answer
+- The resolver test harness exists and works (prior task). The LLM path (`llm.py`, `prompt.py`), deterministic fallback, clamp, render, and a local play server (`serve.py`) are all in place and tested.
+- A full design conversation reimagined the item catalog and locked several decisions. The outputs:
+  - **`docs/superpowers/specs/2026-07-12-item-catalog-and-behavior-taxonomy-design.md`** — the spec. Verb-first catalog, the **three-layer behavior model** (base delivery × behavioral overlay × effect), the reconciled **24-tag taxonomy**, the **53-item catalog** (this is the authoritative item list), and the game-mechanics decisions.
+  - **`docs/superpowers/plans/2026-07-12-item-catalog-and-behavior-taxonomy.md`** — the implementation plan. **This is your task list.** 9 TDD tasks, each with real test + implementation code and exact paths.
+  - `docs/superpowers/specs/2026-07-11-sensible-vs-absurd-routing-design.md` — earlier routing spec. Its Pieces 1–2 (old tags/catalog) are **superseded**; its Piece 3 (coherence score) + handoff rule **stand** and are implemented by the plan.
+  - `GAME_IDENTITY.md` was refined (dated 2026-07-12) with the armory / deconstruct / two-blueprint-kinds / loadout mechanics. Those are **canon, not code** — the resolver brain does not implement them; they're future game systems.
 
-**Does the resolver prompt produce a genuine dud→god quality *spread*, and do same-tier results vary in *character* (horizontal), not just wording?**
+## Your task
 
-Everything about the rarity system (GAME_IDENTITY §6) depends on the answer being yes. If the model can't produce range, the mechanic doesn't exist. This harness is how we find out, and it's cheap to run.
+**Execute `docs/superpowers/plans/2026-07-12-item-catalog-and-behavior-taxonomy.md` task by task**, using **`superpowers:subagent-driven-development`** (a fresh subagent per task, two-stage review between tasks). The plan is written for a cold implementer — follow it in order; each task ends green and committed.
 
-## Early step — harden the resolver prompt for a cold model (do this first)
+In one sentence: replace the 8 placeholder items + the plain-hit stub with the real 53-item verb-tagged catalog, a coherence scorer, a three-layer deterministic composer, and a router — so the resolver actually *composes* weapons instead of returning a stub.
 
-`docs/RESOLVER_PROMPT_v0.md` currently assumes the reader shares this project's context. It does not. The resolver system prompt is sent to a **context-free model** that gets only that prompt plus the build — no design doc, no conversation, no game knowledge. Two problems to fix before/while testing:
+## State you need
 
-1. **It uses game jargon that misleads a cold model.** It literally says a "diver" has junk and refers to "the simulation" — a cold model reads "diver" as scuba and has no idea what simulation. Scrub *all* in-world proper nouns: "diver," "jack-in," "signature," "the simulation," etc. The model does not need the fiction; it needs the task.
-2. **The rule for what stays:** every sentence must change how the model resolves *this weapon*. Keep fiction only as *behavioral instruction* — "read objects for their non-obvious properties," "treat the world as one where ordinary objects can produce extraordinary effects" (this permission-to-be-absurd genuinely affects output). Cut fiction that's *world-building* — extraction, economy, gradient, tank, knowledge-not-power. None of it helps resolve one weapon; it only distracts and burns tokens.
-3. **Medium framing is not lore — keep it.** A live spread run (Sonnet 5) showed a general model reads context-free crafting as real-world instructions and refuses: the harmless `fan+duck` build refused 100% while the incendiary `broom+oil` refused 0% — inversely correlated with danger, so the trigger is how the text *reads*, not what the gadget does. The fix is to state plainly that this is a **stylized video game** and the results are game abilities. That frame is *medium*, not *lore*: it changes how the model resolves the build and it measurably suppresses false refusals, so it **stays**. Keep cutting the *world lore* — "diver," "jack-in," "the simulation," extraction, economy, knowledge-not-power — none of which helps resolve one build. In short: **KEEP "it's a game"; CUT the world.** See "Refusals are an expected pipeline outcome" below for how the pipeline absorbs the refusals that remain.
+- **Branch:** `resolver-harness` (stay on it; do not merge to `main` or push unless the user asks).
+- **Tests:** `python -m pytest -q` from repo root. Currently **green** — keep it green at every commit.
+- **Shell:** PowerShell primary; a Bash tool is also available. Commands in the plan use `python -m pytest ...` and run verbatim in either.
+- **Commits:** conventional; end each with `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`. The repo's rule is "commit per task" for this workflow.
 
-Rewrite the prompt to be **self-contained and jargon-free**, then use the harness's first cold-model outputs to find remaining confusion and add *task-relevant* context only — never game lore. Do not theorize the right amount of context; run it and read where the model gets confused.
+## Load-bearing constraints for THIS task (easy to violate — see the plan's Global Constraints for the full list)
 
-## Build this
+- **Do NOT add `Seeking` or `Physics` to the capability contract.** They are deliberately parked as design-only. The enums are the wall (invariant #5) — never widen them.
+- **The 24-tag taxonomy is exact** (listed in the plan and spec). Every item's tags must be a subset; the invariant tests enforce this.
+- **Code owns every number.** The composer proposes composition; `clamp.py` still owns final magnitudes, `harmless`, and `category` — the composer must not set those.
+- **Never a hard LLM dependency.** The deterministic composer must fully resolve any build with no API key (invariant #6).
+- **Engine-agnostic:** zero engine references in `resolver/`.
+- **The interaction tables and tier seeds are v0 and expected to churn.** Tests assert *wiring and structure*, never balance numbers. **If a transcribed item's tags make a test contradict the spec, fix the tags to match the spec — not the test.**
 
-A small Python harness (engine-agnostic, no Unreal) that:
+## The one spot that needs real care
 
-1. Loads the resolver system prompt from `docs/RESOLVER_PROMPT_v0.md` and the vocabulary from `docs/CAPABILITY_CONTRACT_v0.md`.
-2. Defines **a handful of test item builds** with association clouds. The real catalog doesn't exist yet — invent ~6–10 evocative junk items with tiered associations (mop, fry oil, push broom, birthday candles, aerosol can, rubber duck, car battery, etc.) purely to exercise the resolver. Make the associations *rich* — this is half the system.
-3. For a given build, calls the Anthropic API with **structured output** (Pydantic `GadgetDraft` matching the schema in the contract), the way the POC did (`client.messages.parse(...)`), passing the build + a **target tier**.
-4. Runs each build **across all six tiers** (DUD→LEGENDARY) once, and **3–4× at RARE/EPIC/LEGENDARY**, so we can read both axes.
-5. Dumps results in a **human-readable** format (not raw JSON) — grouped by build, then tier, showing name / logic / staged effects — so a person can eyeball the spread in one scroll.
-6. Applies the **deterministic clamp** to every result (caps/floors, re-derive `harmless`/`category`) — even a stub is fine for v0 — to prove the model→code ownership split works end to end.
-
-## Acceptance criteria
-
-- Runs from the CLI with an API key; degrades gracefully / errors clearly with none.
-- Output makes the two axes legible at a glance: **depth across tiers** and **variety within a tier**.
-- The brain is pure Python, zero engine references, unit-tested where deterministic (the clamp, the schema, the build/validation — TDD these). The LLM call is contract-tested with a fake client (creativity itself isn't unit-testable).
-- Model defaults to **Sonnet** (the tested floor); make the model swappable via env var so a Sonnet-best-of-4 vs. single-Fable comparison is a one-line change.
-- No live-LLM assumptions leak into the design: this is an **offline generation** harness (the game will consume pre-baked results), not a runtime path.
-
-## Hard constraints (from CLAUDE.md — restated because they're easy to violate here)
-
-- **Tier is an input**, told to the model per call. Do not have the model self-assign tier.
-- **Code owns** delivery (locked from the delivery item), color, tier budget, all magnitude clamps, `harmless`, `category`. Model owns name, logic, composition, flavor.
-- **Enums are the wall.** The `GadgetDraft` schema must constrain the model to the contract's tokens. A result citing a primitive not in the contract is a bug.
-- **Deterministic fallback must exist** and produce a valid (if boring) result with no API key.
+**Task 4 (the catalog swap)** is the big, rippling task: it replaces the catalog, moves `delivery` onto the item, deletes `DELIVERY_LOCK`, and migrates the consumers that read the old schema (`prompt.py`, `serve.py`, `harness.py`) plus their tests — all in one green commit. The plan shows ~13 representative item constructions; **you must transcribe the remaining items from the spec's catalog tables** (§ "The catalog — 53 items"), assigning `roles` / `verb` / `tags` / `delivery` / `caliber` / `flags` per the spec. Four invariant tests enforce completeness (≥50 items, every delivery form carried, every tag carried, every firearm caliber matched by ammo). Take this task slowly.
 
 ## Explicitly NOT in this task
 
-The Unreal game, the renderer, the real item catalog, the economy, the gradient, netcode, the bake pipeline, best-of-N cost optimization. This is *only* the harness that proves the prompt produces range. Resist scope creep — GAME_IDENTITY's discipline rules apply.
+The Unreal game, the renderer, the real bake pipeline, best-of-N cost optimization, and the game-mechanics systems now in GAME_IDENTITY (armory, deconstruct spot, blueprints, loadout). This task is the resolver **brain**: catalog → coherence → composer → router. Resist scope creep — §9 discipline applies.
 
-## Refusals are an expected pipeline outcome — design for them
+## Lesson from prior sessions — do not repeat
 
-A general-purpose model refuses or returns no parseable draft on a fraction of
-builds, sometimes for reasons unrelated to intent. The harness treats this as
-normal: a refused (build, tier) falls back to the deterministic resolver (a
-valid, if less inspired, instance), is tagged `[fallback]` in the spread, and is
-counted toward a per-build fallback rate printed after the run. A refusal is
-never an error and never a hole in the spread. This is exactly why the
-deterministic fallback is non-negotiable (CLAUDE.md #6) — it is the shock
-absorber that keeps an offline bake whole.
+**Never have an agent introspect *why* a build was refused** by the safety classifier. Asking a model to categorize a refusal has flagged a session for an AUP violation. If you touch the LLM path, treat refusals as a normal fallback outcome, log the rate, and never chase the reason. (Fuller note preserved in git history / the routing spec.)
 
-**Never have an agent introspect *why* a build was refused.** Asking a model to
-categorize a refusal reads worse than the original generation and has flagged a
-session. Log the rate; do not chase the reason.
+## Housekeeping note for the user (not an agent action)
 
-**When a *harmless* build refuses often, look at its item associations as data.**
-A word in the association cloud may point somewhere unintended. Prefer stylized,
-plainly-non-real associations over accurate real-world chemistry; the more the
-content reads as make-believe, the fewer false trips. This is a data/framing
-lever, tracked separately from the pipeline plumbing above.
-
-## After this task
-
-Once the spread is confirmed (or the prompt is tuned until it is), the natural next steps are: expand to a real item catalog with association clouds, then the batch bake pipeline (best-of-N across the catalog, tier-organized instance sets), then the deterministic resolver proper. Not now — one thing at a time.
-
-## Known open question to surface, not silently decide
-
-`GAME_IDENTITY.md` §6 open note: whether a combination's tier *headroom* varies by combination (a tube-launcher ladder taller than a sword ladder). The harness doesn't need to solve this, but if it becomes relevant while testing, flag it rather than baking in an assumption.
-EOF
+The user's Anthropic API key was exposed earlier in a prior conversation and should be rotated in the console — independent of this task.
