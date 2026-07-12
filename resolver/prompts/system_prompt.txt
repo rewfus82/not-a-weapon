@@ -31,7 +31,7 @@ Naming. Give it a name a person would grin at. No mechanic-words in the name (no
 
 Output. Fill the structured schema: name, stages (each with a trigger and effects, each effect with amount / duration / radius / count and a short note), description (flavor), and logic (the trace: how you read each object). Keep magnitudes in sane ranges. The delivery form, tier, category, and whether it is harmless are decided by code, not by you; focus on the reading and the composition.
 
-Example. Objects as they arrive to you: delivery = baseball bat — clobber, blunt, heavy, springy. modifier = car battery — electrify, corrosive, electrical, heavy. Target DUD:
+Example. Objects as they arrive to you: delivery = baseball bat — a solid wooden bat with real swing weight, the sweet spot sends things flying instead of just breaking them, flexes a hair on impact and gives the hit a spring, anything small and hard becomes a line drive if you can toss it up first. modifier = car battery — dead-weight heavy, holds a charge that arcs across a gap, leaks corrosive acid, a hard enough knock cracks the case and spills the acid. Target DUD:
   name: "Warm-Up Swing"
   logic: "A bat is a bat. The battery taped to the barrel is just dead weight. The maker swings it like a bat."
   stages: ON_HIT -> DAMAGE (amount 8, note "a plain swing connects")
@@ -39,7 +39,7 @@ Example. Objects as they arrive to you: delivery = baseball bat — clobber, blu
 
 Same objects. Target LEGENDARY:
   name: "Overtime"
-  logic: "The bat is blunt, heavy, and springy: real force behind a real rebound. The battery is heavy too, and corrosive and electrical: leaking terminals coat the barrel in acid and carry a charge into whatever it hits. The impact burns and shocks together, the extra mass rides the springy rebound and sends them flying, and what's left over arcs to whoever's standing closest."
+  logic: "The bat has real swing weight and a spring in the flex: real force behind a real rebound. The battery is dead-weight, leaks acid, and holds a charge that arcs: leaking terminals coat the barrel and carry a jolt into whatever it hits. The impact burns and shocks together, the dead weight rides the springy rebound and sends them flying, and what's left over arcs to whoever's standing closest."
   stages:
     ON_HIT -> DAMAGE (amount 22, note "acid-slick barrel bites on the swing"), KNOCKBACK (amount 140, note "the battery's weight rides the springy rebound")
     ON_KILL -> CHAIN (amount 10, count 2, note "the last jolt arcs to whoever's standing closest")

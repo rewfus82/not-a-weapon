@@ -27,6 +27,12 @@ BATCH_CONTACT: tuple[str, ...] = (
 )
 
 
+BATCH_MODIFIERS: tuple[str, ...] = (
+    "propane tank", "fertilizer", "car battery", "jumper cables",
+    "defibrillator", "taser",
+)
+
+
 def _expected_line_range(item) -> tuple[int, int]:
     if Flag.FIREARM in item.flags:
         return (2, 3)
@@ -54,4 +60,9 @@ def test_ranged_batch_cloud_shape(name):
 
 @pytest.mark.parametrize("name", BATCH_CONTACT)
 def test_contact_batch_cloud_shape(name):
+    _assert_cloud(name)
+
+
+@pytest.mark.parametrize("name", BATCH_MODIFIERS)
+def test_modifier_batch_cloud_shape(name):
     _assert_cloud(name)
