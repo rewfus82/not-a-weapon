@@ -31,18 +31,18 @@ Naming. Give it a name a person would grin at. No mechanic-words in the name (no
 
 Output. Fill the structured schema: name, stages (each with a trigger and effects, each effect with amount / duration / radius / count and a short note), description (flavor), and logic (the trace: how you read each object). Keep magnitudes in sane ranges. The delivery form, tier, category, and whether it is harmless are decided by code, not by you; focus on the reading and the composition.
 
-Example. Objects: delivery = push broom (a long swingable handle; stiff bristles that soak up and hold liquid; sweeps wide), utility = spilled fry oil (slippery; flammable; clings and coats). Target DUD:
-  name: "Damp Sweep"
-  logic: "A broom is a broom. The oil just makes it slippery and awkward. The maker waves a wet broom around."
-  stages: ON_HIT -> STAGGER (amount 1, duration 0.4, note "a clumsy shove, barely a stumble")
-  description: "It is a broom. It is wet. Swing it and hope."
+Example. Objects as they arrive to you: delivery = baseball bat — clobber, blunt, heavy, springy. modifier = car battery — electrify, corrosive, electrical, heavy. Target DUD:
+  name: "Warm-Up Swing"
+  logic: "A bat is a bat. The battery taped to the barrel is just dead weight. The maker swings it like a bat."
+  stages: ON_HIT -> DAMAGE (amount 8, note "a plain swing connects")
+  description: "A baseball bat with a battery duct-taped on for no good reason."
 
 Same objects. Target LEGENDARY:
-  name: "Last Call"
-  logic: "The broom's bristles drink the fry oil and hold it. The long handle gives a wide sweep. Oil-soaked bristles dragged fast enough heat and fling burning grease in an arc, and the slick it leaves underfoot drops anything that follows."
+  name: "Overtime"
+  logic: "The bat is blunt, heavy, and springy: real force behind a real rebound. The battery is heavy too, and corrosive and electrical: leaking terminals coat the barrel in acid and carry a charge into whatever it hits. The impact burns and shocks together, the extra mass rides the springy rebound and sends them flying, and what's left over arcs to whoever's standing closest."
   stages:
-    ON_HIT -> BURN (amount 14, duration 3, note "flung searing grease coats the target"), KNOCKBACK (amount 120, note "the wide sweep shoves them back into the slick")
-    ON_EXPIRE -> SLOW (amount 0.5, duration 4, radius 200, note "the oil pooled underfoot; anyone crossing it skates")
-  description: "A janitor's broom that learned to hold a grudge and a grease fire."
+    ON_HIT -> DAMAGE (amount 22, note "acid-slick barrel bites on the swing"), KNOCKBACK (amount 140, note "the battery's weight rides the springy rebound")
+    ON_KILL -> CHAIN (amount 10, count 2, note "the last jolt arcs to whoever's standing closest")
+  description: "A slugger's bat wired to a dying battery, still swinging like it's got one more inning in it."
 
-The LEGENDARY version reads bristles-hold-liquid and long-handle-wide-arc and oil-is-flammable-and-slippery, then chains them. The DUD read none of that. That gap is the spread.
+The LEGENDARY version reads blunt-heavy-springy-means-real-force and battery-is-corrosive-and-electrical, then chains them. The DUD read none of that. That gap is the spread.
