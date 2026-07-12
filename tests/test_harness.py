@@ -15,10 +15,10 @@ def test_tier_schedule_repeats_only_the_high_tiers():
 
 
 def test_run_produces_one_result_per_scheduled_tier_per_build():
-    results = harness.run(fallback.resolve, build_keys=["broom+oil"], repeats=3)
+    results = harness.run(fallback.resolve, build_keys=["broom_bat"], repeats=3)
     # 3 singles (DUD/COMMON/UNCOMMON) + 3*3 high-tier = 12
     assert len(results) == 12
-    assert all(r.build_key == "broom+oil" for r in results)
+    assert all(r.build_key == "broom_bat" for r in results)
     # high-tier instances are labelled 1..3
     leg = [r for r in results if r.resolved.tier is Tier.LEGENDARY]
     assert sorted(r.run_index for r in leg) == [1, 2, 3]
@@ -26,10 +26,10 @@ def test_run_produces_one_result_per_scheduled_tier_per_build():
 
 
 def test_main_runs_the_fallback_path_and_prints(capsys):
-    exit_code = harness.main(["--fallback", "--build", "broom+oil", "--repeats", "2"])
+    exit_code = harness.main(["--fallback", "--build", "broom_bat", "--repeats", "2"])
     assert exit_code == 0
     out = capsys.readouterr().out
-    assert "BUILD: broom+oil" in out
+    assert "BUILD: broom_bat" in out
     assert "deterministic fallback" in out.lower()
     assert "LEGENDARY" in out
 
@@ -54,7 +54,7 @@ def test_run_falls_back_on_resolver_refusal():
             raise RuntimeError("no GadgetDraft (stop_reason='refusal')")
         return fallback.resolve(build, tier)
 
-    results = harness.run(flaky, build_keys=["broom+oil"], repeats=3)
+    results = harness.run(flaky, build_keys=["broom_bat"], repeats=3)
     leg = [r for r in results if r.resolved.tier is Tier.LEGENDARY]
     assert len(leg) == 3
     assert all(r.source == "fallback" for r in leg)
@@ -68,7 +68,7 @@ def test_run_survives_total_refusal_with_all_fallbacks():
     def always_refuse(build, tier):
         raise RuntimeError("no GadgetDraft")
 
-    results = harness.run(always_refuse, build_keys=["broom+oil"], repeats=3)
+    results = harness.run(always_refuse, build_keys=["broom_bat"], repeats=3)
     assert len(results) == 12
     assert all(r.source == "fallback" for r in results)
 
@@ -84,12 +84,12 @@ def test_fallback_resolve_failure_propagates(monkeypatch):
 
     monkeypatch.setattr(harness, "fallback_resolve", broken_fallback)
     with pytest.raises(ValueError, match="deterministic bug"):
-        harness.run(always_refuse, build_keys=["broom+oil"], repeats=1)
+        harness.run(always_refuse, build_keys=["broom_bat"], repeats=1)
 
 
 def test_main_prints_fallback_summary(capsys):
-    exit_code = harness.main(["--fallback", "--build", "broom+oil", "--repeats", "2"])
+    exit_code = harness.main(["--fallback", "--build", "broom_bat", "--repeats", "2"])
     assert exit_code == 0
     out = capsys.readouterr().out
     assert "fallbacks:" in out
-    assert "broom+oil 0/" in out   # the deterministic resolver never "refuses"
+    assert "broom_bat 0/" in out   # the deterministic resolver never "refuses"

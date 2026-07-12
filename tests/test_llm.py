@@ -42,7 +42,7 @@ def _canned_draft():
 def test_resolver_returns_the_parsed_draft():
     client = FakeClient([_canned_draft()])
     resolver = LLMResolver(client, models=["claude-sonnet-5"])
-    out = resolver.resolve(DEFAULT_BUILDS["broom+oil"], Tier.RARE)
+    out = resolver.resolve(DEFAULT_BUILDS["broom_bat"], Tier.RARE)
     assert out.name == "Fake"
     assert client.messages.models_used == ["claude-sonnet-5"]
 
@@ -50,7 +50,7 @@ def test_resolver_returns_the_parsed_draft():
 def test_resolver_wires_the_call_correctly():
     client = FakeClient([_canned_draft()])
     resolver = LLMResolver(client, models=["claude-sonnet-5"])
-    resolver.resolve(DEFAULT_BUILDS["broom+oil"], Tier.RARE)
+    resolver.resolve(DEFAULT_BUILDS["broom_bat"], Tier.RARE)
     call = client.messages.captured
     assert call["model"] == "claude-sonnet-5"
     assert call["system"] == SYSTEM_PROMPT
@@ -64,7 +64,7 @@ def test_resolver_escalates_to_next_model_on_refusal():
     # primary refuses twice, then the escalate model succeeds
     client = FakeClient([None, None, _canned_draft()])
     resolver = LLMResolver(client, models=["claude-sonnet-5", "claude-sonnet-5", "claude-opus-4-8"])
-    out = resolver.resolve(DEFAULT_BUILDS["broom+oil"], Tier.LEGENDARY)
+    out = resolver.resolve(DEFAULT_BUILDS["broom_bat"], Tier.LEGENDARY)
     assert out.name == "Fake"
     assert client.messages.models_used == ["claude-sonnet-5", "claude-sonnet-5", "claude-opus-4-8"]
 
@@ -73,14 +73,14 @@ def test_resolver_raises_when_all_attempts_refuse():
     client = FakeClient([None, None, None])
     resolver = LLMResolver(client, models=["claude-sonnet-5", "claude-sonnet-5", "claude-opus-4-8"])
     with pytest.raises(RuntimeError, match="refusal"):
-        resolver.resolve(DEFAULT_BUILDS["fan+duck"], Tier.EPIC)
+        resolver.resolve(DEFAULT_BUILDS["bananarama"], Tier.EPIC)
     assert len(client.messages.models_used) == 3
 
 
 def test_resolver_retries_past_an_exception():
     client = FakeClient([RuntimeError("boom"), _canned_draft()])
     resolver = LLMResolver(client, models=["claude-sonnet-5", "claude-opus-4-8"])
-    out = resolver.resolve(DEFAULT_BUILDS["broom+oil"], Tier.RARE)
+    out = resolver.resolve(DEFAULT_BUILDS["broom_bat"], Tier.RARE)
     assert out.name == "Fake"
     assert client.messages.models_used == ["claude-sonnet-5", "claude-opus-4-8"]
 

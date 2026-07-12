@@ -17,9 +17,13 @@ from resolver.clamp import apply as clamp_apply
 from resolver.contract import Tier
 from resolver.fallback import resolve as fallback_resolve
 from resolver.harness import DEFAULT_ESCALATE_MODEL, DEFAULT_MODEL, _label_models, build_model_list
-from resolver.items import CATALOG, COLOR_BY_ITEM, DELIVERY_LOCK, Build
+from resolver.items import CATALOG, Build
 
 # ---------------------------------------------------------------- pure helpers
+
+
+def _color_for(name: str) -> str:
+    return "grey"
 
 
 def catalog_payload() -> dict:
@@ -28,9 +32,9 @@ def catalog_payload() -> dict:
     for name, item in CATALOG.items():
         items.append({
             "name": name,
-            "associations": list(item.associations),
-            "delivery": DELIVERY_LOCK[name].value if name in DELIVERY_LOCK else None,
-            "color": COLOR_BY_ITEM.get(name),
+            "associations": item.describe().split(", "),
+            "delivery": item.delivery.value if item.delivery is not None else None,
+            "color": _color_for(name),
         })
     return {"items": items, "tiers": [t.value for t in Tier]}
 
@@ -49,7 +53,7 @@ def build_from_request(sel: dict) -> Build:
     delivery_item = pick("delivery")
     if delivery_item is None:
         raise ValueError("a delivery item is required")
-    if delivery_item.name not in DELIVERY_LOCK:
+    if delivery_item.delivery is None:
         raise ValueError(f"{delivery_item.name!r} cannot be a delivery chassis")
     return Build(
         delivery_item=delivery_item,

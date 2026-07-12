@@ -28,7 +28,7 @@ property of the specific objects above. Compose within the locked delivery form.
 def _slot_line(item) -> str:
     if item is None:
         return "empty"
-    return f"{item.name} — {', '.join(item.associations)}"
+    return f"{item.name} — {item.describe()}"
 
 
 def render_user_message(build: Build, tier: Tier) -> str:

@@ -1,41 +1,53 @@
 import pytest
 
 from resolver.contract import Delivery, Role, Flag
-from resolver.items import (
-    Item, Build, CATALOG, DELIVERY_LOCK, DEFAULT_BUILDS, params_for,
-)
+from resolver.items import Item, Build, CATALOG, DEFAULT_BUILDS, params_for
+from resolver.interactions import TAXONOMY
 
 
-def test_catalog_has_rich_association_clouds():
-    assert len(CATALOG) >= 8
-    for item in CATALOG.values():
-        assert len(item.associations) >= 3  # obvious -> non-obvious -> chainable
+def test_catalog_is_the_reimagined_slice():
+    assert len(CATALOG) >= 50
+    for it in CATALOG.values():
+        assert it.roles, f"{it.name} has no role"
+        assert it.tags <= TAXONOMY, f"{it.name} has off-taxonomy tags: {it.tags - TAXONOMY}"
 
 
-def test_build_locks_delivery_from_the_delivery_item():
-    build = Build(delivery_item=CATALOG["push broom"], utility_item=CATALOG["spilled fry oil"])
-    assert build.delivery is Delivery.SWING
+def test_every_delivery_form_has_a_mechanism_carrier():
+    carried = {it.delivery for it in CATALOG.values()
+               if Role.MECHANISM in it.roles and it.delivery is not None}
+    assert carried == set(Delivery)
 
 
-def test_build_color_comes_from_delivery_item():
-    build = Build(delivery_item=CATALOG["push broom"])
-    assert build.color == "amber"
+def test_every_tag_has_a_carrier():
+    carried = set().union(*(it.tags for it in CATALOG.values()))
+    assert TAXONOMY <= carried
 
 
-def test_build_rejects_non_delivery_item_in_delivery_slot():
+def test_firearms_have_matching_ammunition():
+    gun_cals = {it.caliber for it in CATALOG.values() if Flag.FIREARM in it.flags}
+    ammo_cals = {it.caliber for it in CATALOG.values() if Flag.AMMUNITION in it.flags}
+    assert gun_cals and gun_cals <= ammo_cals
+
+
+def test_build_delivery_reads_from_the_item():
+    build = DEFAULT_BUILDS["gun_ammo"]
+    assert isinstance(build.delivery, Delivery)
+
+
+def test_build_rejects_non_delivery_chassis():
+    payload = next(it for it in CATALOG.values() if it.delivery is None)
     with pytest.raises(ValueError):
-        _ = Build(delivery_item=CATALOG["rubber duck"]).delivery
+        _ = Build(delivery_item=payload).delivery
+
+
+def test_default_builds_span_grounded_and_absurd():
+    assert set(DEFAULT_BUILDS) == {"broom_bat", "gun_ammo", "bananarama"}
 
 
 def test_build_slots_lists_all_four_in_order():
-    build = Build(delivery_item=CATALOG["push broom"], utility_item=CATALOG["spilled fry oil"])
+    build = Build(delivery_item=CATALOG["baseball bat"], modifier_item=CATALOG["car battery"])
     labels = [label for label, _ in build.slots()]
     assert labels == ["delivery", "damage", "utility", "modifier"]
-
-
-def test_default_builds_cover_three_delivery_families():
-    deliveries = {b.delivery for b in DEFAULT_BUILDS.values()}
-    assert deliveries == {Delivery.SWING, Delivery.SPRAY, Delivery.PLACED}
 
 
 def test_params_for_melee_and_ranged_families():

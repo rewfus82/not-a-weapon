@@ -27,7 +27,7 @@ def resolve(build: Build, tier: Tier) -> GadgetDraft:
         description=f"A {delivery_item.name} swung in anger. It works, barely.",
         logic=(
             f"The obvious reading: {delivery_item.name} — "
-            f"{delivery_item.associations[0]}. Nothing clever, just the first thing it is."
+            f"{delivery_item.describe()}. Nothing clever, just the first thing it is."
         ),
         stages=[
             Stage(

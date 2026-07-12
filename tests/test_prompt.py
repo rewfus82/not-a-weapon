@@ -11,12 +11,12 @@ def test_system_prompt_is_loaded_and_jargon_free():
 
 
 def test_render_user_message_includes_slots_associations_delivery_and_tier():
-    build = DEFAULT_BUILDS["broom+oil"]
+    build = DEFAULT_BUILDS["broom_bat"]
     msg = render_user_message(build, Tier.RARE)
-    assert "delivery:" in msg and "push broom" in msg
-    assert "utility:" in msg and "spilled fry oil" in msg
+    assert "delivery:" in msg and "baseball bat" in msg
+    assert "modifier:" in msg and "car battery" in msg
     assert "damage:" in msg and "empty" in msg  # unfilled slot shows "empty"
     assert "LOCKED DELIVERY FORM: SWING" in msg
     assert "TARGET TIER: RARE" in msg
-    # at least one association from the delivery item is injected
-    assert "bristles" in msg
+    # at least one descriptor from the delivery item is injected
+    assert "clobber" in msg

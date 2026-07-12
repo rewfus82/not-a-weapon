@@ -85,11 +85,11 @@ def test_category_dud_for_empty():
 
 
 def test_apply_assembles_code_owned_fields_from_build():
-    build = Build(delivery_item=CATALOG["push broom"], utility_item=CATALOG["spilled fry oil"])
+    build = Build(delivery_item=CATALOG["baseball bat"], modifier_item=CATALOG["car battery"])
     d = _draft(Effect(kind=EffectKind.BURN, amount=14), Effect(kind=EffectKind.KNOCKBACK, amount=120))
     rg = clamp.apply(d, build, Tier.LEGENDARY)
     assert rg.delivery is Delivery.SWING
-    assert rg.color == "amber"
+    assert rg.color == "grey"
     assert rg.tier is Tier.LEGENDARY
     assert rg.category is Category.WEAPON
     assert rg.harmless is False
