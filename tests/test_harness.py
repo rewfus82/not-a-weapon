@@ -1,6 +1,7 @@
 import pytest
 
 from resolver.contract import Tier
+from resolver.harness import ALL_BUILDS, PROBE_BUILDS
 from resolver.items import DEFAULT_BUILDS
 from resolver.router import route
 from resolver import fallback, harness
@@ -131,3 +132,17 @@ def test_main_prints_the_routing_split(capsys):
     out = capsys.readouterr().out
     assert "routing: deterministic " in out
     assert " / llm " in out
+
+
+def test_probe_builds_cover_the_risk_classes():
+    assert set(PROBE_BUILDS) == {
+        "probe_incendiary", "probe_corrosive", "probe_whimsical",
+        "probe_electric", "probe_gun", "probe_trap",
+    }
+    assert not set(PROBE_BUILDS) & set(DEFAULT_BUILDS)
+    assert ALL_BUILDS == {**DEFAULT_BUILDS, **PROBE_BUILDS}
+
+
+def test_probe_build_runs_on_the_deterministic_path():
+    results = harness.run(fallback.resolve, ["probe_incendiary"], repeats=1)
+    assert results and all(r.build_key == "probe_incendiary" for r in results)

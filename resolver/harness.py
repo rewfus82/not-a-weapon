@@ -13,11 +13,45 @@ from itertools import groupby
 from resolver.clamp import apply as clamp_apply
 from resolver.contract import GadgetDraft, Tier
 from resolver.fallback import resolve as fallback_resolve
-from resolver.items import DEFAULT_BUILDS, Build
+from resolver.items import CATALOG, DEFAULT_BUILDS, Build
 from resolver.render import RunResult, render_fallback_summary, render_run
 from resolver.router import route
 
 ResolverFn = Callable[[Build, Tier], GadgetDraft]
+
+# Throwaway validation builds covering the refusal-risk classes (spec:
+# 2026-07-12-association-clouds-design.md). Harness-layer fixtures only;
+# deliberately NOT in DEFAULT_BUILDS.
+PROBE_BUILDS: dict[str, Build] = {
+    "probe_incendiary": Build(
+        delivery_item=CATALOG["potato cannon"],
+        damage_item=CATALOG["gasoline"],
+        utility_item=CATALOG["road flare"],
+    ),
+    "probe_corrosive": Build(
+        delivery_item=CATALOG["pressure washer"],
+        damage_item=CATALOG["pool chlorine"],
+    ),
+    "probe_whimsical": Build(
+        delivery_item=CATALOG["blender"],
+        damage_item=CATALOG["marbles"],
+        utility_item=CATALOG["expanding foam"],
+    ),
+    "probe_electric": Build(
+        delivery_item=CATALOG["weed whacker"],
+        modifier_item=CATALOG["jumper cables"],
+    ),
+    "probe_gun": Build(
+        delivery_item=CATALOG["9mm pistol"],
+        damage_item=CATALOG["9mm rounds"],
+    ),
+    "probe_trap": Build(
+        delivery_item=CATALOG["bear trap"],
+        utility_item=CATALOG["motor oil"],
+    ),
+}
+
+ALL_BUILDS: dict[str, Build] = {**DEFAULT_BUILDS, **PROBE_BUILDS}
 
 TIERS: list[Tier] = [Tier.DUD, Tier.COMMON, Tier.UNCOMMON, Tier.RARE, Tier.EPIC, Tier.LEGENDARY]
 REPEAT_TIERS: list[Tier] = [Tier.RARE, Tier.EPIC, Tier.LEGENDARY]
@@ -58,7 +92,7 @@ def run(resolver_fn: ResolverFn, build_keys: list[str], repeats: int) -> list[Ru
     schedule = tier_schedule(repeats)
     totals: dict[Tier, int] = {t: schedule.count(t) for t in set(schedule)}
     for key in build_keys:
-        build = DEFAULT_BUILDS[key]
+        build = ALL_BUILDS[key]
         # per-tier instance counter so high-tier runs are labelled 1..repeats
         counters: dict[Tier, int] = {}
         for tier in schedule:
@@ -85,7 +119,7 @@ def routing_summary(results: list[RunResult]) -> str:
     """
     deterministic = llm = 0
     for result in results:
-        build = DEFAULT_BUILDS[result.build_key]
+        build = ALL_BUILDS[result.build_key]
         if route(build, result.resolved.tier) == "deterministic":
             deterministic += 1
         else:
@@ -109,7 +143,7 @@ def _build_resolver(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Resolver dud->god spread harness.")
     parser.add_argument("--build", action="append", dest="builds",
-                        choices=list(DEFAULT_BUILDS), help="build key (repeatable; default all)")
+                        choices=list(ALL_BUILDS), help="build key (repeatable; default all)")
     parser.add_argument("--repeats", type=int, default=3,
                         help="runs per high tier (RARE/EPIC/LEGENDARY); default 3")
     parser.add_argument("--model", default=os.environ.get("RESOLVER_MODEL", DEFAULT_MODEL),
