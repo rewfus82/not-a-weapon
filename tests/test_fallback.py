@@ -36,7 +36,7 @@ def test_higher_tier_unlocks_more_effects():
 def test_overlay_gated_behind_rare():
     # base = [BURN] (flammable single; pressurized-gas+flammable is no pair rule);
     # overlay = EXPLODE from the propane tank MODIFIER — distinct from base
-    build = Build(delivery_item=CATALOG["potato cannon"],
+    build = Build(delivery_item=CATALOG["t-shirt cannon"],
                   modifier_item=CATALOG["propane tank"])
     for tier in (Tier.DUD, Tier.COMMON, Tier.UNCOMMON):
         assert EffectKind.EXPLODE not in _kinds(fallback.resolve(build, tier))

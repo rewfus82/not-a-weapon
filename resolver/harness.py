@@ -24,7 +24,7 @@ ResolverFn = Callable[[Build, Tier], GadgetDraft]
 # deliberately NOT in DEFAULT_BUILDS.
 PROBE_BUILDS: dict[str, Build] = {
     "probe_incendiary": Build(
-        delivery_item=CATALOG["potato cannon"],
+        delivery_item=CATALOG["t-shirt cannon"],
         damage_item=CATALOG["gasoline"],
         utility_item=CATALOG["road flare"],
     ),

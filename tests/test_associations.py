@@ -14,7 +14,7 @@ BATCH_RANGED: tuple[str, ...] = (
     "m16 rifle", ".22 pistol", "9mm pistol", "revolver",
     ".30-06 hunting rifle", "pump shotgun",
     "nail gun", "fire extinguisher", "pressure washer", "blender",
-    "garden hose", "potato cannon", "roman candle", "glass bottle",
+    "garden hose", "t-shirt cannon", "roman candle", "glass bottle",
     "cinder block", "salvaged laser cutter",
 )
 

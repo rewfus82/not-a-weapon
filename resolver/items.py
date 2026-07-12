@@ -141,10 +141,10 @@ _ITEMS: list[Item] = [
          tags=frozenset({"liquid"}), delivery=Delivery.SPRAY),
 
     # ---- Layer 1 · Mechanism · Arc (lobbed, indirect) ----
-    Item("potato cannon",
+    Item("t-shirt cannon",
          associations=(
-             "a length of pipe that lobs whatever fits down the barrel",
-             "a puff of propellant sends the payload in a high arc",
+             "a stadium souvenir cannon that lobs whatever fits down the barrel",
+             "a puff of compressed gas sends the payload in a high arc",
              "doesn't care what the payload is, only that it fits",
              "load something that splashes, shatters, or burns and it delivers that downrange",
          ),
