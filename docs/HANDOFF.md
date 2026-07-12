@@ -50,3 +50,21 @@ The Unreal game, the renderer, the real bake pipeline, best-of-N cost optimizati
 ## Housekeeping note for the user (not an agent action)
 
 The user's Anthropic API key was exposed earlier in a prior conversation and should be rotated in the console — independent of this task.
+
+## Integration read 2026-07-12
+
+Ran (no API key set, `--fallback` forces deterministic explicitly):
+`python -m resolver.harness --build broom_bat --build gun_ammo --build bananarama --fallback`
+Routing observed: **deterministic 27 / llm 9** (36 total slots). `gun_ammo` (C=1.0, firearm+caliber match) and `broom_bat` (C=1.0, shared `heavy` tag) route deterministic at all 6 tiers, 12/12 each. `bananarama` is C=2/3≈0.667 — just under `C_HIGH=0.67` as designed — so DUD/COMMON/UNCOMMON (3) go deterministic and RARE/EPIC/LEGENDARY×3-reps (9) go llm.
+
+**Read well:**
+- `gun_ammo`: DAMAGE-only at every tier (2→6→10→18→30→45), reliable and legible; no clamp scaling needed (well under the tier budget cap even at LEGENDARY).
+- `broom_bat`: blunt+heavy+springy (bat) ∪ electrical+corrosive+heavy (car battery) → DAMAGE at DUD, +BURN at COMMON/UNCOMMON, +CHAIN/KNOCKBACK/LAUNCH at RARE+. Reads as an electrified, acid-leaking bat — a sensible "kick." Every effect traces cleanly to a tag or pair (`interactions.py` `SINGLE_TAG_EFFECTS`).
+- `bananarama` deterministic drafts (DUD–UNCOMMON): BURN (corrosive+liquid pair) then +CHAIN (electrical+liquid pair) — legible and valid, though the brief's expected narrative ("stream + snare, gaining CHAIN at RARE+") doesn't match: SNARE (sticky+liquid) actually appears at RARE alongside KNOCKBACK/SLOW, not before CHAIN. Not a bug — just the brief's prose predating the actual table wiring.
+- Magnitudes: all instances land at or under `TIER_BUDGET[tier] * 1.12`; the 5-effect builds (broom_bat, bananarama RARE+) get scaled down to hit the cap almost exactly (e.g., RARE 5×18=90 clamped to 5×10.752=53.76), while single-effect `gun_ammo` never approaches the cap.
+
+**Needs table tuning:**
+- `_TIER_SEED` in `fallback.py` gives every effect the same flat seed regardless of effect count, so multi-effect coherent builds get clamp-scaled down to the budget ceiling while single-effect builds (real guns — no tags at all) sit far under it. Guns read "reliable" but may read underpowered next to a same-tier improvised weapon; worth a per-effect-count seed adjustment or a floor that lets single-effect builds use more headroom.
+- `m16 rifle` / `5.56 rounds` carry zero flavor tags, so `gun_ammo` has no distinguishing effect at any tier — intentional starkness for real weapons, but flag if that reads as bland once art/names land.
+
+Full suite: `python -m pytest -q` green after the read (no code changed).
