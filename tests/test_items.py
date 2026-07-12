@@ -73,3 +73,10 @@ def test_item_describe_falls_back_to_verb_and_tags():
               tags=frozenset({"liquid", "scatter"}), delivery=Delivery.SPRAY)
     d = it.describe()
     assert "blend-&-spit" in d and "liquid" in d and "scatter" in d
+
+
+def test_baseball_bat_carries_heavy_for_the_broom_bat_edge():
+    # 'heavy' deviates from the plan's representative construction on purpose:
+    # the spec doesn't enumerate melee tags, and coherence ordering requires
+    # bat<->car-battery to interact via the shared 'heavy' tag (see Task 5 review).
+    assert {"blunt", "heavy", "springy"} <= CATALOG["baseball bat"].tags
