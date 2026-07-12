@@ -69,13 +69,20 @@ def tags_interact(a: frozenset[str], b: frozenset[str]) -> bool:
 
 def effects_for(tags: frozenset[str]) -> list[EffectKind]:
     effects: list[EffectKind] = []
+    seen: set[EffectKind] = set()
     covered: set[str] = set()
     for pair in combinations(sorted(tags), 2):
         key = frozenset(pair)
         if key in PAIR_EFFECTS:
-            effects.append(PAIR_EFFECTS[key])
+            effect = PAIR_EFFECTS[key]
+            if effect not in seen:
+                effects.append(effect)
+                seen.add(effect)
             covered |= key
     for tag in sorted(tags - covered):
         if tag in SINGLE_TAG_EFFECTS:
-            effects.append(SINGLE_TAG_EFFECTS[tag])
+            effect = SINGLE_TAG_EFFECTS[tag]
+            if effect not in seen:
+                effects.append(effect)
+                seen.add(effect)
     return effects

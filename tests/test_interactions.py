@@ -41,3 +41,8 @@ def test_effects_for_prefers_pair_then_singles():
     effs = I.effects_for(frozenset({"flammable", "ignition", "sharp"}))
     assert EffectKind.BURN in effs      # from the pair
     assert EffectKind.PIERCE in effs    # sharp single, uncovered by the pair
+
+
+def test_effects_for_deduplicates_across_overlapping_pairs():
+    effs = I.effects_for(frozenset({"flammable", "ignition", "electrical"}))
+    assert effs.count(EffectKind.BURN) == 1
