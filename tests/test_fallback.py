@@ -1,5 +1,5 @@
 from resolver.contract import EffectKind, GadgetDraft, Tier, Trigger
-from resolver.items import DEFAULT_BUILDS
+from resolver.items import DEFAULT_BUILDS, Build, CATALOG
 from resolver import fallback
 
 def _kinds(draft):
@@ -10,17 +10,38 @@ def test_composer_returns_valid_draft_with_no_api():
     assert isinstance(draft, GadgetDraft)
     assert draft.name and draft.logic and draft.stages
 
-def test_grounded_flammable_chain_burns():
-    # a build whose substance tags trigger BURN should yield a BURN effect
+def test_bananarama_yields_its_tag_derived_effects():
+    # corrosive+liquid -> BURN, sticky+liquid -> SNARE; RARE takes the full chain
     draft = fallback.resolve(DEFAULT_BUILDS["bananarama"], Tier.RARE)
     assert draft.stages[0].trigger is Trigger.ON_HIT
+    assert EffectKind.BURN in _kinds(draft)
+    assert EffectKind.SNARE in _kinds(draft)
+
+def test_no_duplicate_effect_kinds_within_a_stage():
+    # car battery's electrical overlay (CHAIN) must not duplicate the
+    # electrical+liquid base CHAIN already in the chain
+    draft = fallback.resolve(DEFAULT_BUILDS["bananarama"], Tier.RARE)
+    for stage in draft.stages:
+        kinds = [e.kind for e in stage.effects]
+        assert len(kinds) == len(set(kinds))
 
 def test_higher_tier_unlocks_more_effects():
     dud = fallback.resolve(DEFAULT_BUILDS["bananarama"], Tier.DUD)
     leg = fallback.resolve(DEFAULT_BUILDS["bananarama"], Tier.LEGENDARY)
     dud_effects = sum(len(s.effects) for s in dud.stages)
     leg_effects = sum(len(s.effects) for s in leg.stages)
-    assert leg_effects >= dud_effects
+    # wiring, not balance: DUD takes exactly one, LEGENDARY takes the full chain
+    assert leg_effects > dud_effects
+
+def test_overlay_gated_behind_rare():
+    # base = [BURN] (flammable single; pressurized-gas+flammable is no pair rule);
+    # overlay = EXPLODE from the propane tank MODIFIER — distinct from base
+    build = Build(delivery_item=CATALOG["potato cannon"],
+                  modifier_item=CATALOG["propane tank"])
+    for tier in (Tier.DUD, Tier.COMMON, Tier.UNCOMMON):
+        assert EffectKind.EXPLODE not in _kinds(fallback.resolve(build, tier))
+    for tier in (Tier.RARE, Tier.EPIC, Tier.LEGENDARY):
+        assert EffectKind.EXPLODE in _kinds(fallback.resolve(build, tier))
 
 def test_composer_is_deterministic():
     a = fallback.resolve(DEFAULT_BUILDS["gun_ammo"], Tier.EPIC)
@@ -28,6 +49,5 @@ def test_composer_is_deterministic():
     assert a.model_dump() == b.model_dump()
 
 def test_effectless_build_still_deals_a_plain_hit():
-    from resolver.items import Build, CATALOG
     draft = fallback.resolve(Build(delivery_item=CATALOG["m16 rifle"]), Tier.DUD)
     assert EffectKind.DAMAGE in _kinds(draft)

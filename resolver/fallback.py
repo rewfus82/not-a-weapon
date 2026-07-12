@@ -52,9 +52,11 @@ def resolve(build: Build, tier: Tier) -> GadgetDraft:
     chosen = base_effects[:take]
 
     effects = [Effect(kind=k, amount=seed, note="base") for k in chosen]
-    # overlays only unlock at RARE+
+    # overlays only unlock at RARE+; a kind the base chain already has is skipped
     if tier_at_least(tier, Tier.RARE):
         for k in _overlays(build):
+            if k in chosen:
+                continue
             effects.append(Effect(kind=k, amount=seed * 0.5, note="overlay"))
 
     name_bits = " + ".join(it.name for _, it in build.slots() if it is not None)
