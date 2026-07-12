@@ -98,7 +98,7 @@ _ITEMS: list[Item] = [
     Item("screwdriver", roles=frozenset({M}), verb="stab",
          tags=frozenset({"sharp"}), delivery=Delivery.THRUST, flags=_MELEE),
     Item("baseball bat", roles=frozenset({M}), verb="clobber",
-         tags=frozenset({"blunt", "springy"}), delivery=Delivery.SWING, flags=_MELEE),
+         tags=frozenset({"blunt", "heavy", "springy"}), delivery=Delivery.SWING, flags=_MELEE),
     Item("power drill", roles=frozenset({M}), verb="bore",
          tags=frozenset({"sharp"}), delivery=Delivery.THRUST, flags=_MELEE),
     Item("angle grinder", roles=frozenset({M}), verb="grind",
