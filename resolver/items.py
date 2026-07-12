@@ -6,14 +6,27 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from resolver.contract import Delivery, MELEE_DELIVERIES
+from resolver.contract import Delivery, Role, Flag, MELEE_DELIVERIES
 
 
 @dataclass(frozen=True)
 class Item:
     name: str
-    # ordered obvious -> non-obvious -> chainable-consequence
-    associations: list[str]
+    # ordered obvious -> non-obvious -> chainable (optional; LLM-path flavor)
+    associations: tuple[str, ...] = ()
+    roles: frozenset[Role] = frozenset()
+    verb: str = ""
+    tags: frozenset[str] = frozenset()
+    delivery: Delivery | None = None
+    caliber: str | None = None
+    flags: frozenset[Flag] = frozenset()
+
+    def describe(self) -> str:
+        if self.associations:
+            return ", ".join(self.associations)
+        parts = [self.verb] if self.verb else []
+        parts.extend(sorted(self.tags))
+        return ", ".join(p for p in parts if p)
 
 
 _ITEMS: list[Item] = [
