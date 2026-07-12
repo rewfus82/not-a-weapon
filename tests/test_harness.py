@@ -108,6 +108,23 @@ def test_routing_summary_reports_the_deterministic_llm_split():
     assert summary == f"routing: deterministic {expected_d} / llm {expected_l}"
 
 
+def test_routing_summary_exercises_a_nonzero_llm_tally():
+    # broom_bat is 100% deterministic (coherent build), so the split above never
+    # exercises the llm tally. bananarama sits in the middle coherence band,
+    # which leans deterministic until RARE: DUD/COMMON/UNCOMMON stay
+    # deterministic (3 total) while RARE/EPIC/LEGENDARY route to llm (3 per
+    # repeat), pinning a real, nonzero llm count.
+    results = harness.run(fallback.resolve, build_keys=["bananarama"], repeats=3)
+    build = DEFAULT_BUILDS["bananarama"]
+    expected_d = sum(1 for r in results if route(build, r.resolved.tier) == "deterministic")
+    expected_l = len(results) - expected_d
+    assert expected_l > 0
+
+    summary = harness.routing_summary(results)
+
+    assert summary == f"routing: deterministic {expected_d} / llm {expected_l}"
+
+
 def test_main_prints_the_routing_split(capsys):
     exit_code = harness.main(["--fallback", "--build", "broom_bat", "--repeats", "2"])
     assert exit_code == 0
