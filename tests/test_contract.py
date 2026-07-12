@@ -65,3 +65,24 @@ def test_resolved_gadget_carries_code_owned_fields():
         category=Category.DUD, harmless=True, color="amber", params={},
     )
     assert rg.delivery is Delivery.SWING and rg.harmless is True
+
+
+def test_roles_and_flags_exist():
+    from resolver.contract import Role, Flag
+    assert {r.value for r in Role} == {"MECHANISM", "MODIFIER", "SUBSTANCE"}
+    assert {f.value for f in Flag} == {
+        "WIELDABLE", "FIREARM", "AMMUNITION", "LOADABLE", "BASE_WEAPON"
+    }
+
+
+def test_tier_order_is_monotonic_and_total():
+    from resolver.contract import TIER_ORDER
+    assert set(TIER_ORDER) == set(Tier)
+    assert TIER_ORDER[Tier.DUD] < TIER_ORDER[Tier.LEGENDARY]
+
+
+def test_tier_at_least():
+    from resolver.contract import tier_at_least
+    assert tier_at_least(Tier.RARE, Tier.UNCOMMON) is True
+    assert tier_at_least(Tier.COMMON, Tier.RARE) is False
+    assert tier_at_least(Tier.RARE, Tier.RARE) is True

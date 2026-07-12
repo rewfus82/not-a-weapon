@@ -76,6 +76,27 @@ class Tier(str, Enum):
     LEGENDARY = "LEGENDARY"
 
 
+class Role(str, Enum):
+    MECHANISM = "MECHANISM"   # feeds base delivery behaviour
+    MODIFIER = "MODIFIER"     # feeds behavioural overlay + effect transform
+    SUBSTANCE = "SUBSTANCE"   # feeds effect / damage type
+
+
+class Flag(str, Enum):
+    WIELDABLE = "WIELDABLE"
+    FIREARM = "FIREARM"
+    AMMUNITION = "AMMUNITION"
+    LOADABLE = "LOADABLE"
+    BASE_WEAPON = "BASE_WEAPON"
+
+
+TIER_ORDER: dict["Tier", int] = {t: i for i, t in enumerate(Tier)}
+
+
+def tier_at_least(tier: "Tier", floor: "Tier") -> bool:
+    return TIER_ORDER[tier] >= TIER_ORDER[floor]
+
+
 # --- family sets (code knowledge, used by the clamp + params) ---
 # SUMMON is treated as lethal: a summoned swarm deals damage.
 LETHAL_KINDS: frozenset[EffectKind] = frozenset({
