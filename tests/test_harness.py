@@ -1,6 +1,8 @@
 import pytest
 
 from resolver.contract import Tier
+from resolver.items import DEFAULT_BUILDS
+from resolver.router import route
 from resolver import fallback, harness
 
 
@@ -93,3 +95,22 @@ def test_main_prints_fallback_summary(capsys):
     out = capsys.readouterr().out
     assert "fallbacks:" in out
     assert "broom_bat 0/" in out   # the deterministic resolver never "refuses"
+
+
+def test_routing_summary_reports_the_deterministic_llm_split():
+    results = harness.run(fallback.resolve, build_keys=["broom_bat"], repeats=3)
+    build = DEFAULT_BUILDS["broom_bat"]
+    expected_d = sum(1 for r in results if route(build, r.resolved.tier) == "deterministic")
+    expected_l = len(results) - expected_d
+
+    summary = harness.routing_summary(results)
+
+    assert summary == f"routing: deterministic {expected_d} / llm {expected_l}"
+
+
+def test_main_prints_the_routing_split(capsys):
+    exit_code = harness.main(["--fallback", "--build", "broom_bat", "--repeats", "2"])
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "routing: deterministic " in out
+    assert " / llm " in out

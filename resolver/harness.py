@@ -15,6 +15,7 @@ from resolver.contract import GadgetDraft, Tier
 from resolver.fallback import resolve as fallback_resolve
 from resolver.items import DEFAULT_BUILDS, Build
 from resolver.render import RunResult, render_fallback_summary, render_run
+from resolver.router import route
 
 ResolverFn = Callable[[Build, Tier], GadgetDraft]
 
@@ -77,6 +78,21 @@ def run(resolver_fn: ResolverFn, build_keys: list[str], repeats: int) -> list[Ru
     return results
 
 
+def routing_summary(results: list[RunResult]) -> str:
+    """Tally what `route()` would pick for each resolved slot. Observational
+    only: the actual resolver_fn used above is chosen by CLI flags, not by
+    the router. The bake pipeline consumes `route()` directly later.
+    """
+    deterministic = llm = 0
+    for result in results:
+        build = DEFAULT_BUILDS[result.build_key]
+        if route(build, result.resolved.tier) == "deterministic":
+            deterministic += 1
+        else:
+            llm += 1
+    return f"routing: deterministic {deterministic} / llm {llm}"
+
+
 def _build_resolver(
     use_fallback: bool, model: str, attempts: int, escalate: str | None
 ) -> tuple[ResolverFn, str]:
@@ -119,6 +135,7 @@ def main(argv: list[str] | None = None) -> int:
     print(render_run(results))
     print()
     print(render_fallback_summary(results))
+    print(routing_summary(results))
     return 0
 
 
