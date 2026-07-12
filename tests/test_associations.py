@@ -19,6 +19,14 @@ BATCH_RANGED: tuple[str, ...] = (
 )
 
 
+BATCH_CONTACT: tuple[str, ...] = (
+    "crowbar", "sledgehammer", "fire axe", "machete", "screwdriver",
+    "baseball bat", "power drill", "angle grinder", "chainsaw",
+    "weed whacker", "riot shield", "bear trap", "leaf blower",
+    "adrenaline shot", "first-aid kit",
+)
+
+
 def _expected_line_range(item) -> tuple[int, int]:
     if Flag.FIREARM in item.flags:
         return (2, 3)
@@ -41,4 +49,9 @@ def _assert_cloud(name: str) -> None:
 
 @pytest.mark.parametrize("name", BATCH_RANGED)
 def test_ranged_batch_cloud_shape(name):
+    _assert_cloud(name)
+
+
+@pytest.mark.parametrize("name", BATCH_CONTACT)
+def test_contact_batch_cloud_shape(name):
     _assert_cloud(name)

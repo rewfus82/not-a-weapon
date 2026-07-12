@@ -18,5 +18,5 @@ def test_render_user_message_includes_slots_associations_delivery_and_tier():
     assert "damage:" in msg and "empty" in msg  # unfilled slot shows "empty"
     assert "LOCKED DELIVERY FORM: SWING" in msg
     assert "TARGET TIER: RARE" in msg
-    # at least one descriptor from the delivery item is injected
-    assert "clobber" in msg
+    # at least one descriptor from the delivery item's cloud is injected
+    assert "swing weight" in msg
