@@ -306,6 +306,16 @@ _ITEMS: list[Item] = [
          roles=frozenset({M}), verb="snap",
          tags=frozenset({"sharp"}), delivery=Delivery.PLACED),
 
+    Item("airhorn",
+         associations=(
+             "a pocket air canister with a trumpet that makes ears ring",
+             "one blast turns every head on the block",
+             "wedge the button down and it screams until the can dies",
+             "set it where you aren't, and everything comes running to where you aren't",
+         ),
+         roles=frozenset({M}), verb="blare",
+         tags=frozenset({"loud"}), delivery=Delivery.PLACED),
+
     # ---- Layer 1 · Mechanism · Self / mobility ----
     Item("leaf blower",
          associations=(

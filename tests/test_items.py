@@ -6,7 +6,7 @@ from resolver.interactions import TAXONOMY
 
 
 def test_catalog_is_the_reimagined_slice():
-    assert len(CATALOG) >= 50
+    assert len(CATALOG) == 61
     for it in CATALOG.values():
         assert it.roles, f"{it.name} has no role"
         assert it.tags <= TAXONOMY, f"{it.name} has off-taxonomy tags: {it.tags - TAXONOMY}"

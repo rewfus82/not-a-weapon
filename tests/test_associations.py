@@ -22,7 +22,7 @@ BATCH_RANGED: tuple[str, ...] = (
 BATCH_CONTACT: tuple[str, ...] = (
     "crowbar", "sledgehammer", "fire axe", "machete", "screwdriver",
     "baseball bat", "power drill", "angle grinder", "chainsaw",
-    "weed whacker", "riot shield", "bear trap", "leaf blower",
+    "weed whacker", "riot shield", "bear trap", "airhorn", "leaf blower",
     "adrenaline shot", "first-aid kit",
 )
 
