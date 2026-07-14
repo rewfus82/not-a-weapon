@@ -158,7 +158,7 @@ Code owns all of them (invariant 4). Base-use magnitudes are produced by running
 
 ## Catalog changes summary
 
-- **Renames (14):** jerrycan of gasoline, jug of motor oil, jar of thermite, jug of bleach, jug of ammonia cleaner, tub of pool chlorine, dewar of liquid nitrogen, bucket of wet cement, crate of overripe produce, can of expanding foam, can of hairspray, block of dry ice, bag of marbles, tin of ball bearings. (Names now uniformly show the container across everything scatterable/throwable; road flare, propane tank, bag of gravel, box of nails already do.)
+- **Renames (15):** jerrycan of gasoline, jug of motor oil, jar of thermite, sack of fertilizer, jug of bleach, jug of ammonia cleaner, tub of pool chlorine, dewar of liquid nitrogen, bucket of wet cement, crate of overripe produce, can of expanding foam, can of hairspray, block of dry ice, bag of marbles, tin of ball bearings. (Names now uniformly show the container across everything scatterable/throwable; road flare, propane tank, bag of gravel, box of nails already do.)
 - **Swap (1):** blender → industrial fan.
 - **Addition (1):** airhorn.
 - **Total: 61 items** (60 − 1 + 2).
