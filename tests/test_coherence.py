@@ -9,7 +9,7 @@ def test_gun_plus_matching_ammo_is_fully_coherent():
 
 def test_absurd_build_is_less_coherent_than_a_grounded_one():
     grounded = coherence(DEFAULT_BUILDS["broom_bat"])
-    absurd = coherence(DEFAULT_BUILDS["bananarama"])
+    absurd = coherence(DEFAULT_BUILDS["swamp_cooler"])
     assert 0.0 <= absurd < grounded <= 1.0
 
 def test_gun_plus_wrong_caliber_ammo_does_not_interact():

@@ -33,7 +33,7 @@ PROBE_BUILDS: dict[str, Build] = {
         damage_item=CATALOG["tub of pool chlorine"],
     ),
     "probe_whimsical": Build(
-        delivery_item=CATALOG["blender"],
+        delivery_item=CATALOG["industrial fan"],
         damage_item=CATALOG["bag of marbles"],
         utility_item=CATALOG["can of expanding foam"],
     ),

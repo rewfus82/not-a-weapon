@@ -8,7 +8,7 @@ from resolver.items import DEFAULT_BUILDS
 def test_catalog_payload_lists_items_tiers_and_delivery_forms():
     payload = serve.catalog_payload()
     names = {item["name"] for item in payload["items"]}
-    assert {"baseball bat", "m16 rifle", "blender", "jerrycan of gasoline"} <= names
+    assert {"baseball bat", "m16 rifle", "industrial fan", "jerrycan of gasoline"} <= names
     by_name = {item["name"]: item for item in payload["items"]}
     assert by_name["baseball bat"]["delivery"] == "SWING"  # delivery-capable -> its form
     assert by_name["jerrycan of gasoline"]["delivery"] is None         # payload-only
@@ -63,7 +63,7 @@ def test_roll_tags_fallback_when_the_resolver_refuses():
     def always_refuse(build, tier):
         raise RuntimeError("refused")
 
-    build = DEFAULT_BUILDS["bananarama"]
+    build = DEFAULT_BUILDS["swamp_cooler"]
     results = serve.roll(always_refuse, build, Tier.LEGENDARY, 1)
     assert results[0]["source"] == "fallback"
     assert results[0]["stages"]                                # a valid instance, not a hole

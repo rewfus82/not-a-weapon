@@ -121,15 +121,17 @@ _ITEMS: list[Item] = [
          ),
          roles=frozenset({M}), verb="jet",
          tags=frozenset({"liquid"}), delivery=Delivery.BEAM),
-    Item("blender",
+    Item("industrial fan",
          associations=(
-             "a pitcher of whirling blades on a motor base",
-             "chews anything dropped in into a slurry",
-             "the lid never holds — run it open and it slings its contents out in a cone",
-             "whatever you feed it comes out the top as a fine flying spray",
+             "a man-high drum fan on a rolling frame",
+             "kicks out a steady lane of wind that shoves loose junk downrange",
+             "planted in a doorway, nothing light gets through against the airflow",
+             "anything airborne — mist, powder, fog, sparks — rides the lane to the far end",
          ),
-         roles=frozenset({M}), verb="blend-&-spit",
-         tags=frozenset({"liquid", "scatter", "electrical"}), delivery=Delivery.SPRAY),
+         roles=frozenset({M}), verb="blow",
+         # "heavy", not "electrical": an electrical tag would edge with the garden
+         # hose (electrical+liquid) and collapse swamp_cooler's middle band (C=2/3).
+         tags=frozenset({"wind", "heavy"}), delivery=Delivery.PLACED),
     Item("garden hose",
          associations=(
              "a long rubber hose that sprays wherever you point it",
@@ -635,11 +637,11 @@ DEFAULT_BUILDS: dict[str, Build] = {
         delivery_item=CATALOG["m16 rifle"],
         damage_item=CATALOG["5.56 rounds"],
     ),
-    # absurd: the Bananarama — stream mechanism + shock modifier + snare goo
-    "bananarama": Build(
-        delivery_item=CATALOG["blender"],
+    # absurd: the Swamp Cooler — placed wind lane + shock modifier + water feed
+    "swamp_cooler": Build(
+        delivery_item=CATALOG["industrial fan"],
         modifier_item=CATALOG["car battery"],
-        utility_item=CATALOG["crate of overripe produce"],
+        utility_item=CATALOG["garden hose"],
     ),
 }
 

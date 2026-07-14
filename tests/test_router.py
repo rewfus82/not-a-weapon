@@ -4,8 +4,8 @@ from resolver.router import route, C_HIGH, C_LOW
 
 
 def test_low_tiers_are_always_deterministic():
-    assert route(DEFAULT_BUILDS["bananarama"], Tier.DUD) == "deterministic"
-    assert route(DEFAULT_BUILDS["bananarama"], Tier.COMMON) == "deterministic"
+    assert route(DEFAULT_BUILDS["swamp_cooler"], Tier.DUD) == "deterministic"
+    assert route(DEFAULT_BUILDS["swamp_cooler"], Tier.COMMON) == "deterministic"
 
 
 def test_coherent_build_stays_deterministic_even_high_tier():
@@ -13,14 +13,14 @@ def test_coherent_build_stays_deterministic_even_high_tier():
 
 
 def test_absurd_high_tier_routes_to_llm():
-    assert route(DEFAULT_BUILDS["bananarama"], Tier.LEGENDARY) == "llm"
+    assert route(DEFAULT_BUILDS["swamp_cooler"], Tier.LEGENDARY) == "llm"
 
 
 def test_middle_band_leans_deterministic_until_rare():
-    # bananarama sits in the middle coherence band (C ~0.67); the middle band
+    # swamp_cooler sits in the middle coherence band (C ~0.67); the middle band
     # leans deterministic until RARE, unlike the low band which flips at UNCOMMON.
-    assert route(DEFAULT_BUILDS["bananarama"], Tier.UNCOMMON) == "deterministic"
-    assert route(DEFAULT_BUILDS["bananarama"], Tier.RARE) == "llm"
+    assert route(DEFAULT_BUILDS["swamp_cooler"], Tier.UNCOMMON) == "deterministic"
+    assert route(DEFAULT_BUILDS["swamp_cooler"], Tier.RARE) == "llm"
 
 
 def test_thresholds_are_the_adjudicated_values():

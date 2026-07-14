@@ -111,12 +111,12 @@ def test_routing_summary_reports_the_deterministic_llm_split():
 
 def test_routing_summary_exercises_a_nonzero_llm_tally():
     # broom_bat is 100% deterministic (coherent build), so the split above never
-    # exercises the llm tally. bananarama sits in the middle coherence band,
+    # exercises the llm tally. swamp_cooler sits in the middle coherence band,
     # which leans deterministic until RARE: DUD/COMMON/UNCOMMON stay
     # deterministic (3 total) while RARE/EPIC/LEGENDARY route to llm (3 per
     # repeat), pinning a real, nonzero llm count.
-    results = harness.run(fallback.resolve, build_keys=["bananarama"], repeats=3)
-    build = DEFAULT_BUILDS["bananarama"]
+    results = harness.run(fallback.resolve, build_keys=["swamp_cooler"], repeats=3)
+    build = DEFAULT_BUILDS["swamp_cooler"]
     expected_d = sum(1 for r in results if route(build, r.resolved.tier) == "deterministic")
     expected_l = len(results) - expected_d
     assert expected_l > 0

@@ -13,7 +13,7 @@ from resolver.items import CATALOG
 BATCH_RANGED: tuple[str, ...] = (
     "m16 rifle", ".22 pistol", "9mm pistol", "revolver",
     ".30-06 hunting rifle", "pump shotgun",
-    "nail gun", "fire extinguisher", "pressure washer", "blender",
+    "nail gun", "fire extinguisher", "pressure washer", "industrial fan",
     "garden hose", "t-shirt cannon", "roman candle", "glass bottle",
     "cinder block", "salvaged laser cutter",
 )

@@ -73,7 +73,7 @@ def test_resolver_raises_when_all_attempts_refuse():
     client = FakeClient([None, None, None])
     resolver = LLMResolver(client, models=["claude-sonnet-5", "claude-sonnet-5", "claude-opus-4-8"])
     with pytest.raises(RuntimeError, match="refusal"):
-        resolver.resolve(DEFAULT_BUILDS["bananarama"], Tier.EPIC)
+        resolver.resolve(DEFAULT_BUILDS["swamp_cooler"], Tier.EPIC)
     assert len(client.messages.models_used) == 3
 
 

@@ -10,24 +10,24 @@ def test_composer_returns_valid_draft_with_no_api():
     assert isinstance(draft, GadgetDraft)
     assert draft.name and draft.logic and draft.stages
 
-def test_bananarama_yields_its_tag_derived_effects():
-    # corrosive+liquid -> BURN, sticky+liquid -> SNARE; RARE takes the full chain
-    draft = fallback.resolve(DEFAULT_BUILDS["bananarama"], Tier.RARE)
+def test_swamp_cooler_yields_its_tag_derived_effects():
+    # corrosive+liquid -> BURN, electrical+liquid -> CHAIN; RARE takes the full chain
+    draft = fallback.resolve(DEFAULT_BUILDS["swamp_cooler"], Tier.RARE)
     assert draft.stages[0].trigger is Trigger.ON_HIT
     assert EffectKind.BURN in _kinds(draft)
-    assert EffectKind.SNARE in _kinds(draft)
+    assert EffectKind.CHAIN in _kinds(draft)
 
 def test_no_duplicate_effect_kinds_within_a_stage():
     # car battery's electrical overlay (CHAIN) must not duplicate the
     # electrical+liquid base CHAIN already in the chain
-    draft = fallback.resolve(DEFAULT_BUILDS["bananarama"], Tier.RARE)
+    draft = fallback.resolve(DEFAULT_BUILDS["swamp_cooler"], Tier.RARE)
     for stage in draft.stages:
         kinds = [e.kind for e in stage.effects]
         assert len(kinds) == len(set(kinds))
 
 def test_higher_tier_unlocks_more_effects():
-    dud = fallback.resolve(DEFAULT_BUILDS["bananarama"], Tier.DUD)
-    leg = fallback.resolve(DEFAULT_BUILDS["bananarama"], Tier.LEGENDARY)
+    dud = fallback.resolve(DEFAULT_BUILDS["swamp_cooler"], Tier.DUD)
+    leg = fallback.resolve(DEFAULT_BUILDS["swamp_cooler"], Tier.LEGENDARY)
     dud_effects = sum(len(s.effects) for s in dud.stages)
     leg_effects = sum(len(s.effects) for s in leg.stages)
     # wiring, not balance: DUD takes exactly one, LEGENDARY takes the full chain

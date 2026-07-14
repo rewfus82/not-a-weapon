@@ -41,7 +41,7 @@ def test_build_rejects_non_delivery_chassis():
 
 
 def test_default_builds_span_grounded_and_absurd():
-    assert set(DEFAULT_BUILDS) == {"broom_bat", "gun_ammo", "bananarama"}
+    assert set(DEFAULT_BUILDS) == {"broom_bat", "gun_ammo", "swamp_cooler"}
 
 
 def test_build_slots_lists_all_four_in_order():
