@@ -28,18 +28,21 @@ BATCH_CONTACT: tuple[str, ...] = (
 
 
 BATCH_MODIFIERS: tuple[str, ...] = (
-    "propane tank", "fertilizer", "car battery", "jumper cables",
+    "propane tank", "sack of fertilizer", "car battery", "jumper cables",
     "defibrillator", "taser",
 )
 
 
 BATCH_SUBSTANCES: tuple[str, ...] = (
-    "gasoline", "motor oil", "thermite", "road flare", "hairspray",
-    "pool chlorine", "ammonia cleaner", "bleach", "liquid nitrogen",
-    "dry ice", "wet cement", "expanding foam", "overripe produce",
+    "jerrycan of gasoline", "jug of motor oil", "jar of thermite",
+    "road flare", "can of hairspray",
+    "tub of pool chlorine", "jug of ammonia cleaner", "jug of bleach",
+    "dewar of liquid nitrogen",
+    "block of dry ice", "bucket of wet cement", "can of expanding foam",
+    "crate of overripe produce",
     ".22 rounds", "9mm rounds", ".357 rounds", "5.56 rounds",
     "12-gauge shells", ".30-06 rounds",
-    "box of nails", "ball bearings", "marbles", "bag of gravel",
+    "box of nails", "tin of ball bearings", "bag of marbles", "bag of gravel",
 )
 
 

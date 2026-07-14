@@ -25,17 +25,17 @@ ResolverFn = Callable[[Build, Tier], GadgetDraft]
 PROBE_BUILDS: dict[str, Build] = {
     "probe_incendiary": Build(
         delivery_item=CATALOG["t-shirt cannon"],
-        damage_item=CATALOG["gasoline"],
+        damage_item=CATALOG["jerrycan of gasoline"],
         utility_item=CATALOG["road flare"],
     ),
     "probe_corrosive": Build(
         delivery_item=CATALOG["pressure washer"],
-        damage_item=CATALOG["pool chlorine"],
+        damage_item=CATALOG["tub of pool chlorine"],
     ),
     "probe_whimsical": Build(
         delivery_item=CATALOG["blender"],
-        damage_item=CATALOG["marbles"],
-        utility_item=CATALOG["expanding foam"],
+        damage_item=CATALOG["bag of marbles"],
+        utility_item=CATALOG["can of expanding foam"],
     ),
     "probe_electric": Build(
         delivery_item=CATALOG["weed whacker"],
@@ -47,7 +47,7 @@ PROBE_BUILDS: dict[str, Build] = {
     ),
     "probe_trap": Build(
         delivery_item=CATALOG["bear trap"],
-        utility_item=CATALOG["motor oil"],
+        utility_item=CATALOG["jug of motor oil"],
     ),
 }
 

@@ -8,10 +8,10 @@ from resolver.items import DEFAULT_BUILDS
 def test_catalog_payload_lists_items_tiers_and_delivery_forms():
     payload = serve.catalog_payload()
     names = {item["name"] for item in payload["items"]}
-    assert {"baseball bat", "m16 rifle", "blender", "gasoline"} <= names
+    assert {"baseball bat", "m16 rifle", "blender", "jerrycan of gasoline"} <= names
     by_name = {item["name"]: item for item in payload["items"]}
     assert by_name["baseball bat"]["delivery"] == "SWING"  # delivery-capable -> its form
-    assert by_name["gasoline"]["delivery"] is None         # payload-only
+    assert by_name["jerrycan of gasoline"]["delivery"] is None         # payload-only
     assert by_name["baseball bat"]["associations"]         # describe() carried through
     assert "LEGENDARY" in payload["tiers"] and "DUD" in payload["tiers"]
 
@@ -27,7 +27,7 @@ def test_build_from_request_assembles_slots():
 
 def test_build_from_request_rejects_non_delivery_item_in_delivery_slot():
     with pytest.raises(ValueError):
-        serve.build_from_request({"delivery": "gasoline"})
+        serve.build_from_request({"delivery": "jerrycan of gasoline"})
 
 
 def test_build_from_request_requires_a_delivery_item():

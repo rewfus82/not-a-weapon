@@ -343,7 +343,7 @@ _ITEMS: list[Item] = [
          ),
          roles=frozenset({MOD, SUB}), verb="fuel-bomb",
          tags=frozenset({"pressurized-gas", "flammable"})),
-    Item("fertilizer",
+    Item("sack of fertilizer",
          associations=(
              "a heavy sack of pellet fertilizer",
              "grows crops on the label, wears a hazard diamond on the back",
@@ -390,7 +390,7 @@ _ITEMS: list[Item] = [
          tags=frozenset({"electrical"}), flags=frozenset({WIELD})),
 
     # ---- Layer 3 · Substance / payload (needs a delivery to come out) ----
-    Item("gasoline",
+    Item("jerrycan of gasoline",
          associations=(
              "a can of gasoline, sloshing and sharp-smelling",
              "splashes wide, soaks in, and stays",
@@ -399,7 +399,7 @@ _ITEMS: list[Item] = [
          ),
          roles=frozenset({SUB}), verb="fuel",
          tags=frozenset({"liquid", "flammable", "ignition"})),
-    Item("motor oil",
+    Item("jug of motor oil",
          associations=(
              "slick, viscous, impossible to get traction on",
              "clings in a dark film to whatever it coats",
@@ -408,7 +408,7 @@ _ITEMS: list[Item] = [
          ),
          roles=frozenset({SUB}), verb="slick",
          tags=frozenset({"liquid", "flammable", "slippery"})),
-    Item("thermite",
+    Item("jar of thermite",
          associations=(
              "a jar of dull grey powder that looks like nothing",
              "nearly impossible to light — and nearly impossible to put out once lit",
@@ -426,7 +426,7 @@ _ITEMS: list[Item] = [
          ),
          roles=frozenset({SUB}), verb="ignite",
          tags=frozenset({"ignition", "light-source", "flammable"})),
-    Item("hairspray",
+    Item("can of hairspray",
          associations=(
              "a can of hairspray under pressure",
              "sprays a fine sticky mist that hangs in the air",
@@ -435,7 +435,7 @@ _ITEMS: list[Item] = [
          ),
          roles=frozenset({SUB}), verb="spritz",
          tags=frozenset({"flammable", "pressurized-gas"})),
-    Item("pool chlorine",
+    Item("tub of pool chlorine",
          associations=(
              "a tub of pool-shock granules with a bleachy reek",
              "eats color, fabric, and skin given time",
@@ -444,7 +444,7 @@ _ITEMS: list[Item] = [
          ),
          roles=frozenset({SUB}), verb="corrode",
          tags=frozenset({"corrosive", "powder"})),
-    Item("ammonia cleaner",
+    Item("jug of ammonia cleaner",
          associations=(
              "a jug of ammonia cleaner that clears your sinuses from across the room",
              "the fumes sting eyes shut and chase people out of small spaces",
@@ -453,7 +453,7 @@ _ITEMS: list[Item] = [
          ),
          roles=frozenset({SUB}), verb="fume",
          tags=frozenset({"corrosive", "liquid"})),
-    Item("bleach",
+    Item("jug of bleach",
          associations=(
              "a jug of household bleach",
              "ruins everything it splashes — cloth, color, skin",
@@ -462,7 +462,7 @@ _ITEMS: list[Item] = [
          ),
          roles=frozenset({SUB}), verb="bleach",
          tags=frozenset({"corrosive", "liquid"})),
-    Item("liquid nitrogen",
+    Item("dewar of liquid nitrogen",
          associations=(
              "a steel dewar of liquid so cold it smokes",
              "a splash freezes surfaces white on contact",
@@ -471,7 +471,7 @@ _ITEMS: list[Item] = [
          ),
          roles=frozenset({SUB}), verb="freeze",
          tags=frozenset({"cold", "liquid"})),
-    Item("dry ice",
+    Item("block of dry ice",
          associations=(
              "a block of dry ice, smoking in open air",
              "burns bare skin with cold instead of heat",
@@ -480,7 +480,7 @@ _ITEMS: list[Item] = [
          ),
          roles=frozenset({SUB}), verb="chill",
          tags=frozenset({"cold"})),
-    Item("wet cement",
+    Item("bucket of wet cement",
          associations=(
              "a bucket of wet cement, heavy and slopping",
              "clings to boots and drags every step",
@@ -489,7 +489,7 @@ _ITEMS: list[Item] = [
          ),
          roles=frozenset({SUB}), verb="set",
          tags=frozenset({"sticky", "liquid"})),
-    Item("expanding foam",
+    Item("can of expanding foam",
          associations=(
              "a can of gap-filler foam",
              "a thin bead swells to a fat, sticky loaf",
@@ -498,7 +498,7 @@ _ITEMS: list[Item] = [
          ),
          roles=frozenset({SUB}), verb="foam",
          tags=frozenset({"sticky"})),
-    Item("overripe produce",
+    Item("crate of overripe produce",
          associations=(
              "a crate of produce past its best days",
              "bursts into slick pulp at the slightest violence",
@@ -562,7 +562,7 @@ _ITEMS: list[Item] = [
          ),
          roles=frozenset({SUB}), verb="improvised-round",
          tags=frozenset({"scatter", "sharp"}), flags=frozenset({LOAD})),
-    Item("ball bearings",
+    Item("tin of ball bearings",
          associations=(
              "a tin of dense steel spheres",
              "heavier than they look; they hit like thrown weights",
@@ -571,7 +571,7 @@ _ITEMS: list[Item] = [
          ),
          roles=frozenset({SUB}), verb="improvised-round",
          tags=frozenset({"scatter", "heavy"}), flags=frozenset({LOAD})),
-    Item("marbles",
+    Item("bag of marbles",
          associations=(
              "a bag of glass marbles",
              "roll forever on any hard floor",
@@ -639,7 +639,7 @@ DEFAULT_BUILDS: dict[str, Build] = {
     "bananarama": Build(
         delivery_item=CATALOG["blender"],
         modifier_item=CATALOG["car battery"],
-        utility_item=CATALOG["overripe produce"],
+        utility_item=CATALOG["crate of overripe produce"],
     ),
 }
 
