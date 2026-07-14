@@ -55,3 +55,10 @@ def test_solo_is_deterministic():
 def test_ammo_has_no_solo_use():
     with pytest.raises(ValueError):
         solo.solo_draft(CATALOG[".22 rounds"])
+
+
+def test_thrown_container_solo_bursts_on_impact():
+    # same shape as the crafted path: the thrown jug bursts where it lands
+    r = solo.resolve_solo(CATALOG["jug of motor oil"])
+    assert r.draft.stages[0].trigger is Trigger.ON_IMPACT
+    assert r.delivery is Delivery.THROWN

@@ -12,7 +12,7 @@ from resolver.clamp import apply as clamp_apply
 from resolver.contract import (
     Delivery, Effect, GadgetDraft, ResolvedGadget, Stage, Tier, Trigger,
 )
-from resolver.fallback import _TIER_SEED
+from resolver.fallback import _TIER_SEED, substance_stages
 from resolver.items import Build, Item
 
 BASE_USE_TIER: Tier = Tier.DUD
@@ -30,11 +30,11 @@ def solo_draft(item: Item) -> GadgetDraft:
     if bu is None:
         raise ValueError(f"{item.name!r} has no base use")
     effect = Effect(kind=bu.effect, amount=_SOLO_SEED, note="base use")
-    if bu.armed:
-        stages = [
-            Stage(trigger=Trigger.ON_IMPACT, effects=[], note="burst"),
-            Stage(trigger=Trigger.ON_TRIGGER, effects=[effect], note="armed patch"),
-        ]
+    # thrown mechanisms (Item.delivery set) keep ON_HIT; a delivery-less thrown
+    # substance bursts where it lands, same shape as the crafted chassis path.
+    # `bu.armed or` keeps the patch shape even for a hypothetical non-THROWN armed item.
+    if bu.armed or (item.delivery is None and bu.delivery is Delivery.THROWN):
+        stages = substance_stages([effect], bu.armed)
     else:
         trigger = _TRIGGER_BY_DELIVERY.get(bu.delivery, Trigger.ON_HIT)
         stages = [Stage(trigger=trigger, effects=[effect], note="base use")]

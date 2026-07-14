@@ -40,18 +40,24 @@ def _overlays(build: Build) -> list[EffectKind]:
     return out
 
 
+def substance_stages(effects: list[Effect], armed: bool) -> list[Stage]:
+    """A substance chassis is a thrown container that bursts on impact —
+    armed payloads burst inert and fire on ignition (ON_TRIGGER)."""
+    if armed:
+        return [
+            Stage(trigger=Trigger.ON_IMPACT, effects=[], note="burst"),
+            Stage(trigger=Trigger.ON_TRIGGER, effects=effects, note="armed patch"),
+        ]
+    return [Stage(trigger=Trigger.ON_IMPACT, effects=effects, note="burst")]
+
+
 def _stages_for(build: Build, effects: list[Effect]) -> list[Stage]:
     """Mechanism chassis hit (ON_HIT); a substance chassis is a thrown
     container that bursts (ON_IMPACT) — armed payloads burst inert and
     fire on ignition (ON_TRIGGER)."""
     chassis = build.delivery_item
     if chassis.delivery is None and chassis.base_use is not None:
-        if chassis.base_use.armed:
-            return [
-                Stage(trigger=Trigger.ON_IMPACT, effects=[], note="burst"),
-                Stage(trigger=Trigger.ON_TRIGGER, effects=effects, note="armed patch"),
-            ]
-        return [Stage(trigger=Trigger.ON_IMPACT, effects=effects, note="burst")]
+        return substance_stages(effects, chassis.base_use.armed)
     return [Stage(trigger=Trigger.ON_HIT, effects=effects, note="composed")]
 
 
