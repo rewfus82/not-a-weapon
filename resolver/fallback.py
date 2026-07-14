@@ -40,6 +40,21 @@ def _overlays(build: Build) -> list[EffectKind]:
     return out
 
 
+def _stages_for(build: Build, effects: list[Effect]) -> list[Stage]:
+    """Mechanism chassis hit (ON_HIT); a substance chassis is a thrown
+    container that bursts (ON_IMPACT) — armed payloads burst inert and
+    fire on ignition (ON_TRIGGER)."""
+    chassis = build.delivery_item
+    if chassis.delivery is None and chassis.base_use is not None:
+        if chassis.base_use.armed:
+            return [
+                Stage(trigger=Trigger.ON_IMPACT, effects=[], note="burst"),
+                Stage(trigger=Trigger.ON_TRIGGER, effects=effects, note="armed patch"),
+            ]
+        return [Stage(trigger=Trigger.ON_IMPACT, effects=effects, note="burst")]
+    return [Stage(trigger=Trigger.ON_HIT, effects=effects, note="composed")]
+
+
 def resolve(build: Build, tier: Tier) -> GadgetDraft:
     seed = _TIER_SEED[tier]
     tag_union = frozenset().union(
@@ -68,5 +83,5 @@ def resolve(build: Build, tier: Tier) -> GadgetDraft:
             f"Effects from tags {sorted(tag_union)}: "
             f"{[e.kind.value for e in effects]}."
         ),
-        stages=[Stage(trigger=Trigger.ON_HIT, effects=effects, note="composed")],
+        stages=_stages_for(build, effects),
     )

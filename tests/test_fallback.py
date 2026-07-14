@@ -51,3 +51,19 @@ def test_composer_is_deterministic():
 def test_effectless_build_still_deals_a_plain_hit():
     draft = fallback.resolve(Build(delivery_item=CATALOG["m16 rifle"]), Tier.DUD)
     assert EffectKind.DAMAGE in _kinds(draft)
+
+def test_substance_chassis_composes_a_thrown_burst():
+    draft = fallback.resolve(Build(delivery_item=CATALOG["bucket of wet cement"]), Tier.COMMON)
+    assert draft.stages[0].trigger is Trigger.ON_IMPACT
+    assert EffectKind.SNARE in _kinds(draft)
+
+
+def test_armed_chassis_composes_the_two_stage_patch():
+    draft = fallback.resolve(Build(delivery_item=CATALOG["jerrycan of gasoline"]), Tier.COMMON)
+    assert [s.trigger for s in draft.stages] == [Trigger.ON_IMPACT, Trigger.ON_TRIGGER]
+    assert draft.stages[0].effects == []
+
+
+def test_mechanism_chassis_keeps_on_hit():
+    draft = fallback.resolve(DEFAULT_BUILDS["broom_bat"], Tier.COMMON)
+    assert draft.stages[0].trigger is Trigger.ON_HIT
