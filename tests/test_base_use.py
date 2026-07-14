@@ -123,12 +123,14 @@ def test_base_use_matches_the_spec(name):
 
 
 def test_governing_rule_effect_is_derivable_or_adjudicated():
+    assert set(JUDGMENT_CALLS) <= set(CATALOG)
     for item in CATALOG.values():
         bu = item.base_use
         if bu is None:
             continue
         if item.name in JUDGMENT_CALLS:
             assert bu.effect is JUDGMENT_CALLS[item.name], item.name
+            assert bu.effect not in effects_for(item.tags), item.name
         elif Flag.FIREARM in item.flags:
             assert bu.effect is EffectKind.DAMAGE, item.name
         else:
