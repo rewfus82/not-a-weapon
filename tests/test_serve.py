@@ -25,9 +25,14 @@ def test_build_from_request_assembles_slots():
     assert build.damage_item is None and build.utility_item is None
 
 
-def test_build_from_request_rejects_non_delivery_item_in_delivery_slot():
+def test_build_from_request_accepts_substance_chassis():
+    build = serve.build_from_request({"delivery": "jerrycan of gasoline"})
+    assert build.delivery_item.name == "jerrycan of gasoline"
+
+
+def test_build_from_request_rejects_ammo_in_delivery_slot():
     with pytest.raises(ValueError):
-        serve.build_from_request({"delivery": "jerrycan of gasoline"})
+        serve.build_from_request({"delivery": ".22 rounds"})
 
 
 def test_build_from_request_requires_a_delivery_item():

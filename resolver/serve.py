@@ -53,7 +53,7 @@ def build_from_request(sel: dict) -> Build:
     delivery_item = pick("delivery")
     if delivery_item is None:
         raise ValueError("a delivery item is required")
-    if delivery_item.delivery is None:
+    if delivery_item.delivery is None and delivery_item.base_use is None:
         raise ValueError(f"{delivery_item.name!r} cannot be a delivery chassis")
     return Build(
         delivery_item=delivery_item,

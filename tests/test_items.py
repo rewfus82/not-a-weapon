@@ -34,10 +34,17 @@ def test_build_delivery_reads_from_the_item():
     assert isinstance(build.delivery, Delivery)
 
 
-def test_build_rejects_non_delivery_chassis():
-    payload = next(it for it in CATALOG.values() if it.delivery is None)
+def test_build_rejects_only_baseless_chassis():
+    # ammo is the one class with no base use — still not a chassis
+    ammo = CATALOG[".22 rounds"]
     with pytest.raises(ValueError):
-        _ = Build(delivery_item=payload).delivery
+        _ = Build(delivery_item=ammo).delivery
+
+
+def test_substance_chassis_resolves_via_base_use():
+    # throw-the-container: the universal fallback build
+    build = Build(delivery_item=CATALOG["jerrycan of gasoline"])
+    assert build.delivery is Delivery.THROWN
 
 
 def test_default_builds_span_grounded_and_absurd():

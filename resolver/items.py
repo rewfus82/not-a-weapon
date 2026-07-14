@@ -686,9 +686,12 @@ class Build:
     @property
     def delivery(self) -> Delivery:
         d = self.delivery_item.delivery
-        if d is None:
+        if d is not None:
+            return d
+        bu = self.delivery_item.base_use
+        if bu is None:
             raise ValueError(f"{self.delivery_item.name!r} cannot be a delivery chassis")
-        return d
+        return bu.delivery
 
     @property
     def color(self) -> str:
