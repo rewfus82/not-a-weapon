@@ -42,11 +42,11 @@
 - knocks light things over and pushes heavy things back
 - whatever you feed the intake comes out the nozzle at paint-stripping speed
 
-## blender
-- a pitcher of whirling blades on a motor base
-- chews anything dropped in into a slurry
-- the lid never holds — run it open and it slings its contents out in a cone
-- whatever you feed it comes out the top as a fine flying spray
+## industrial fan
+- a man-high drum fan on a rolling frame
+- kicks out a steady lane of wind that shoves loose junk downrange
+- planted in a doorway, nothing light gets through against the airflow
+- anything airborne — mist, powder, fog, sparks — rides the lane to the far end
 
 ## garden hose
 - a long rubber hose that sprays wherever you point it
@@ -156,6 +156,12 @@
 - snaps shut hard enough to hold what it catches
 - anything lured, herded, or knocked onto it does the work for you
 
+## airhorn
+- a pocket air canister with a trumpet that makes ears ring
+- one blast turns every head on the block
+- wedge the button down and it screams until the can dies
+- set it where you aren't, and everything comes running to where you aren't
+
 ## leaf blower
 - a backpack motor that throws a hard lane of wind
 - shoves loose junk, dust, and mist wherever it points
@@ -180,7 +186,7 @@
 - the tank itself flies when ruptured
 - a leaking cloud finds every spark in the room the hard way
 
-## fertilizer
+## sack of fertilizer
 - a heavy sack of pellet fertilizer
 - grows crops on the label, wears a hazard diamond on the back
 - burns fast and mean once something sets it off
@@ -210,19 +216,19 @@
 - a touch locks up whatever muscle it finds
 - held against metal or wet ground, the crackle keeps traveling
 
-## gasoline
-- a can of gasoline, sloshing and sharp-smelling
+## jerrycan of gasoline
+- a jerrycan of gasoline, sloshing and sharp-smelling
 - splashes wide, soaks in, and stays
 - the fumes catch before the liquid does
 - one spark anywhere on the spill claims the whole spill
 
-## motor oil
-- slick, viscous, impossible to get traction on
+## jug of motor oil
+- a jug of motor oil — slick, viscous, impossible to get traction on
 - clings in a dark film to whatever it coats
 - flammable once something gets it hot enough
 - poured across a floor it turns the whole stretch into a skating rink
 
-## thermite
+## jar of thermite
 - a jar of dull grey powder that looks like nothing
 - nearly impossible to light — and nearly impossible to put out once lit
 - burns hot enough to eat through steel plate
@@ -234,55 +240,55 @@
 - bright enough to blind night eyes and mark positions
 - an open flame you can hold, plant, or throw at anything that wants lighting
 
-## hairspray
+## can of hairspray
 - a can of hairspray under pressure
 - sprays a fine sticky mist that hangs in the air
 - the propellant is flammable
 - a mist plus a spark becomes a gout of flame
 
-## pool chlorine
+## tub of pool chlorine
 - a tub of pool-shock granules with a bleachy reek
 - eats color, fabric, and skin given time
 - the dust alone stings eyes and throats
 - given something to react with, the granules boil into stinging fog
 
-## ammonia cleaner
+## jug of ammonia cleaner
 - a jug of ammonia cleaner that clears your sinuses from across the room
 - the fumes sting eyes shut and chase people out of small spaces
 - slicks and strips whatever it's poured over
 - in a closed room the fumes do more work than the liquid
 
-## bleach
+## jug of bleach
 - a jug of household bleach
 - ruins everything it splashes — cloth, color, skin
 - the smell alone announces it
 - an open pan of it makes a room hostile to stay in
 
-## liquid nitrogen
+## dewar of liquid nitrogen
 - a steel dewar of liquid so cold it smokes
 - a splash freezes surfaces white on contact
 - what it soaks turns brittle as glass
 - frozen brittle, things that used to bend now shatter
 
-## dry ice
+## block of dry ice
 - a block of dry ice, smoking in open air
 - burns bare skin with cold instead of heat
 - sublimates into a heavy ground-hugging fog
 - dropped in water it fogs a whole corridor in moments
 
-## wet cement
+## bucket of wet cement
 - a bucket of wet cement, heavy and slopping
 - clings to boots and drags every step
 - sets hard on its own schedule, and nothing renegotiates
 - whatever's standing in it when it cures is furniture now
 
-## expanding foam
+## can of expanding foam
 - a can of gap-filler foam
 - a thin bead swells to a fat, sticky loaf
 - cures from tacky to rock in place
 - sprayed into a mechanism or a doorway, it becomes the new mechanism
 
-## overripe produce
+## crate of overripe produce
 - a crate of produce past its best days
 - bursts into slick pulp at the slightest violence
 - the pulp is half slip, half glue
@@ -318,13 +324,13 @@
 - they tumble and scatter rather than fly true
 - fired or flung in a handful, they turn one hit into many small punctures
 
-## ball bearings
+## tin of ball bearings
 - a tin of dense steel spheres
 - heavier than they look; they hit like thrown weights
 - spilled underfoot, they take feet out from under people
 - launched in a spread they dent everything in a cone
 
-## marbles
+## bag of marbles
 - a bag of glass marbles
 - roll forever on any hard floor
 - underfoot they're a slapstick disaster

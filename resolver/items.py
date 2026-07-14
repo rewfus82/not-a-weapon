@@ -454,7 +454,7 @@ _ITEMS: list[Item] = [
     # ---- Layer 3 · Substance / payload (needs a delivery to come out) ----
     Item("jerrycan of gasoline",
          associations=(
-             "a can of gasoline, sloshing and sharp-smelling",
+             "a jerrycan of gasoline, sloshing and sharp-smelling",
              "splashes wide, soaks in, and stays",
              "the fumes catch before the liquid does",
              "one spark anywhere on the spill claims the whole spill",
@@ -464,7 +464,7 @@ _ITEMS: list[Item] = [
          base_use=BaseUse(Delivery.THROWN, EffectKind.BURN, armed=True)),
     Item("jug of motor oil",
          associations=(
-             "slick, viscous, impossible to get traction on",
+             "a jug of motor oil — slick, viscous, impossible to get traction on",
              "clings in a dark film to whatever it coats",
              "flammable once something gets it hot enough",
              "poured across a floor it turns the whole stretch into a skating rink",
