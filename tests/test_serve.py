@@ -88,7 +88,7 @@ def test_catalog_payload_exposes_chassis_eligibility_and_solo_cards():
     assert [s["trigger"] for s in solo["stages"]] == ["ON_IMPACT", "ON_TRIGGER"]
 
     ammo = by_name[".22 rounds"]
-    assert ammo["chassis"] is False
+    assert ammo["chassis"] is False and ammo["mechanism"] is False
     assert ammo["solo"] is None and ammo["form"] is None
 
     crowbar = by_name["crowbar"]
