@@ -47,7 +47,7 @@ Same value as today — solo behavior is byte-identical. This also retires the l
 Pin relationships, not magic numbers:
 
 - For every `DEFAULT_BUILDS` build × every tier: `total_magnitude(fallback.resolve(build, tier)) == pytest.approx(TIER_BUDGET[tier])`.
-- Where an overlay fires (swamp_cooler at RARE+): overlay amount == base amount / 2, and per-effect amounts follow the weight formula.
+- Where an overlay fires: overlay amount == base amount / 2, and per-effect amounts follow the weight formula. **Erratum (found in implementation):** swamp_cooler never produces an overlay — its only candidate (CHAIN from the car battery) is always in the base chain via `electrical+liquid` and gets deduped; the test uses t-shirt cannon + propane tank (BURN base, EXPLODE overlay) instead. Do not "fix" the test back to swamp_cooler — it would assert nothing.
 - Deterministic path never trips the clamp cap: resolved total == draft total at every tier.
 - Solo: existing pins hold unchanged (2.0 total, below `TIER_BUDGET[COMMON]`, DUD tier); add a pin that solo total < deterministic DUD craft total.
 - Update any existing tests that assert old seed-derived amounts; kind/stage/count assertions are unaffected.

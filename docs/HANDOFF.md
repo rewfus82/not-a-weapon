@@ -16,9 +16,9 @@ For a fresh Claude Code session. **Read `CLAUDE.md` and `docs/GAME_IDENTITY.md` 
 
 ## Follow-up queue (rough priority)
 
-- **`serve.py` playground pass:** a "use it solo" affordance for base uses (`resolver/solo.py` is ready to consume), and `catalog_payload` can't distinguish a valid substance chassis (jerrycan) from invalid ammo — both serialize `delivery: None`; expose base-use/chassis eligibility.
-- **`_TIER_SEED` tuning** (`fallback.py`): play-tuned, not TDD (guns read underpowered vs multi-effect builds; flat per-effect seed). Promote `_TIER_SEED` to a public constant while there (solo.py imports it privately, plan-mandated).
-- Tagless real guns read stark (DAMAGE-only every tier) — intentional for now.
+- ~~`serve.py` playground pass~~ DONE 2026-07-14 (grouped chassis picker + solo cards; commits `fe0aa66..6f5d923`).
+- ~~`_TIER_SEED` tuning~~ DONE 2026-07-15 as the **budget-filling composer** (spec `2026-07-15-budget-filling-composer-design.md`, commits `f8d25f0..80c691c`): every deterministic build totals exactly `TIER_BUDGET[tier]` (§6); `_TIER_SEED` deleted; solo owns `_SOLO_AMOUNT = 2.0`. **Deterministic power tuning is now a single knob: `TIER_BUDGET` in `clamp.py`** — turning it is play-tuning, later.
+- Tagless real guns read stark in *shape* (DAMAGE-only every tier — intentional for now); magnitude is fixed (one hit filling the full budget).
 - Riding minors are logged per-task in the ledger (docstring mentions, comment placement, coverage-breadth notes).
 - Out of resolver scope (later phases): bake pipeline, best-of-N cost optimization, renderer, the Unreal game, GAME_IDENTITY mechanics (armory / deconstruct / blueprints / loadout — canon, not code).
 
