@@ -18,6 +18,7 @@ from resolver.contract import Tier
 from resolver.fallback import resolve as fallback_resolve
 from resolver.harness import DEFAULT_ESCALATE_MODEL, DEFAULT_MODEL, _label_models, build_model_list
 from resolver.items import CATALOG, Build
+from resolver.solo import resolve_solo
 
 # ---------------------------------------------------------------- pure helpers
 
@@ -30,10 +31,15 @@ def catalog_payload() -> dict:
     """The catalog the page needs to build its slot pickers."""
     items = []
     for name, item in CATALOG.items():
+        form = item.delivery or (item.base_use.delivery if item.base_use else None)
         items.append({
             "name": name,
             "associations": item.describe().split(", "),
             "delivery": item.delivery.value if item.delivery is not None else None,
+            "chassis": form is not None,
+            "mechanism": item.delivery is not None,
+            "form": form.value if form is not None else None,
+            "solo": gadget_to_dict(resolve_solo(item), "solo") if item.base_use else None,
             "color": _color_for(name),
         })
     return {"items": items, "tiers": [t.value for t in Tier]}

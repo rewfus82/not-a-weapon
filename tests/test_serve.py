@@ -1,3 +1,4 @@
+import json
 import pytest
 
 from resolver import fallback, serve
@@ -72,3 +73,28 @@ def test_roll_tags_fallback_when_the_resolver_refuses():
     results = serve.roll(always_refuse, build, Tier.LEGENDARY, 1)
     assert results[0]["source"] == "fallback"
     assert results[0]["stages"]                                # a valid instance, not a hole
+
+
+def test_catalog_payload_exposes_chassis_eligibility_and_solo_cards():
+    payload = serve.catalog_payload()
+    by_name = {item["name"]: item for item in payload["items"]}
+
+    jerrycan = by_name["jerrycan of gasoline"]
+    assert jerrycan["chassis"] is True
+    assert jerrycan["mechanism"] is False
+    assert jerrycan["form"] == "THROWN"
+    solo = jerrycan["solo"]
+    assert solo["source"] == "solo" and solo["tier"] == "DUD"
+    assert [s["trigger"] for s in solo["stages"]] == ["ON_IMPACT", "ON_TRIGGER"]
+
+    ammo = by_name[".22 rounds"]
+    assert ammo["chassis"] is False
+    assert ammo["solo"] is None and ammo["form"] is None
+
+    crowbar = by_name["crowbar"]
+    assert crowbar["mechanism"] is True and crowbar["form"] == "SWING"
+    assert [s["trigger"] for s in crowbar["solo"]["stages"]] == ["ON_HIT"]
+
+
+def test_catalog_payload_is_json_serializable():
+    json.dumps(serve.catalog_payload())
