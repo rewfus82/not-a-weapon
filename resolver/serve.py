@@ -242,6 +242,7 @@ PAGE = r"""<!doctype html>
   .harm { color: #64d19a; border-color: #24503b; }
   .weap { color: #ff8a6a; border-color: #5a2a1e; }
   .fb { color: #ffb454; border-color: #5a4420; }
+  .sb { color: #9cc4ff; border-color: #2a3f66; }
   .name { font-size: 19px; font-weight: 700; margin: 6px 0 2px; }
   .logic { color: #b6bdc9; font-style: italic; margin: 4px 0 10px; }
   .stage { margin: 6px 0; }
@@ -275,6 +276,7 @@ PAGE = r"""<!doctype html>
     </div>
     <button class="roll" id="roll">Roll</button>
     <div id="assoc"></div>
+    <div id="solo"></div>
   </div>
   <div id="results"><div class="hint">Pick a delivery item and hit Roll.</div></div>
 </main>
@@ -293,16 +295,35 @@ async function load() {
                             : 'fallback (free) — deterministic, boring, no API calls';
   modeEl.className = live ? 'live' : 'free';
 
-  const deliveries = data.items.filter(i => i.delivery);
-  $('delivery').append(...deliveries.map(i => opt(i.name, i.name + '  (' + i.delivery + ')')));
+  const groups = [
+    ['mechanisms', data.items.filter(i => i.mechanism)],
+    ['containers & junk', data.items.filter(i => i.chassis && !i.mechanism)],
+  ];
+  for (const [label, items] of groups) {
+    const g = document.createElement('optgroup'); g.label = label;
+    g.append(...items.map(i => opt(i.name, i.name + '  (' + i.form + ')')));
+    $('delivery').append(g);
+  }
   for (const slot of ['damage','utility','modifier']) {
     $(slot).append(opt('', '(none)'), ...data.items.map(i => opt(i.name, i.name)));
   }
   $('tier').append(...data.tiers.map(t => opt(t, t)));
   $('tier').value = 'LEGENDARY';
-  $('delivery').onchange = showAssoc; $('damage').onchange = showAssoc;
-  $('utility').onchange = showAssoc; $('modifier').onchange = showAssoc;
+  for (const slot of ['delivery','damage','utility','modifier']) {
+    $(slot).onchange = () => { showAssoc(); showSolo(slot); };
+  }
   showAssoc();
+  showSolo('delivery');
+}
+
+function showSolo(slot) {
+  const byName = Object.fromEntries(CATALOG.items.map(i => [i.name, i]));
+  const name = $(slot).value;
+  const el = $('solo');
+  if (!name) { el.innerHTML = ''; return; }
+  const it = byName[name];
+  el.innerHTML = '<label>solo — as found</label>' +
+    (it.solo ? card(it.solo) : '<div class="hint">(no solo use — ammunition)</div>');
 }
 
 function showAssoc() {
@@ -336,6 +357,7 @@ function card(g) {
   badges.push('<span class="badge">' + g.delivery + '</span>');
   if (g.color) badges.push('<span class="badge">' + g.color + '</span>');
   if (g.source === 'fallback') badges.push('<span class="badge fb">fallback</span>');
+  if (g.source === 'solo') badges.push('<span class="badge sb">solo</span>');
   const stages = g.stages.map(s =>
     '<div class="stage"><div class="trig">' + s.trigger + '</div>' +
     s.effects.map(fx).join('') + '</div>').join('');
