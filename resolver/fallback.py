@@ -13,11 +13,6 @@ from resolver.contract import (
 from resolver.items import Build
 from resolver.interactions import effects_for
 
-_TIER_SEED: dict[Tier, float] = {
-    Tier.DUD: 2.0, Tier.COMMON: 6.0, Tier.UNCOMMON: 10.0,
-    Tier.RARE: 18.0, Tier.EPIC: 30.0, Tier.LEGENDARY: 45.0,
-}
-
 
 def _role_items(build: Build, role: Role):
     return [it for _, it in build.slots() if it is not None and role in it.roles]

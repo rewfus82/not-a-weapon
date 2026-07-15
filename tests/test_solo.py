@@ -2,8 +2,8 @@ import pytest
 
 from resolver.clamp import TIER_BUDGET, OVER_BUDGET_FACTOR
 from resolver.contract import Category, Delivery, EffectKind, Flag, Tier, Trigger
-from resolver.items import CATALOG
-from resolver import solo
+from resolver.items import CATALOG, Build
+from resolver import fallback, solo
 
 
 def test_taser_solo_zap_is_a_thrust_stagger():
@@ -62,3 +62,13 @@ def test_thrown_container_solo_bursts_on_impact():
     r = solo.resolve_solo(CATALOG["jug of motor oil"])
     assert r.draft.stages[0].trigger is Trigger.ON_IMPACT
     assert r.delivery is Delivery.THROWN
+
+
+def test_solo_stays_below_even_a_dud_craft():
+    # bare pickup never competes with crafting, even at the floor:
+    # solo is a pinned 2.0; a DUD craft fills the DUD budget (6.0)
+    r = solo.resolve_solo(CATALOG["crowbar"])
+    solo_total = sum(e.amount for s in r.draft.stages for e in s.effects)
+    craft = fallback.resolve(Build(delivery_item=CATALOG["crowbar"]), Tier.DUD)
+    craft_total = sum(e.amount for s in craft.stages for e in s.effects)
+    assert solo_total < craft_total
