@@ -6,6 +6,7 @@ resolver's `resolve`, so the harness can swap them freely.
 """
 from __future__ import annotations
 
+from resolver.clamp import TIER_BUDGET
 from resolver.contract import (
     Effect, EffectKind, GadgetDraft, Role, Stage, Tier, Trigger, tier_at_least,
 )
@@ -62,7 +63,6 @@ def _stages_for(build: Build, effects: list[Effect]) -> list[Stage]:
 
 
 def resolve(build: Build, tier: Tier) -> GadgetDraft:
-    seed = _TIER_SEED[tier]
     tag_union = frozenset().union(
         *(it.tags for _, it in build.slots() if it is not None)
     ) if any(it for _, it in build.slots()) else frozenset()
@@ -72,13 +72,21 @@ def resolve(build: Build, tier: Tier) -> GadgetDraft:
     take = 1 if tier is Tier.DUD else (2 if not tier_at_least(tier, Tier.RARE) else len(base_effects))
     chosen = base_effects[:take]
 
-    effects = [Effect(kind=k, amount=seed, note="base") for k in chosen]
-    # overlays only unlock at RARE+; a kind the base chain already has is skipped
+    # §6: every build at a tier spends the same budget — it splits across the
+    # composed effects (overlays ride at half a base share). Overlays only
+    # unlock at RARE+; a kind the base chain already has is skipped.
+    parts: list[tuple[EffectKind, float, str]] = [(k, 1.0, "base") for k in chosen]
     if tier_at_least(tier, Tier.RARE):
         for k in _overlays(build):
             if k in chosen:
                 continue
-            effects.append(Effect(kind=k, amount=seed * 0.5, note="overlay"))
+            parts.append((k, 0.5, "overlay"))
+    budget = TIER_BUDGET[tier]
+    total_weight = sum(w for _, w, _ in parts)
+    effects = [
+        Effect(kind=k, amount=budget * w / total_weight, note=note)
+        for k, w, note in parts
+    ]
 
     name_bits = " + ".join(it.name for _, it in build.slots() if it is not None)
     return GadgetDraft(

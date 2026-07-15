@@ -1,3 +1,7 @@
+import pytest
+
+from resolver.clamp import TIER_BUDGET, apply as clamp_apply
+
 from resolver.contract import EffectKind, GadgetDraft, Tier, Trigger
 from resolver.items import DEFAULT_BUILDS, Build, CATALOG
 from resolver import fallback
@@ -67,3 +71,40 @@ def test_armed_chassis_composes_the_two_stage_patch():
 def test_mechanism_chassis_keeps_on_hit():
     draft = fallback.resolve(DEFAULT_BUILDS["broom_bat"], Tier.COMMON)
     assert draft.stages[0].trigger is Trigger.ON_HIT
+
+
+def test_every_build_fills_the_tier_budget_exactly():
+    # §6: same power total within a tier, whatever the item/effect count
+    builds = {
+        **DEFAULT_BUILDS,
+        "lone_gun": Build(delivery_item=CATALOG["9mm pistol"]),
+        "lone_jerrycan": Build(delivery_item=CATALOG["jerrycan of gasoline"]),
+        "overlay_build": Build(delivery_item=CATALOG["t-shirt cannon"],
+                               modifier_item=CATALOG["propane tank"]),
+    }
+    for key, build in builds.items():
+        for tier in Tier:
+            draft = fallback.resolve(build, tier)
+            total = sum(e.amount for s in draft.stages for e in s.effects)
+            assert total == pytest.approx(TIER_BUDGET[tier]), (key, tier.value)
+
+
+def test_overlay_rides_at_half_a_base_share():
+    # cannon+propane at LEGENDARY: base [BURN] w=1, overlay [EXPLODE] w=0.5
+    build = Build(delivery_item=CATALOG["t-shirt cannon"],
+                  modifier_item=CATALOG["propane tank"])
+    draft = fallback.resolve(build, Tier.LEGENDARY)
+    amounts = {e.note: e.amount for s in draft.stages for e in s.effects}
+    assert amounts["overlay"] == pytest.approx(amounts["base"] / 2)
+
+
+def test_deterministic_path_never_trips_the_clamp_cap():
+    # budget < budget*1.12, so the clamp must pass composed drafts through
+    # untouched — the over-budget headroom is booster-only again
+    for build in DEFAULT_BUILDS.values():
+        for tier in Tier:
+            draft = fallback.resolve(build, tier)
+            resolved = clamp_apply(draft, build, tier)
+            before = sum(e.amount for s in draft.stages for e in s.effects)
+            after = sum(e.amount for s in resolved.draft.stages for e in s.effects)
+            assert after == pytest.approx(before)
