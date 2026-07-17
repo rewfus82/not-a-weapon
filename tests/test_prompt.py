@@ -20,3 +20,9 @@ def test_render_user_message_includes_slots_associations_delivery_and_tier():
     assert "TARGET TIER: RARE" in msg
     # at least one descriptor from the delivery item's cloud is injected
     assert "swing weight" in msg
+
+
+def test_system_prompt_explains_targets_and_self_kit_triggers():
+    assert "STRUCK" in SYSTEM_PROMPT           # the target axis is explained
+    assert "target" in SYSTEM_PROMPT.lower()
+    assert "gets hit" in SYSTEM_PROMPT         # self-kit ON_HIT semantics

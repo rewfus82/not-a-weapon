@@ -87,8 +87,9 @@ def gadget_to_dict(resolved, source: str) -> dict:
                 "trigger": s.trigger.value,
                 "note": s.note,
                 "effects": [
-                    {"kind": e.kind.value, "amount": e.amount, "duration": e.duration,
-                     "radius": e.radius, "count": e.count, "note": e.note}
+                    {"kind": e.kind.value, "target": e.target.value, "amount": e.amount,
+                     "duration": e.duration, "radius": e.radius, "count": e.count,
+                     "note": e.note}
                     for e in s.effects
                 ],
             }
@@ -345,7 +346,8 @@ function showAssoc() {
 }
 
 function fx(e) {
-  const bits = ['<span class="kind">' + e.kind + '</span>'];
+  const bits = ['<span class="kind">' + e.kind + '</span>',
+                '<span class="num">@' + e.target + '</span>'];
   const num = [];
   if (e.amount) num.push('a=' + (+e.amount.toFixed(3)));
   if (e.duration) num.push('d=' + (+e.duration.toFixed(2)));

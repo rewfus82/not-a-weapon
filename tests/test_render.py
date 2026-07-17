@@ -28,6 +28,7 @@ def test_render_groups_by_build_and_shows_both_axes():
     assert "Damp Sweep" in out and "Last Call" in out
     assert "the trace" in out                        # logic is shown
     assert "BURN" in out                             # staged effect is shown
+    assert "BURN@STRUCK" in out                      # target axis is shown
     assert "[run 2/3]" in out                        # variety-within-tier instances labelled
 
 

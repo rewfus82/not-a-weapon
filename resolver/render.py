@@ -21,7 +21,7 @@ class RunResult:
 
 
 def _render_effect(effect) -> str:
-    bits = [effect.kind.value, f"a={effect.amount:g}"]
+    bits = [f"{effect.kind.value}@{effect.target.value}", f"a={effect.amount:g}"]
     if effect.duration:
         bits.append(f"d={effect.duration:g}")
     if effect.radius:

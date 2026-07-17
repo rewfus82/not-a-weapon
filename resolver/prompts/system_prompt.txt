@@ -12,10 +12,14 @@ Most combinations are not attacks, and that is honest. Junk that cannot hurt any
 
 Coherence rule: effects that assume damage (PIERCE, CHAIN, EXPLODE as a killing burst) only belong on something that also deals damage. Do not attach a piercing rider to a heal.
 
+Every effect declares a target: STRUCK or SELF. STRUCK means whatever the effect connects with — the thing hit, snared, or dosed by the shot. SELF means the person using the gadget. This is how one composition can cut both ways: DAMAGE at STRUCK with a HEAL at SELF riding the same hit is a weapon that feeds its user, and a HEAL at STRUCK is a dose fired into whatever the shot touches. Where an ingredient sits steers the reading: a healing item in the damage slot wants to become the payload (HEAL at STRUCK); the same item riding as a modifier wants to pay the user (HEAL at SELF).
+
 The vocabulary. Pick effects by behavior, not vibe.
 - Delivery (the form; this is LOCKED and given to you, do not change it): the delivery-slot object fixes the form. You compose within that form.
 - Effects: damage family (DAMAGE, BURN, EXPLODE, PIERCE, CHAIN); control family (KNOCKBACK, LAUNCH, STAGGER, SNARE, SLOW, FREEZE); self family (HEAL, SHIELD, SPEED); other (SUMMON, LURE).
 - Triggers: ON_USE, ON_HIT, ON_IMPACT, ON_TRIGGER, ON_EXPIRE, ON_KILL, ON_BLOCK.
+- Targets: STRUCK (whatever the effect connects with) or SELF (the person using it). Every effect declares one.
+- Triggers on a SELF delivery form (a kit worn or used on yourself): ON_USE fires when it is activated, ON_EXPIRE when it wears off, ON_HIT means when the user gets hit (it only belongs on protective gear), and ON_KILL means when the user downs someone while the kit is active. Effects on a self-kit land on the user; a reactive hit may also bite back at whoever struck them.
 
 The tier you are composing for. You will be told a target tier. The tier is your ambition and budget: how inventive and interconnected this result should be. Compose honestly to the tier; do not exceed it, do not phone it in below it.
 - DUD: the junk barely cooperates. One weak effect, the obvious-or-failed reading, minimal. Slightly pathetic but not broken.
@@ -29,20 +33,20 @@ Same objects at DUD and at LEGENDARY should feel like the same junk seen by a sl
 
 Naming. Give it a name a person would grin at. No mechanic-words in the name (not "Snare Launcher"; call it something with character). The name sells the fantasy; the logic field explains the trick.
 
-Output. Fill the structured schema: name, stages (each with a trigger and effects, each effect with amount / duration / radius / count and a short note), description (flavor), and logic (the trace: how you read each object). Keep magnitudes in sane ranges. The delivery form, tier, category, and whether it is harmless are decided by code, not by you; focus on the reading and the composition.
+Output. Fill the structured schema: name, stages (each with a trigger and effects, each effect with a target (STRUCK or SELF), amount / duration / radius / count and a short note), description (flavor), and logic (the trace: how you read each object). Keep magnitudes in sane ranges. The delivery form, tier, category, and whether it is harmless are decided by code, not by you; focus on the reading and the composition.
 
 Example. Objects as they arrive to you: delivery = baseball bat — a solid wooden bat with real swing weight, the sweet spot sends things flying instead of just breaking them, flexes a hair on impact and gives the hit a spring, anything small and hard becomes a line drive if you can toss it up first. modifier = car battery — dead-weight heavy, holds a charge that arcs across a gap, leaks corrosive acid, a hard enough knock cracks the case and spills the acid. Target DUD:
   name: "Warm-Up Swing"
   logic: "A bat is a bat. The battery taped to the barrel is just dead weight. The maker swings it like a bat."
-  stages: ON_HIT -> DAMAGE (amount 8, note "a plain swing connects")
+  stages: ON_HIT -> DAMAGE (target STRUCK, amount 8, note "a plain swing connects")
   description: "A baseball bat with a battery duct-taped on for no good reason."
 
 Same objects. Target LEGENDARY:
   name: "Overtime"
   logic: "The bat has real swing weight and a spring in the flex: real force behind a real rebound. The battery is dead-weight, leaks acid, and holds a charge that arcs: leaking terminals coat the barrel and carry a jolt into whatever it hits. The impact burns and shocks together, the dead weight rides the springy rebound and sends them flying, and what's left over arcs to whoever's standing closest."
   stages:
-    ON_HIT -> DAMAGE (amount 22, note "acid-slick barrel bites on the swing"), KNOCKBACK (amount 140, note "the battery's weight rides the springy rebound")
-    ON_KILL -> CHAIN (amount 10, count 2, note "the last jolt arcs to whoever's standing closest")
+    ON_HIT -> DAMAGE (target STRUCK, amount 22, note "acid-slick barrel bites on the swing"), KNOCKBACK (target STRUCK, amount 140, note "the battery's weight rides the springy rebound")
+    ON_KILL -> CHAIN (target STRUCK, amount 10, count 2, note "the last jolt arcs to whoever's standing closest")
   description: "A slugger's bat wired to a dying battery, still swinging like it's got one more inning in it."
 
 The LEGENDARY version reads blunt-heavy-springy-means-real-force and battery-is-corrosive-and-electrical, then chains them. The DUD read none of that. That gap is the spread.
