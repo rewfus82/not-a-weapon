@@ -53,6 +53,20 @@ def clamp_magnitudes(draft: GadgetDraft, tier: Tier) -> GadgetDraft:
     return copy.deepcopy(draft)
 
 
+def fill_budget(draft: GadgetDraft, tier: Tier) -> GadgetDraft:
+    """Scale a draft so its total magnitude lands exactly on the tier budget,
+    preserving the composition's proportions. The LLM path calls this on
+    parsed drafts (models free-hand magnitudes); the deterministic composer
+    already fills the budget by construction. Zero-total drafts (pure
+    duration-carried control) pass through — there are no proportions to
+    scale. Never called from `apply` — solo stays pathetic.
+    """
+    total = total_magnitude(draft)
+    if total == 0:
+        return copy.deepcopy(draft)
+    return _scale(draft, TIER_BUDGET[tier] / total)
+
+
 def _kinds(draft: GadgetDraft) -> set:
     return {e.kind for stage in draft.stages for e in stage.effects}
 

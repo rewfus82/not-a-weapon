@@ -1,3 +1,5 @@
+import pytest
+
 from resolver.contract import (
     Category, Delivery, Effect, EffectKind, GadgetDraft, Stage, Tier,
 )
@@ -94,3 +96,28 @@ def test_apply_assembles_code_owned_fields_from_build():
     assert rg.category is Category.WEAPON
     assert rg.harmless is False
     assert set(rg.params) == {"reach", "arc", "commit", "sweep_targets"}
+
+
+def test_fill_budget_scales_up_preserving_ratios():
+    d = _draft(Effect(kind=EffectKind.DAMAGE, amount=30), Effect(kind=EffectKind.BURN, amount=10))
+    out = clamp.fill_budget(d, Tier.LEGENDARY)  # budget 120, ratios 3:1
+    amounts = [e.amount for s in out.stages for e in s.effects]
+    assert amounts == [pytest.approx(90.0), pytest.approx(30.0)]
+
+
+def test_fill_budget_scales_down_to_budget_not_cap():
+    d = _draft(Effect(kind=EffectKind.DAMAGE, amount=500))
+    out = clamp.fill_budget(d, Tier.LEGENDARY)
+    assert clamp.total_magnitude(out) == pytest.approx(clamp.TIER_BUDGET[Tier.LEGENDARY])
+
+
+def test_fill_budget_passes_zero_total_through():
+    d = _draft(Effect(kind=EffectKind.SNARE, amount=0))
+    out = clamp.fill_budget(d, Tier.LEGENDARY)
+    assert clamp.total_magnitude(out) == 0
+
+
+def test_fill_budget_works_at_the_dud_floor():
+    d = _draft(Effect(kind=EffectKind.DAMAGE, amount=1))
+    out = clamp.fill_budget(d, Tier.DUD)
+    assert clamp.total_magnitude(out) == pytest.approx(6.0)

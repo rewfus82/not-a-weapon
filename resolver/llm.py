@@ -7,6 +7,7 @@ never a runtime hot path.
 """
 from __future__ import annotations
 
+from resolver.clamp import fill_budget
 from resolver.contract import GadgetDraft, Tier
 from resolver.items import Build
 from resolver.prompt import SYSTEM_PROMPT, render_user_message
@@ -42,7 +43,7 @@ class LLMResolver:
                 )
                 draft = response.parsed_output
                 if draft is not None:
-                    return draft
+                    return fill_budget(draft, tier)
                 last_reason = f"no GadgetDraft (stop_reason={response.stop_reason!r})"
             except Exception as exc:  # noqa: BLE001 - retry on any transport/parse failure
                 last_reason = f"{type(exc).__name__}: {exc}"

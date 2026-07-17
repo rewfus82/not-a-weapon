@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from resolver.clamp import TIER_BUDGET
 from resolver.contract import Effect, EffectKind, GadgetDraft, Stage, Tier, Trigger
 from resolver.items import DEFAULT_BUILDS
 from resolver.llm import LLMResolver
@@ -88,3 +89,12 @@ def test_resolver_retries_past_an_exception():
 def test_resolver_requires_at_least_one_model():
     with pytest.raises(ValueError):
         LLMResolver(FakeClient([]), models=[])
+
+
+def test_resolver_normalizes_parsed_drafts_to_the_tier_budget():
+    # the model free-hands magnitudes; the resolver lands them on the budget
+    client = FakeClient([_canned_draft()])  # canned draft totals 1
+    resolver = LLMResolver(client, models=["claude-sonnet-5"])
+    out = resolver.resolve(DEFAULT_BUILDS["broom_bat"], Tier.LEGENDARY)
+    total = sum(e.amount for s in out.stages for e in s.effects)
+    assert total == pytest.approx(TIER_BUDGET[Tier.LEGENDARY])
