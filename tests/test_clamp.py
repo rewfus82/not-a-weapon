@@ -19,36 +19,42 @@ def Trigger_ON_HIT():
     return Trigger.ON_HIT
 
 
-def test_total_magnitude_sums_amounts():
-    d = _draft(Effect(kind=EffectKind.DAMAGE, target=Target.STRUCK, amount=10), Effect(kind=EffectKind.BURN, target=Target.STRUCK, amount=5))
-    assert clamp.total_magnitude(d) == 15
+def test_total_cost_sums_weighted_fields():
+    d = _draft(
+        Effect(kind=EffectKind.DAMAGE, target=Target.STRUCK, amount=10),
+        Effect(kind=EffectKind.SNARE, target=Target.STRUCK, duration=2.0),
+        Effect(kind=EffectKind.PIERCE, target=Target.STRUCK, count=2),
+    )
+    expected = (10 * clamp.W_AMOUNT[EffectKind.DAMAGE]
+                + 2.0 * clamp.W_DURATION + 2 * clamp.W_COUNT)
+    assert clamp.total_cost(d) == pytest.approx(expected)
 
 
 def test_over_budget_is_scaled_down_to_the_cap():
     d = _draft(Effect(kind=EffectKind.DAMAGE, target=Target.STRUCK, amount=1000))
     out = clamp.clamp_magnitudes(d, Tier.LEGENDARY)
     cap = clamp.TIER_BUDGET[Tier.LEGENDARY] * clamp.OVER_BUDGET_FACTOR
-    assert clamp.total_magnitude(out) <= cap + 1e-6
-    assert clamp.total_magnitude(out) == cap  # scaled exactly to the ceiling
+    assert clamp.total_cost(out) <= cap + 1e-6
+    assert clamp.total_cost(out) == cap  # scaled exactly to the ceiling
 
 
 def test_dud_over_budget_scales_down_hard():
     d = _draft(Effect(kind=EffectKind.KNOCKBACK, target=Target.STRUCK, amount=120))
     out = clamp.clamp_magnitudes(d, Tier.DUD)
     cap = clamp.TIER_BUDGET[Tier.DUD] * clamp.OVER_BUDGET_FACTOR
-    assert clamp.total_magnitude(out) == cap
+    assert clamp.total_cost(out) == cap
 
 
 def test_tiny_nonzero_draft_is_raised_to_the_floor():
     d = _draft(Effect(kind=EffectKind.STAGGER, target=Target.STRUCK, amount=0.2))
     out = clamp.clamp_magnitudes(d, Tier.DUD)
-    assert clamp.total_magnitude(out) == clamp.DUD_FLOOR
+    assert clamp.total_cost(out) == clamp.DUD_FLOOR
 
 
 def test_empty_draft_is_left_alone():
     d = GadgetDraft(name="t", description="", logic="", stages=[])
     out = clamp.clamp_magnitudes(d, Tier.DUD)
-    assert clamp.total_magnitude(out) == 0
+    assert clamp.total_cost(out) == 0
 
 
 def test_harmless_true_when_only_control_and_lure():
@@ -108,19 +114,19 @@ def test_fill_budget_scales_up_preserving_ratios():
 def test_fill_budget_scales_down_to_budget_not_cap():
     d = _draft(Effect(kind=EffectKind.DAMAGE, target=Target.STRUCK, amount=500))
     out = clamp.fill_budget(d, Tier.LEGENDARY)
-    assert clamp.total_magnitude(out) == pytest.approx(clamp.TIER_BUDGET[Tier.LEGENDARY])
+    assert clamp.total_cost(out) == pytest.approx(clamp.TIER_BUDGET[Tier.LEGENDARY])
 
 
 def test_fill_budget_passes_zero_total_through():
     d = _draft(Effect(kind=EffectKind.SNARE, target=Target.STRUCK, amount=0))
     out = clamp.fill_budget(d, Tier.LEGENDARY)
-    assert clamp.total_magnitude(out) == 0
+    assert clamp.total_cost(out) == 0
 
 
 def test_fill_budget_works_at_the_dud_floor():
     d = _draft(Effect(kind=EffectKind.DAMAGE, target=Target.STRUCK, amount=1))
     out = clamp.fill_budget(d, Tier.DUD)
-    assert clamp.total_magnitude(out) == pytest.approx(6.0)
+    assert clamp.total_cost(out) == pytest.approx(6.0)
 
 
 # --- derivation matrix on (kind, target) — spec §6, playtest fixtures pinned ---
@@ -169,3 +175,26 @@ def test_lure_at_self_is_still_utility():
     # LURE is the one kind rule 4 ignores at SELF — bait is utility either way
     d = _draft(Effect(kind=EffectKind.LURE, target=Target.SELF, amount=1))
     assert clamp.derive_category(d) is Category.UTILITY
+
+
+def test_duration_only_effect_consumes_budget():
+    # the free-rider exploit: a 2.5s snare next to a full damage budget must
+    # now cost — fill_budget lands the weighted total exactly on the budget
+    d = _draft(
+        Effect(kind=EffectKind.SNARE, target=Target.STRUCK, duration=2.5),
+        Effect(kind=EffectKind.DAMAGE, target=Target.STRUCK, amount=50),
+    )
+    out = clamp.fill_budget(d, Tier.RARE)  # budget 48; cost before = 2.5*2 + 50 = 55
+    assert clamp.total_cost(out) == pytest.approx(clamp.TIER_BUDGET[Tier.RARE])
+    snare = out.stages[0].effects[0]
+    assert snare.duration == pytest.approx(2.5 * 48.0 / 55.0)  # scaled, not free
+
+
+def test_count_overflow_floor_scales_counts_first():
+    # count cost alone (10 * W_COUNT = 30) exceeds the DUD budget (6):
+    # counts floor-scale down deterministically; small residue is acceptable
+    d = _draft(Effect(kind=EffectKind.PIERCE, target=Target.STRUCK, count=10))
+    out = clamp.fill_budget(d, Tier.DUD)
+    e = out.stages[0].effects[0]
+    assert e.count == 2  # int(10 * 6/30)
+    assert clamp.total_cost(out) <= clamp.TIER_BUDGET[Tier.DUD] + 1e-9

@@ -109,6 +109,14 @@ def test_composer_effects_carry_code_authored_targets():
     assert all(e.target is Target.STRUCK for s in draft.stages for e in s.effects)
 
 
+def test_composer_fills_the_weighted_budget_exactly_at_every_tier():
+    from resolver import clamp
+    for key, build in DEFAULT_BUILDS.items():
+        for tier in Tier:
+            draft = fallback.resolve(build, tier)
+            assert clamp.total_cost(draft) == pytest.approx(TIER_BUDGET[tier]), (key, tier.value)
+
+
 def test_deterministic_path_never_trips_the_clamp_cap():
     # budget < budget*1.12, so the clamp must pass composed drafts through
     # untouched — the over-budget headroom is booster-only again

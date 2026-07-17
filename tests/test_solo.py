@@ -70,6 +70,12 @@ def test_solo_self_item_targets_the_user():
     assert effects and all(e.target is Target.SELF for e in effects)
 
 
+def test_solo_weighted_cost_stays_pathetic():
+    from resolver import clamp
+    r = solo.resolve_solo(CATALOG["crowbar"])
+    assert clamp.total_cost(r.draft) == pytest.approx(2.0)  # _SOLO_AMOUNT, never filled
+
+
 def test_solo_stays_below_even_a_dud_craft():
     # bare pickup never competes with crafting, even at the floor:
     # solo is a pinned 2.0; a DUD craft fills the DUD budget (6.0)
