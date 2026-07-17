@@ -98,6 +98,12 @@ def test_overlay_rides_at_half_a_base_share():
     assert amounts["overlay"] == pytest.approx(amounts["base"] / 2)
 
 
+def test_self_kit_chassis_composes_an_on_use_self_stage():
+    draft = fallback.resolve(Build(delivery_item=CATALOG["first-aid kit"]), Tier.COMMON)
+    assert [s.trigger for s in draft.stages] == [Trigger.ON_USE]
+    assert all(e.target is Target.SELF for s in draft.stages for e in s.effects)
+
+
 def test_composer_effects_carry_code_authored_targets():
     draft = fallback.resolve(DEFAULT_BUILDS["gun_ammo"], Tier.COMMON)
     assert all(e.target is Target.STRUCK for s in draft.stages for e in s.effects)

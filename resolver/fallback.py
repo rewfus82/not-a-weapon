@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from resolver.clamp import TIER_BUDGET
 from resolver.contract import (
-    Effect, EffectKind, GadgetDraft, Role, Stage, Tier, Trigger,
+    Delivery, Effect, EffectKind, GadgetDraft, Role, Stage, Target, Tier, Trigger,
     default_target, tier_at_least,
 )
 from resolver.items import Build
@@ -51,8 +51,13 @@ def substance_stages(effects: list[Effect], armed: bool) -> list[Stage]:
 def _stages_for(build: Build, effects: list[Effect]) -> list[Stage]:
     """Mechanism chassis hit (ON_HIT); a substance chassis is a thrown
     container that bursts (ON_IMPACT) — armed payloads burst inert and
-    fire on ignition (ON_TRIGGER)."""
+    fire on ignition (ON_TRIGGER); a self-kit chassis is used on yourself
+    (ON_USE, everything lands on the wielder)."""
     chassis = build.delivery_item
+    if chassis.delivery is Delivery.SELF:
+        for e in effects:
+            e.target = Target.SELF
+        return [Stage(trigger=Trigger.ON_USE, effects=effects, note="self-kit")]
     if chassis.delivery is None and chassis.base_use is not None:
         return substance_stages(effects, chassis.base_use.armed)
     return [Stage(trigger=Trigger.ON_HIT, effects=effects, note="composed")]

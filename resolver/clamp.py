@@ -16,6 +16,7 @@ from resolver.contract import (
     LETHAL_KINDS, CONTROL_KINDS, SELF_KINDS, UTILITY_KINDS,
 )
 from resolver.items import Build, params_for
+from resolver.validate import repair
 
 TIER_BUDGET: dict[Tier, float] = {
     Tier.DUD: 6.0,
@@ -91,7 +92,7 @@ def derive_category(draft: GadgetDraft) -> Category:
 
 
 def apply(draft: GadgetDraft, build: Build, tier: Tier) -> ResolvedGadget:
-    clamped = clamp_magnitudes(draft, tier)
+    clamped = clamp_magnitudes(repair(draft, build), tier)
     return ResolvedGadget(
         draft=clamped,
         delivery=build.delivery,
