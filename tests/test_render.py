@@ -1,5 +1,5 @@
 from resolver.contract import (
-    Category, Delivery, Effect, EffectKind, GadgetDraft, ResolvedGadget, Stage, Tier, Trigger,
+    Category, Delivery, Effect, EffectKind, GadgetDraft, ResolvedGadget, Stage, Target, Tier, Trigger,
 )
 from resolver.render import RunResult, render_run, render_fallback_summary
 
@@ -7,7 +7,7 @@ from resolver.render import RunResult, render_run, render_fallback_summary
 def _resolved(name, tier, category, harmless):
     draft = GadgetDraft(
         name=name, description="flavor", logic="the trace",
-        stages=[Stage(trigger=Trigger.ON_HIT, effects=[Effect(kind=EffectKind.BURN, amount=14, duration=3, note="grease")])],
+        stages=[Stage(trigger=Trigger.ON_HIT, effects=[Effect(kind=EffectKind.BURN, target=Target.STRUCK, amount=14, duration=3, note="grease")])],
     )
     return ResolvedGadget(
         draft=draft, delivery=Delivery.SWING, tier=tier,

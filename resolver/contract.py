@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Delivery(str, Enum):
@@ -55,6 +55,11 @@ class Trigger(str, Enum):
     ON_EXPIRE = "ON_EXPIRE"
     ON_KILL = "ON_KILL"
     ON_BLOCK = "ON_BLOCK"
+
+
+class Target(str, Enum):
+    SELF = "SELF"      # applies to the wielder
+    STRUCK = "STRUCK"  # applies to whatever the effect connects with
 
 
 class Category(str, Enum):
@@ -112,6 +117,13 @@ SELF_KINDS: frozenset[EffectKind] = frozenset({
 })
 UTILITY_KINDS: frozenset[EffectKind] = frozenset({EffectKind.LURE})
 
+def default_target(kind: EffectKind) -> Target:
+    """Code-authored default for the deterministic paths: self-family
+    effects apply to the wielder; everything else applies to what it
+    connects with (a LURE is bait thrown at a spot, not worn)."""
+    return Target.SELF if kind in SELF_KINDS else Target.STRUCK
+
+
 MELEE_DELIVERIES: frozenset[Delivery] = frozenset({
     Delivery.SWING, Delivery.THRUST, Delivery.SLAM, Delivery.WHIP,
 })
@@ -120,7 +132,8 @@ MELEE_DELIVERIES: frozenset[Delivery] = frozenset({
 # --- output schema ---
 class Effect(BaseModel):
     kind: EffectKind
-    amount: float = 0.0
+    target: Target  # required: the model must declare who it hits on every effect
+    amount: float = Field(0.0, ge=0)
     duration: float = 0.0
     radius: float = 0.0
     count: int = 0

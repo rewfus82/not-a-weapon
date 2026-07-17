@@ -8,7 +8,8 @@ from __future__ import annotations
 
 from resolver.clamp import TIER_BUDGET
 from resolver.contract import (
-    Effect, EffectKind, GadgetDraft, Role, Stage, Tier, Trigger, tier_at_least,
+    Effect, EffectKind, GadgetDraft, Role, Stage, Tier, Trigger,
+    default_target, tier_at_least,
 )
 from resolver.items import Build
 from resolver.interactions import effects_for
@@ -79,7 +80,7 @@ def resolve(build: Build, tier: Tier) -> GadgetDraft:
     budget = TIER_BUDGET[tier]
     total_weight = sum(w for _, w, _ in parts)
     effects = [
-        Effect(kind=k, amount=budget * w / total_weight, note=note)
+        Effect(kind=k, target=default_target(k), amount=budget * w / total_weight, note=note)
         for k, w, note in parts
     ]
 

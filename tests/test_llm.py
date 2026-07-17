@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import pytest
 
 from resolver.clamp import TIER_BUDGET
-from resolver.contract import Effect, EffectKind, GadgetDraft, Stage, Tier, Trigger
+from resolver.contract import Effect, EffectKind, GadgetDraft, Stage, Target, Tier, Trigger
 from resolver.items import DEFAULT_BUILDS
 from resolver.llm import LLMResolver
 from resolver.prompt import SYSTEM_PROMPT
@@ -36,7 +36,7 @@ class FakeClient:
 def _canned_draft():
     return GadgetDraft(
         name="Fake", description="", logic="",
-        stages=[Stage(trigger=Trigger.ON_HIT, effects=[Effect(kind=EffectKind.DAMAGE, amount=1)])],
+        stages=[Stage(trigger=Trigger.ON_HIT, effects=[Effect(kind=EffectKind.DAMAGE, target=Target.STRUCK, amount=1)])],
     )
 
 

@@ -2,7 +2,7 @@ import pytest
 
 from resolver.clamp import TIER_BUDGET, apply as clamp_apply
 
-from resolver.contract import EffectKind, GadgetDraft, Tier, Trigger
+from resolver.contract import EffectKind, GadgetDraft, Target, Tier, Trigger
 from resolver.items import DEFAULT_BUILDS, Build, CATALOG
 from resolver import fallback
 
@@ -96,6 +96,11 @@ def test_overlay_rides_at_half_a_base_share():
     draft = fallback.resolve(build, Tier.LEGENDARY)
     amounts = {e.note: e.amount for s in draft.stages for e in s.effects}
     assert amounts["overlay"] == pytest.approx(amounts["base"] / 2)
+
+
+def test_composer_effects_carry_code_authored_targets():
+    draft = fallback.resolve(DEFAULT_BUILDS["gun_ammo"], Tier.COMMON)
+    assert all(e.target is Target.STRUCK for s in draft.stages for e in s.effects)
 
 
 def test_deterministic_path_never_trips_the_clamp_cap():

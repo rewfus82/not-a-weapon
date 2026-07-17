@@ -2,8 +2,8 @@ import pytest
 from pydantic import ValidationError
 
 from resolver.contract import (
-    Delivery, EffectKind, Trigger, Category, Tier,
-    Effect, Stage, GadgetDraft, ResolvedGadget,
+    Delivery, EffectKind, Target, Trigger, Category, Tier,
+    Effect, Stage, GadgetDraft, ResolvedGadget, default_target,
     LETHAL_KINDS, CONTROL_KINDS, SELF_KINDS, UTILITY_KINDS, MELEE_DELIVERIES,
 )
 
@@ -36,14 +36,14 @@ def test_valid_draft_round_trips():
         name="Last Call",
         description="A broom with a grudge.",
         logic="bristles hold the oil; the sweep flings it.",
-        stages=[Stage(trigger=Trigger.ON_HIT, effects=[Effect(kind=EffectKind.BURN, amount=14, duration=3)])],
+        stages=[Stage(trigger=Trigger.ON_HIT, effects=[Effect(kind=EffectKind.BURN, target=Target.STRUCK, amount=14, duration=3)])],
     )
     assert draft.stages[0].effects[0].kind is EffectKind.BURN
 
 
 def test_schema_rejects_off_contract_effect_kind():
     with pytest.raises(ValidationError):
-        Stage(trigger=Trigger.ON_HIT, effects=[Effect(kind="TELEPORT", amount=1)])
+        Stage(trigger=Trigger.ON_HIT, effects=[Effect(kind="TELEPORT", target=Target.STRUCK, amount=1)])
 
 
 def test_schema_rejects_off_contract_trigger():
@@ -86,3 +86,24 @@ def test_tier_at_least():
     assert tier_at_least(Tier.RARE, Tier.UNCOMMON) is True
     assert tier_at_least(Tier.COMMON, Tier.RARE) is False
     assert tier_at_least(Tier.RARE, Tier.RARE) is True
+
+
+def test_target_enum_covers_the_contract():
+    assert {t.value for t in Target} == {"SELF", "STRUCK"}
+
+
+def test_effect_requires_a_target():
+    with pytest.raises(ValidationError):
+        Effect(kind=EffectKind.DAMAGE, amount=1)
+
+
+def test_effect_rejects_negative_amount():
+    with pytest.raises(ValidationError):
+        Effect(kind=EffectKind.DAMAGE, target=Target.STRUCK, amount=-1)
+
+
+def test_default_target_is_self_only_for_the_self_family():
+    for kind in (EffectKind.HEAL, EffectKind.SHIELD, EffectKind.SPEED):
+        assert default_target(kind) is Target.SELF
+    for kind in (EffectKind.DAMAGE, EffectKind.SNARE, EffectKind.LURE, EffectKind.SUMMON):
+        assert default_target(kind) is Target.STRUCK

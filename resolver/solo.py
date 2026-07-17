@@ -11,6 +11,7 @@ from __future__ import annotations
 from resolver.clamp import apply as clamp_apply
 from resolver.contract import (
     Delivery, Effect, GadgetDraft, ResolvedGadget, Stage, Tier, Trigger,
+    default_target,
 )
 from resolver.fallback import substance_stages
 from resolver.items import Build, Item
@@ -29,7 +30,7 @@ def solo_draft(item: Item) -> GadgetDraft:
     bu = item.base_use
     if bu is None:
         raise ValueError(f"{item.name!r} has no base use")
-    effect = Effect(kind=bu.effect, amount=_SOLO_AMOUNT, note="base use")
+    effect = Effect(kind=bu.effect, target=default_target(bu.effect), amount=_SOLO_AMOUNT, note="base use")
     # thrown mechanisms (Item.delivery set) keep ON_HIT; a delivery-less thrown
     # substance bursts where it lands, same shape as the crafted chassis path.
     # `bu.armed or` keeps the patch shape even for a hypothetical non-THROWN armed item.

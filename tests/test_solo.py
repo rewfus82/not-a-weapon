@@ -1,7 +1,7 @@
 import pytest
 
 from resolver.clamp import TIER_BUDGET, OVER_BUDGET_FACTOR
-from resolver.contract import Category, Delivery, EffectKind, Flag, Tier, Trigger
+from resolver.contract import Category, Delivery, EffectKind, Flag, Target, Tier, Trigger
 from resolver.items import CATALOG, Build
 from resolver import fallback, solo
 
@@ -62,6 +62,12 @@ def test_thrown_container_solo_bursts_on_impact():
     r = solo.resolve_solo(CATALOG["jug of motor oil"])
     assert r.draft.stages[0].trigger is Trigger.ON_IMPACT
     assert r.delivery is Delivery.THROWN
+
+
+def test_solo_self_item_targets_the_user():
+    r = solo.resolve_solo(CATALOG["first-aid kit"])
+    effects = [e for s in r.draft.stages for e in s.effects]
+    assert effects and all(e.target is Target.SELF for e in effects)
 
 
 def test_solo_stays_below_even_a_dud_craft():
