@@ -121,3 +121,51 @@ def test_fill_budget_works_at_the_dud_floor():
     d = _draft(Effect(kind=EffectKind.DAMAGE, target=Target.STRUCK, amount=1))
     out = clamp.fill_budget(d, Tier.DUD)
     assert clamp.total_magnitude(out) == pytest.approx(6.0)
+
+
+# --- derivation matrix on (kind, target) — spec §6, playtest fixtures pinned ---
+
+def test_lethal_at_self_only_is_support_and_harmless():
+    # accepted edge: a pure self-cost derives SUPPORT; it can't hurt others
+    d = _draft(Effect(kind=EffectKind.DAMAGE, target=Target.SELF, amount=5))
+    assert clamp.derive_category(d) is Category.SUPPORT
+    assert clamp.derive_harmless(d) is True
+
+
+def test_control_at_self_only_is_support():
+    d = _draft(Effect(kind=EffectKind.SLOW, target=Target.SELF, amount=5))
+    assert clamp.derive_category(d) is Category.SUPPORT
+
+
+def test_adrenaline_crash_kit_is_support_and_harmless():
+    # playtest fixture: HEAL+SPEED with a self-inflicted crash, however written
+    d = _draft(
+        Effect(kind=EffectKind.HEAL, target=Target.SELF, amount=10),
+        Effect(kind=EffectKind.SPEED, target=Target.SELF, amount=10),
+        Effect(kind=EffectKind.DAMAGE, target=Target.SELF, amount=5),
+    )
+    assert clamp.derive_category(d) is Category.SUPPORT
+    assert clamp.derive_harmless(d) is True
+
+
+def test_dosing_nail_heal_at_struck_is_support_and_harmless():
+    # playtest fixture: the healing gun — heals whatever it shoots
+    d = _draft(Effect(kind=EffectKind.HEAL, target=Target.STRUCK, amount=10))
+    assert clamp.derive_category(d) is Category.SUPPORT
+    assert clamp.derive_harmless(d) is True
+
+
+def test_lifedrain_is_a_weapon_and_not_harmless():
+    # playtest fixture: the self-heal doesn't launder the damage
+    d = _draft(
+        Effect(kind=EffectKind.DAMAGE, target=Target.STRUCK, amount=10),
+        Effect(kind=EffectKind.HEAL, target=Target.SELF, amount=10),
+    )
+    assert clamp.derive_category(d) is Category.WEAPON
+    assert clamp.derive_harmless(d) is False
+
+
+def test_lure_at_self_is_still_utility():
+    # LURE is the one kind rule 4 ignores at SELF — bait is utility either way
+    d = _draft(Effect(kind=EffectKind.LURE, target=Target.SELF, amount=1))
+    assert clamp.derive_category(d) is Category.UTILITY

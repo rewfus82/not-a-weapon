@@ -12,7 +12,7 @@ from __future__ import annotations
 import copy
 
 from resolver.contract import (
-    Category, GadgetDraft, ResolvedGadget, Tier,
+    Category, EffectKind, GadgetDraft, ResolvedGadget, Target, Tier,
     LETHAL_KINDS, CONTROL_KINDS, SELF_KINDS, UTILITY_KINDS,
 )
 from resolver.items import Build, params_for
@@ -68,25 +68,28 @@ def fill_budget(draft: GadgetDraft, tier: Tier) -> GadgetDraft:
     return _scale(draft, TIER_BUDGET[tier] / total)
 
 
-def _kinds(draft: GadgetDraft) -> set:
-    return {e.kind for stage in draft.stages for e in stage.effects}
+def _pairs(draft: GadgetDraft) -> set[tuple[EffectKind, Target]]:
+    return {(e.kind, e.target) for stage in draft.stages for e in stage.effects}
 
 
 def derive_harmless(draft: GadgetDraft) -> bool:
-    return not (_kinds(draft) & LETHAL_KINDS)
+    """Harmless = can't hurt others: no lethal kind aimed at STRUCK.
+    Hurting yourself is a cost, not a threat."""
+    return not any(k in LETHAL_KINDS and t is Target.STRUCK for k, t in _pairs(draft))
 
 
 def derive_category(draft: GadgetDraft) -> Category:
-    kinds = _kinds(draft)
-    if not kinds:
+    pairs = _pairs(draft)
+    if not pairs:
         return Category.DUD
-    if kinds & LETHAL_KINDS:
+    if any(k in LETHAL_KINDS and t is Target.STRUCK for k, t in pairs):
         return Category.WEAPON
-    if kinds & CONTROL_KINDS:
+    if any(k in CONTROL_KINDS and t is Target.STRUCK for k, t in pairs):
         return Category.CONTROL
-    if kinds & SELF_KINDS:
+    if any(k in SELF_KINDS or (t is Target.SELF and k not in UTILITY_KINDS)
+           for k, t in pairs):
         return Category.SUPPORT
-    if kinds & UTILITY_KINDS:
+    if any(k in UTILITY_KINDS for k, _ in pairs):
         return Category.UTILITY
     return Category.TRINKET
 
