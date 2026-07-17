@@ -1,39 +1,63 @@
-# HANDOFF — resolver state after base-uses + cloud validation (2026-07-14)
+# HANDOFF — execute the live-budget + parallel-rolls plan (active implementation task)
 
-For a fresh Claude Code session. **Read `CLAUDE.md` and `docs/GAME_IDENTITY.md` first.** This repo uses **Superpowers**; the SDD ledger (`.superpowers/sdd/progress.md`, git-ignored) has the full task history — read it, don't `git clean` it.
+For a fresh Claude Code session. **Read `CLAUDE.md` and `docs/GAME_IDENTITY.md` first**, then the spec and plan below. This repo uses **Superpowers** — brainstorm/spec/plan are DONE and user-approved; your job is execution. Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans`. Do NOT re-brainstorm the design. The SDD ledger (`.superpowers/sdd/progress.md`, git-ignored) has full task history — read it, don't `git clean` it.
 
 ---
 
-## Where things stand (done, committed)
+## The active task: execute the plan
 
-- **Junk base-use plan fully executed** (2026-07-14, commits `962fcdd..41f94dc`): 15 container renames, blender → industrial fan, airhorn (catalog pinned at 61), `BaseUse` on every non-ammo item (closed 17-entry judgment allowlist, closed both directions by test), `Build.delivery` fallback through `base_use` (ammo still rejected), `resolver/solo.py` at the DUD floor, burst/armed-patch composer shapes shared via `fallback.substance_stages()`. Final whole-branch review: clean.
-  - **One adjudicated deviation:** industrial fan tags are `{wind, heavy}`, not the plan's `{wind, electrical}` — the plan's C=2/3 claim was wrong (electrical+liquid edges fan–hose → C=1.0). Why-comment pinned in `items.py`; C=2/3 independently recomputed twice.
-- **Association clouds: authored, user-approved, and validated live** (clouds plan complete):
-  - Cloud pass for the renamed items (commit `45d80b7`): only jerrycan + motor oil needed container fixes; fan/airhorn clouds kept as shipped. Review copy regenerated at 61 items (`docs/superpowers/review/2026-07-12-association-clouds-review.md`), user-approved 2026-07-14.
-  - **Live validation PASSED: 0/72 fallbacks** (6 risk-class probes × 12 calls, retry ladder sonnet×2 → opus-4-8). Zero refusals, no cartoon repairs needed, full dud→god spread + within-tier variety on every probe. Per-probe tallies in the ledger.
-- **Tests: `python -m pytest -q` — 238 green.** Keep green at every commit.
-- API key was rotated by the user 2026-07-14 (the old exposure is resolved).
+`docs/superpowers/plans/2026-07-16-live-budget-and-parallel-rolls.md` — 2 TDD tasks, exact code and commits included:
 
-## Follow-up queue (rough priority)
+1. `clamp.fill_budget(draft, tier)` (pure; scale to exact tier budget, proportions preserved, zero-total pass-through) called ONLY from `LLMResolver.resolve` — live drafts land on budget like the deterministic path already does.
+2. `serve.roll` runs its n rolls through a `ThreadPoolExecutor` (barrier-based concurrency test, no timing assertions).
 
-- ~~`serve.py` playground pass~~ DONE 2026-07-14 (grouped chassis picker + solo cards; commits `fe0aa66..6f5d923`).
-- ~~`_TIER_SEED` tuning~~ DONE 2026-07-15 as the **budget-filling composer** (spec `2026-07-15-budget-filling-composer-design.md`, commits `f8d25f0..80c691c`): every deterministic build totals exactly `TIER_BUDGET[tier]` (§6); `_TIER_SEED` deleted; solo owns `_SOLO_AMOUNT = 2.0`. **Deterministic power tuning is now a single knob: `TIER_BUDGET` in `clamp.py`** — turning it is play-tuning, later.
-- Tagless real guns read stark in *shape* (DAMAGE-only every tier — intentional for now); magnitude is fixed (one hit filling the full budget).
-- Riding minors are logged per-task in the ledger (docstring mentions, comment placement, coverage-breadth notes).
-- Out of resolver scope (later phases): bake pipeline, best-of-N cost optimization, renderer, the Unreal game, GAME_IDENTITY mechanics (armory / deconstruct / blueprints / loadout — canon, not code).
+Spec: `docs/superpowers/specs/2026-07-16-live-budget-and-parallel-rolls-design.md` (committed `2a0d1cf`). Plan committed `a0478ed`. **Execution NOT started.**
+
+### Decisions already made — do NOT relitigate
+
+- Playtest evidence (nine live LEGENDARY rolls totaling 28.6–134.4; overshooters clamped to the cap, eating booster headroom) drove this. §6: same power within a tier.
+- `fill_budget` lives in `clamp.py` (owns budget math) but `clamp.apply` never calls it — solo stays 2.0, deterministic composer already fills budget by construction.
+- Zero-total drafts pass through unscaled (no inventing amounts for duration-only control).
+- Harness stays sequential. No sampling params on API calls (pinned by test).
+
+## Where things stand (done, committed, all on `main`)
+
+Everything below is reviewed-and-merged; suite baseline **244 green** (`python -m pytest -q`, no API key needed):
+
+- **Junk base-use plan** (2026-07-14, `962fcdd..41f94dc`): container renames, industrial fan (tags `{wind, heavy}` — adjudicated coherence fix, see items.py comment), airhorn, catalog=61, `BaseUse` for all non-ammo items (closed 17-entry allowlist, closed both directions), substance chassis via `Build.delivery` fallback, `resolver/solo.py` (DUD floor), composer burst/armed-patch shapes (shared `fallback.substance_stages`).
+- **Association clouds**: authored, user-approved, live-validated **0/72 refusals** (retry ladder sonnet×2 → opus-4-8).
+- **Playground pass** (`fe0aa66..6f5d923`): grouped chassis picker (mechanisms / containers & junk), instant solo cards, payload fields `chassis`/`mechanism`/`form`/`solo`.
+- **Budget-filling composer** (2026-07-15, `f8d25f0..80c691c`): every deterministic build totals exactly `TIER_BUDGET[tier]`; overlays half-share; `_TIER_SEED` deleted; solo owns `_SOLO_AMOUNT = 2.0`. **Deterministic power tuning is one knob: `TIER_BUDGET` in `clamp.py`.**
+
+## Playtest findings (2026-07-16, logged — not tasks unless queued below)
+
+- The live creative path is excellent: one build reliably yields genuinely different weapons (wall-builder / pressure-bomb / joint-cast from laser+foam×2); locked delivery form holds; effects trace to real association lines.
+- **One build refused 9/9 live attempts** (extinguisher + roman candle + fan + a powder item): deterministic fallback carried it (correctly identical each roll). Ablation offered, user hasn't asked. Protocol if pursued: ablate by item swap, NEVER ask a model why (AUP — see constraints).
+- **Name collisions across rolls** ("Souvenir Nail-Biter" ×2): expected (independent calls); fix belongs in the bake pipeline as code-owned name-dedup-per-combo. Bake-spec requirement, logged here.
+- Model reinterprets effect tokens through flavor (FREEZE "as set-solid, not cold"; SHIELD as foam wall). Mechanically legal; renderer-phase question whether visuals follow the token or the note.
+- Live LEGENDARY roll ≈ 30–60s (adaptive thinking + sequential retry ladder) — by design (LLM path is offline/bake, never runtime); Task 2 of the active plan parallelizes the playground's n rolls.
+
+## Follow-up queue (after the plan lands)
+
+- `TIER_BUDGET` value tuning: play-tuned, user-driven, not TDD.
+- Bake pipeline (next big phase; brainstorm off `docs/RESOLVER_ECONOMICS_AND_BAKE.md`): scaffold schema, name-dedup-per-combo, wave strategy, cost model.
+- Riding minors live per-task in the ledger. `grey` color badge is a stub (`_COLOR_BY_ITEM` empty) — renderer-era or rip-out.
+- Out of resolver scope: renderer, the Unreal game, GAME_IDENTITY mechanics.
 
 ## Standing constraints (easy to violate)
 
-- **The enums are the capability contract — never widen them.** `Seeking`/`Physics` overlays and any `PULL`/`COLLECT` effect stay design-only.
-- **Code owns every number**; `harmless`/`category` are always re-derived in `clamp.py`, never trusted from the model. Solo/base-use power is pinned at the DUD floor — fixed, code-owned, never rolled.
-- **Never a hard LLM dependency** — the deterministic path must fully work with no API key.
+- **The enums are the capability contract — never widen them.**
+- **Code owns every number**; `harmless`/`category` always re-derived in `clamp.py`. Solo stays pathetic (2.0), never inflated.
+- **Never a hard LLM dependency** — deterministic path fully works keyless.
 - **Engine-agnostic** — zero engine references in `resolver/`.
-- **Never have an agent introspect *why* a build was refused** by the safety classifier. Asking a model to categorize a refusal has flagged a session for an AUP violation. Refusals are a normal fallback outcome — log the rate, never chase the reason. Register (item associations) fixes false refusals; retries + Opus escalation (`LLMResolver`) fix merit refusals.
-- Live harness runs on Windows: `PYTHONUTF8=1` (or redirect to a UTF-8 file) — em-dashes mojibake otherwise.
-- The harness `routing:` line is **observational** (what `route()` would pick); the resolver actually used is chosen by CLI flags. Don't misread `deterministic 12 / llm 0` as "no live calls happened."
+- **Never have an agent introspect *why* a build was refused.** Asking a model to categorize a refusal has flagged a session for an AUP violation. Log the rate; ablate by item swap; never chase the reason.
+- Windows live runs: `PYTHONUTF8=1` or redirect to a UTF-8 file (em-dash mojibake).
+- The harness `routing:` line is observational (what `route()` would pick) — the actual resolver is chosen by CLI flags.
 
 ## State you need
 
-- **Branch:** `main` (only branch, no remote — do not push; adding a remote is the user's call).
-- **Commits:** conventional, small; end with `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
+- **Branch:** `main` (only branch, no remote — do not push).
+- **Tests:** `python -m pytest -q` — 244 green baseline; the plan grows this to 251. Keep green at every commit.
+- **Commits:** conventional, per plan task, ending `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
 - **Intentionally uncommitted** (leave alone): the 2026-07-10 plan/spec files, `docs/CAPABILITY_CONTRACT_v0.md`, `hello.md`.
+- API key: rotated 2026-07-14, present in env; NOT needed for the active plan.
