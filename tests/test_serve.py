@@ -1,4 +1,6 @@
 import json
+import threading
+
 import pytest
 
 from resolver import fallback, serve
@@ -98,3 +100,36 @@ def test_catalog_payload_exposes_chassis_eligibility_and_solo_cards():
 
 def test_catalog_payload_is_json_serializable():
     json.dumps(serve.catalog_payload())
+
+
+def test_roll_runs_slots_concurrently():
+    # a resolver that blocks until all n calls have started can only finish
+    # if roll() runs its slots in parallel — sequential execution deadlocks
+    # (the barrier would time out and every slot would fall back)
+    barrier = threading.Barrier(3, timeout=5)
+
+    def blocking(build, tier):
+        barrier.wait()
+        return fallback.resolve(build, tier)
+
+    results = serve.roll(blocking, DEFAULT_BUILDS["broom_bat"], Tier.EPIC, 3)
+    assert len(results) == 3
+    assert all(r["source"] == "llm" for r in results)
+
+
+def test_roll_tags_only_the_failing_slot_as_fallback():
+    lock = threading.Lock()
+    calls = []
+
+    def flaky(build, tier):
+        with lock:
+            calls.append(1)
+            fail = len(calls) == 2
+        if fail:
+            raise RuntimeError("refused")
+        return fallback.resolve(build, tier)
+
+    results = serve.roll(flaky, DEFAULT_BUILDS["broom_bat"], Tier.EPIC, 3)
+    assert len(results) == 3
+    assert sum(1 for r in results if r["source"] == "fallback") == 1
+    assert all(r["stages"] for r in results)

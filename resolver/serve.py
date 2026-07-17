@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from resolver.clamp import apply as clamp_apply
@@ -109,11 +110,17 @@ def _resolve_once(resolver_fn, build: Build, tier: Tier):
 
 
 def roll(resolver_fn, build: Build, tier: Tier, n: int) -> list[dict]:
-    results = []
-    for _ in range(max(1, n)):
+    """The n rolls are independent resolver calls; run them concurrently so
+    n live rolls cost roughly one roll of wall-clock. Results stay in slot
+    order (executor.map preserves it)."""
+    n = max(1, n)
+
+    def one(_: int) -> dict:
         source, resolved = _resolve_once(resolver_fn, build, tier)
-        results.append(gadget_to_dict(resolved, source))
-    return results
+        return gadget_to_dict(resolved, source)
+
+    with ThreadPoolExecutor(max_workers=n) as pool:
+        return list(pool.map(one, range(n)))
 
 
 # ---------------------------------------------------------------- HTTP server
