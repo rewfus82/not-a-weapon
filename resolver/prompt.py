@@ -25,7 +25,7 @@ Resolve this build to the target tier. Trace every effect back to a stated
 property of the specific objects above. Compose within the locked delivery form."""
 
 
-def _slot_line(item) -> str:
+def slot_line(item) -> str:
     if item is None:
         return "empty"
     return f"{item.name} — {item.describe()}"
@@ -34,10 +34,10 @@ def _slot_line(item) -> str:
 def render_user_message(build: Build, tier: Tier) -> str:
     slots = dict(build.slots())
     return _TEMPLATE.format(
-        delivery=_slot_line(slots["delivery"]),
-        damage=_slot_line(slots["damage"]),
-        utility=_slot_line(slots["utility"]),
-        modifier=_slot_line(slots["modifier"]),
+        delivery=slot_line(slots["delivery"]),
+        damage=slot_line(slots["damage"]),
+        utility=slot_line(slots["utility"]),
+        modifier=slot_line(slots["modifier"]),
         form=build.delivery.value,
         tier=tier.value,
     )
