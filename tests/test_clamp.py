@@ -198,3 +198,10 @@ def test_count_overflow_floor_scales_counts_first():
     e = out.stages[0].effects[0]
     assert e.count == 2  # int(10 * 6/30)
     assert clamp.total_cost(out) <= clamp.TIER_BUDGET[Tier.DUD] + 1e-9
+
+
+def test_fit_cost_lands_on_the_target_and_passes_zero_through():
+    d = _draft(Effect(kind=EffectKind.DAMAGE, target=Target.STRUCK, amount=10))
+    assert clamp.total_cost(clamp.fit_cost(d, 30.0)) == pytest.approx(30.0)
+    empty = _draft()
+    assert clamp.total_cost(clamp.fit_cost(empty, 30.0)) == 0.0

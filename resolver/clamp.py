@@ -110,6 +110,15 @@ def fill_budget(draft: GadgetDraft, tier: Tier) -> GadgetDraft:
     return _fit(draft, TIER_BUDGET[tier])
 
 
+def fit_cost(draft: GadgetDraft, target_total: float) -> GadgetDraft:
+    """Public fit for offline tooling (the bake deriver): scale the draft so
+    its weighted cost lands on target_total. Zero-cost drafts pass through —
+    there are no proportions to scale."""
+    if total_cost(draft) == 0:
+        return copy.deepcopy(draft)
+    return _fit(draft, target_total)
+
+
 def _pairs(draft: GadgetDraft) -> set[tuple[EffectKind, Target]]:
     return {(e.kind, e.target) for stage in draft.stages for e in stage.effects}
 
