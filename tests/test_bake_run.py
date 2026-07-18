@@ -154,3 +154,38 @@ def test_run_wave_without_retry_flag_keeps_unresolved(tmp_path):
     write_records(path, {dead.combo_id: dead})
     stats = run_wave(FakeClient([]), LADDER, {combo_id(BUILD): BUILD}, path)
     assert stats["skipped"] == 1 and load_records(path)[combo_id(BUILD)].status == "unresolved"
+
+
+def test_load_records_drops_a_truncated_final_line(tmp_path):
+    path = tmp_path / "scaffolds.jsonl"
+    good = bake_combo(FakeClient([_narrow_set()]), LADDER, BUILD)
+    path.write_text(good.model_dump_json() + "\n" + '{"combo_id": "d:x', encoding="utf-8")
+    records = load_records(path)
+    assert set(records) == {good.combo_id}
+
+
+def test_load_records_raises_on_a_corrupt_middle_line(tmp_path):
+    path = tmp_path / "scaffolds.jsonl"
+    good = bake_combo(FakeClient([_narrow_set()]), LADDER, BUILD)
+    other = bake_combo(FakeClient([_narrow_set()]), LADDER, Build(delivery_item=CATALOG["crowbar"]))
+    path.write_text(
+        good.model_dump_json() + "\n" + "not json at all" + "\n" + other.model_dump_json() + "\n",
+        encoding="utf-8",
+    )
+    try:
+        load_records(path)
+    except Exception:
+        pass
+    else:
+        raise AssertionError("expected load_records to raise on a corrupt middle line")
+
+
+def test_write_records_round_trips_and_leaves_no_temp_file(tmp_path):
+    path = tmp_path / "scaffolds.jsonl"
+    first = bake_combo(FakeClient([_narrow_set()]), LADDER, BUILD)
+    write_records(path, {first.combo_id: first})
+    second = bake_combo(FakeClient([_narrow_set()]), LADDER, Build(delivery_item=CATALOG["crowbar"]))
+    write_records(path, {first.combo_id: first, second.combo_id: second})
+    records = load_records(path)
+    assert set(records) == {first.combo_id, second.combo_id}
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["scaffolds.jsonl"]

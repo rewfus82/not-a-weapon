@@ -9,6 +9,7 @@ reason). This is offline tooling — never the runtime hot path.
 from __future__ import annotations
 
 import datetime as _dt
+import os
 from pathlib import Path
 
 from resolver.bake.schema import (
@@ -141,13 +142,23 @@ def bake_combo(client, models: list[str], build: Build) -> BakeRecord:
 
 
 def load_records(path: Path) -> dict[str, BakeRecord]:
+    """Blank lines are skipped. A trailing line that fails to parse is a
+    partial append from a crash mid-write and is dropped silently (that
+    combo is simply re-baked); a non-final line that fails to parse is real
+    corruption and raises."""
     if not path.exists():
         return {}
     out: dict[str, BakeRecord] = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if line.strip():
+    lines = [line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    last = len(lines) - 1
+    for i, line in enumerate(lines):
+        try:
             record = BakeRecord.model_validate_json(line)
-            out[record.combo_id] = record
+        except Exception:
+            if i == last:
+                break
+            raise
+        out[record.combo_id] = record
     return out
 
 
@@ -158,9 +169,13 @@ def append_record(path: Path, record: BakeRecord) -> None:
 
 
 def write_records(path: Path, records: dict[str, BakeRecord]) -> None:
+    """Atomic rewrite: write to a sibling temp file, then os.replace over the
+    target. A crash mid-write leaves the temp file, never a truncated path."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("".join(r.model_dump_json() + "\n" for r in records.values()),
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text("".join(r.model_dump_json() + "\n" for r in records.values()),
                     encoding="utf-8")
+    os.replace(tmp, path)
 
 
 def run_wave(client, models: list[str], builds: dict[str, Build], path: Path,
