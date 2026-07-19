@@ -23,7 +23,7 @@ REPORT_SEED = 20260717
 # the current pricing page before reading a pilot's dollar figure as truth.
 PRICE_PER_MTOK: dict[str, tuple[float, float]] = {
     "claude-sonnet-5": (3.0, 15.0),
-    "claude-opus-4-8": (15.0, 75.0),
+    "claude-opus-4-8": (5.0, 25.0),
 }
 
 
