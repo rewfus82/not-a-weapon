@@ -1,0 +1,1346 @@
+{
+  "advance warning": {
+    "display": "Advance Warning",
+    "owner": [
+      "d:adrenaline shot|dmg:chainsaw|u:-|m:-",
+      "SHALLOW",
+      1
+    ]
+  },
+  "arms length": {
+    "display": "Arm's Length",
+    "owner": [
+      "d:.22 pistol|dmg:weed whacker|u:-|m:-",
+      "MEDIUM",
+      0
+    ]
+  },
+  "backdraft baptism": {
+    "display": "Backdraft Baptism",
+    "owner": [
+      "d:leaf blower|dmg:12-gauge shells|u:revolver|m:t-shirt cannon",
+      "DEEP",
+      0
+    ]
+  },
+  "backdraft hose": {
+    "display": "Backdraft Hose",
+    "owner": [
+      "d:pressure washer|dmg:-|u:.30-06 hunting rifle|m:.22 rounds",
+      "DEEP",
+      1
+    ]
+  },
+  "backfire casket": {
+    "display": "Backfire Casket",
+    "owner": [
+      "d:salvaged laser cutter|dmg:-|u:.357 rounds|m:-",
+      "DEEP",
+      1
+    ]
+  },
+  "backyard bruiser": {
+    "display": "Backyard Bruiser",
+    "owner": [
+      "d:weed whacker|dmg:-|u:-|m:jumper cables",
+      "SHALLOW",
+      0
+    ]
+  },
+  "bad hair day": {
+    "display": "Bad Hair Day",
+    "owner": [
+      "d:can of hairspray|dmg:-|u:-|m:9mm rounds",
+      "SHALLOW",
+      0
+    ]
+  },
+  "ballbearing bloom": {
+    "display": "Ball-Bearing Bloom",
+    "owner": [
+      "d:can of hairspray|dmg:-|u:-|m:9mm rounds",
+      "DEEP",
+      1
+    ]
+  },
+  "bearing barrage": {
+    "display": "Bearing Barrage",
+    "owner": [
+      "d:bucket of wet cement|dmg:tin of ball bearings|u:-|m:-",
+      "MEDIUM",
+      1
+    ]
+  },
+  "bite and pull": {
+    "display": "Bite and Pull",
+    "owner": [
+      "d:.22 pistol|dmg:weed whacker|u:-|m:-",
+      "MEDIUM",
+      1
+    ]
+  },
+  "bleach line": {
+    "display": "Bleach Line",
+    "owner": [
+      "d:pressure washer|dmg:tub of pool chlorine|u:-|m:-",
+      "MEDIUM",
+      1
+    ]
+  },
+  "bleacher inferno": {
+    "display": "Bleacher Inferno",
+    "owner": [
+      "d:t-shirt cannon|dmg:jerrycan of gasoline|u:road flare|m:-",
+      "DEEP",
+      0
+    ]
+  },
+  "boat anchor jab": {
+    "display": "Boat Anchor Jab",
+    "owner": [
+      "d:jumper cables|dmg:-|u:.30-06 rounds|m:-",
+      "SHALLOW",
+      1
+    ]
+  },
+  "boreheart sinkhole": {
+    "display": "Boreheart Sinkhole",
+    "owner": [
+      "d:angle grinder|dmg:garden hose|u:-|m:-",
+      "DEEP",
+      1
+    ]
+  },
+  "borrowed time": {
+    "display": "Borrowed Time",
+    "owner": [
+      "d:adrenaline shot|dmg:chainsaw|u:-|m:-",
+      "DEEP",
+      0
+    ]
+  },
+  "boxcar bite": {
+    "display": "Boxcar Bite",
+    "owner": [
+      "d:jumper cables|dmg:-|u:.30-06 rounds|m:-",
+      "MEDIUM",
+      0
+    ]
+  },
+  "boxcar windup": {
+    "display": "Boxcar Windup",
+    "owner": [
+      "d:crowbar|dmg:-|u:12-gauge shells|m:salvaged laser cutter",
+      "SHALLOW",
+      1
+    ]
+  },
+  "buckle and pry": {
+    "display": "Buckle and Pry",
+    "owner": [
+      "d:crowbar|dmg:-|u:12-gauge shells|m:salvaged laser cutter",
+      "MEDIUM",
+      1
+    ]
+  },
+  "buckshot rattle": {
+    "display": "Buckshot Rattle",
+    "owner": [
+      "d:nail gun|dmg:-|u:-|m:.22 rounds",
+      "MEDIUM",
+      1
+    ]
+  },
+  "buckshot squall": {
+    "display": "Buckshot Squall",
+    "owner": [
+      "d:leaf blower|dmg:12-gauge shells|u:revolver|m:t-shirt cannon",
+      "MEDIUM",
+      0
+    ]
+  },
+  "cheap shot": {
+    "display": "Cheap Shot",
+    "owner": [
+      "d:box of nails|dmg:-|u:-|m:.22 pistol",
+      "MEDIUM",
+      1
+    ]
+  },
+  "chilly puddle": {
+    "display": "Chilly Puddle",
+    "owner": [
+      "d:block of dry ice|dmg:12-gauge shells|u:tin of ball bearings|m:-",
+      "SHALLOW",
+      0
+    ]
+  },
+  "clampjaw cord": {
+    "display": "Clampjaw Cord",
+    "owner": [
+      "d:weed whacker|dmg:-|u:-|m:jumper cables",
+      "MEDIUM",
+      0
+    ]
+  },
+  "clank and cough": {
+    "display": "Clank and Cough",
+    "owner": [
+      "d:sledgehammer|dmg:propane tank|u:-|m:cinder block",
+      "SHALLOW",
+      1
+    ]
+  },
+  "clean through": {
+    "display": "Clean Through",
+    "owner": [
+      "d:9mm pistol|dmg:9mm rounds|u:-|m:-",
+      "DEEP",
+      0
+    ]
+  },
+  "clear the room": {
+    "display": "Clear the Room",
+    "owner": [
+      "d:adrenaline shot|dmg:chainsaw|u:-|m:-",
+      "MEDIUM",
+      0
+    ]
+  },
+  "cold shoulder": {
+    "display": "Cold Shoulder",
+    "owner": [
+      "d:fire extinguisher|dmg:-|u:5.56 rounds|m:-",
+      "MEDIUM",
+      0
+    ]
+  },
+  "copper drag": {
+    "display": "Copper Drag",
+    "owner": [
+      "d:weed whacker|dmg:-|u:-|m:jumper cables",
+      "MEDIUM",
+      1
+    ]
+  },
+  "damp fang": {
+    "display": "Damp Fang",
+    "owner": [
+      "d:angle grinder|dmg:garden hose|u:-|m:-",
+      "SHALLOW",
+      0
+    ]
+  },
+  "damp squib": {
+    "display": "Damp Squib",
+    "owner": [
+      "d:pressure washer|dmg:-|u:.30-06 hunting rifle|m:.22 rounds",
+      "SHALLOW",
+      0
+    ]
+  },
+  "dead mans handshake": {
+    "display": "Dead Man's Handshake",
+    "owner": [
+      "d:angle grinder|dmg:defibrillator|u:fire axe|m:.22 pistol",
+      "DEEP",
+      1
+    ]
+  },
+  "dead rattle": {
+    "display": "Dead Rattle",
+    "owner": [
+      "d:fire extinguisher|dmg:-|u:5.56 rounds|m:-",
+      "SHALLOW",
+      1
+    ]
+  },
+  "deadhead jab": {
+    "display": "Deadhead Jab",
+    "owner": [
+      "d:jumper cables|dmg:-|u:.30-06 rounds|m:-",
+      "SHALLOW",
+      0
+    ]
+  },
+  "delayed blowout": {
+    "display": "Delayed Blowout",
+    "owner": [
+      "d:can of hairspray|dmg:-|u:-|m:9mm rounds",
+      "DEEP",
+      0
+    ]
+  },
+  "dinner bell of doom": {
+    "display": "Dinner Bell of Doom",
+    "owner": [
+      "d:crate of overripe produce|dmg:-|u:dewar of liquid nitrogen|m:revolver",
+      "DEEP",
+      1
+    ]
+  },
+  "dry bark": {
+    "display": "Dry Bark",
+    "owner": [
+      "d:leaf blower|dmg:12-gauge shells|u:revolver|m:t-shirt cannon",
+      "SHALLOW",
+      1
+    ]
+  },
+  "dud seam": {
+    "display": "Dud Seam",
+    "owner": [
+      "d:salvaged laser cutter|dmg:-|u:.357 rounds|m:-",
+      "SHALLOW",
+      0
+    ]
+  },
+  "eau de get out": {
+    "display": "Eau de Get Out",
+    "owner": [
+      "d:leaf blower|dmg:-|u:jug of ammonia cleaner|m:car battery",
+      "MEDIUM",
+      0
+    ]
+  },
+  "empty chamber poke": {
+    "display": "Empty Chamber Poke",
+    "owner": [
+      "d:nail gun|dmg:-|u:-|m:.22 rounds",
+      "SHALLOW",
+      1
+    ]
+  },
+  "empty invitation": {
+    "display": "Empty Invitation",
+    "owner": [
+      "d:airhorn|dmg:-|u:power drill|m:-",
+      "SHALLOW",
+      0
+    ]
+  },
+  "eviction notice": {
+    "display": "Eviction Notice",
+    "owner": [
+      "d:leaf blower|dmg:-|u:jug of ammonia cleaner|m:car battery",
+      "DEEP",
+      1
+    ]
+  },
+  "eyewater special": {
+    "display": "Eyewater Special",
+    "owner": [
+      "d:pressure washer|dmg:tub of pool chlorine|u:-|m:-",
+      "MEDIUM",
+      0
+    ]
+  },
+  "false start": {
+    "display": "False Start",
+    "owner": [
+      "d:adrenaline shot|dmg:chainsaw|u:-|m:-",
+      "SHALLOW",
+      0
+    ]
+  },
+  "fast hands": {
+    "display": "Fast Hands",
+    "owner": [
+      "d:9mm pistol|dmg:9mm rounds|u:-|m:-",
+      "MEDIUM",
+      1
+    ]
+  },
+  "feedback sear": {
+    "display": "Feedback Sear",
+    "owner": [
+      "d:jumper cables|dmg:-|u:.30-06 rounds|m:-",
+      "DEEP",
+      1
+    ]
+  },
+  "fences length": {
+    "display": "Fence's Length",
+    "owner": [
+      "d:weed whacker|dmg:-|u:-|m:jumper cables",
+      "SHALLOW",
+      1
+    ]
+  },
+  "firebreak cannonade": {
+    "display": "Firebreak Cannonade",
+    "owner": [
+      "d:t-shirt cannon|dmg:jerrycan of gasoline|u:road flare|m:-",
+      "DEEP",
+      1
+    ]
+  },
+  "flashpoint lob": {
+    "display": "Flashpoint Lob",
+    "owner": [
+      "d:t-shirt cannon|dmg:jerrycan of gasoline|u:road flare|m:-",
+      "MEDIUM",
+      1
+    ]
+  },
+  "flashpoint perm": {
+    "display": "Flashpoint Perm",
+    "owner": [
+      "d:can of hairspray|dmg:-|u:-|m:9mm rounds",
+      "MEDIUM",
+      0
+    ]
+  },
+  "flattened fireworks": {
+    "display": "Flattened Fireworks",
+    "owner": [
+      "d:sledgehammer|dmg:propane tank|u:-|m:cinder block",
+      "MEDIUM",
+      0
+    ]
+  },
+  "flinch line": {
+    "display": "Flinch Line",
+    "owner": [
+      "d:salvaged laser cutter|dmg:-|u:.357 rounds|m:-",
+      "SHALLOW",
+      1
+    ]
+  },
+  "fog horn": {
+    "display": "Fog Horn",
+    "owner": [
+      "d:crate of overripe produce|dmg:-|u:dewar of liquid nitrogen|m:revolver",
+      "MEDIUM",
+      1
+    ]
+  },
+  "frost bite grip": {
+    "display": "Frost Bite Grip",
+    "owner": [
+      "d:fire extinguisher|dmg:-|u:5.56 rounds|m:-",
+      "MEDIUM",
+      1
+    ]
+  },
+  "frostbite brick": {
+    "display": "Frostbite Brick",
+    "owner": [
+      "d:block of dry ice|dmg:12-gauge shells|u:tin of ball bearings|m:-",
+      "SHALLOW",
+      1
+    ]
+  },
+  "frostbitten jam": {
+    "display": "Frostbitten Jam",
+    "owner": [
+      "d:crate of overripe produce|dmg:-|u:dewar of liquid nitrogen|m:revolver",
+      "MEDIUM",
+      0
+    ]
+  },
+  "frosted marbles": {
+    "display": "Frosted Marbles",
+    "owner": [
+      "d:block of dry ice|dmg:12-gauge shells|u:tin of ball bearings|m:-",
+      "MEDIUM",
+      0
+    ]
+  },
+  "fume runner": {
+    "display": "Fume Runner",
+    "owner": [
+      "d:leaf blower|dmg:-|u:jug of ammonia cleaner|m:car battery",
+      "MEDIUM",
+      1
+    ]
+  },
+  "gas jug bonk": {
+    "display": "Gas Jug Bonk",
+    "owner": [
+      "d:t-shirt cannon|dmg:jerrycan of gasoline|u:road flare|m:-",
+      "SHALLOW",
+      1
+    ]
+  },
+  "grit and gust": {
+    "display": "Grit and Gust",
+    "owner": [
+      "d:leaf blower|dmg:12-gauge shells|u:revolver|m:t-shirt cannon",
+      "MEDIUM",
+      1
+    ]
+  },
+  "grit round": {
+    "display": "Grit Round",
+    "owner": [
+      "d:pressure washer|dmg:-|u:.30-06 hunting rifle|m:.22 rounds",
+      "DEEP",
+      0
+    ]
+  },
+  "gunfire echo": {
+    "display": "Gunfire Echo",
+    "owner": [
+      "d:fire extinguisher|dmg:-|u:5.56 rounds|m:-",
+      "DEEP",
+      1
+    ]
+  },
+  "halfhearted hallway": {
+    "display": "Halfhearted Hallway",
+    "owner": [
+      "d:industrial fan|dmg:bag of marbles|u:can of expanding foam|m:-",
+      "SHALLOW",
+      0
+    ]
+  },
+  "halfhearted hiss": {
+    "display": "Halfhearted Hiss",
+    "owner": [
+      "d:fire extinguisher|dmg:-|u:5.56 rounds|m:-",
+      "SHALLOW",
+      0
+    ]
+  },
+  "handful of regret": {
+    "display": "Handful of Regret",
+    "owner": [
+      "d:box of nails|dmg:-|u:-|m:.22 pistol",
+      "MEDIUM",
+      0
+    ]
+  },
+  "interest payment": {
+    "display": "Interest Payment",
+    "owner": [
+      "d:adrenaline shot|dmg:chainsaw|u:-|m:-",
+      "MEDIUM",
+      1
+    ]
+  },
+  "junk drawer roundhouse": {
+    "display": "Junk Drawer Roundhouse",
+    "owner": [
+      "d:angle grinder|dmg:defibrillator|u:fire axe|m:.22 pistol",
+      "SHALLOW",
+      0
+    ]
+  },
+  "just a gun": {
+    "display": "Just a Gun",
+    "owner": [
+      "d:9mm pistol|dmg:9mm rounds|u:-|m:-",
+      "SHALLOW",
+      0
+    ]
+  },
+  "just tack it down": {
+    "display": "Just Tack It Down",
+    "owner": [
+      "d:nail gun|dmg:-|u:-|m:.22 rounds",
+      "SHALLOW",
+      0
+    ]
+  },
+  "last gasp rocket": {
+    "display": "Last Gasp Rocket",
+    "owner": [
+      "d:fire extinguisher|dmg:-|u:5.56 rounds|m:-",
+      "DEEP",
+      0
+    ]
+  },
+  "last rinse": {
+    "display": "Last Rinse",
+    "owner": [
+      "d:pressure washer|dmg:tub of pool chlorine|u:-|m:-",
+      "DEEP",
+      1
+    ]
+  },
+  "little nick": {
+    "display": "Little Nick",
+    "owner": [
+      "d:.22 pistol|dmg:weed whacker|u:-|m:-",
+      "SHALLOW",
+      0
+    ]
+  },
+  "live wire latch": {
+    "display": "Live Wire Latch",
+    "owner": [
+      "d:jumper cables|dmg:-|u:.30-06 rounds|m:-",
+      "MEDIUM",
+      1
+    ]
+  },
+  "livewire puddle": {
+    "display": "Livewire Puddle",
+    "owner": [
+      "d:angle grinder|dmg:garden hose|u:-|m:-",
+      "DEEP",
+      0
+    ]
+  },
+  "long iron hose": {
+    "display": "Long Iron Hose",
+    "owner": [
+      "d:pressure washer|dmg:-|u:.30-06 hunting rifle|m:.22 rounds",
+      "MEDIUM",
+      0
+    ]
+  },
+  "loose canister": {
+    "display": "Loose Canister",
+    "owner": [
+      "d:sledgehammer|dmg:propane tank|u:-|m:cinder block",
+      "MEDIUM",
+      1
+    ]
+  },
+  "molotovs little brother": {
+    "display": "Molotov's Little Brother",
+    "owner": [
+      "d:bag of gravel|dmg:m16 rifle|u:jerrycan of gasoline|m:-",
+      "DEEP",
+      0
+    ]
+  },
+  "muckwheel haymaker": {
+    "display": "Muckwheel Haymaker",
+    "owner": [
+      "d:angle grinder|dmg:garden hose|u:-|m:-",
+      "MEDIUM",
+      1
+    ]
+  },
+  "mudslide shredder": {
+    "display": "Mudslide Shredder",
+    "owner": [
+      "d:angle grinder|dmg:garden hose|u:-|m:-",
+      "MEDIUM",
+      0
+    ]
+  },
+  "one good whack": {
+    "display": "One Good Whack",
+    "owner": [
+      "d:sledgehammer|dmg:propane tank|u:-|m:cinder block",
+      "SHALLOW",
+      0
+    ]
+  },
+  "oops my foot": {
+    "display": "Oops, My Foot",
+    "owner": [
+      "d:bear trap|dmg:-|u:jug of motor oil|m:-",
+      "SHALLOW",
+      1
+    ]
+  },
+  "overripe belly flop": {
+    "display": "Overripe Belly Flop",
+    "owner": [
+      "d:crate of overripe produce|dmg:-|u:dewar of liquid nitrogen|m:revolver",
+      "SHALLOW",
+      0
+    ]
+  },
+  "permanent fixture": {
+    "display": "Permanent Fixture",
+    "owner": [
+      "d:bucket of wet cement|dmg:tin of ball bearings|u:-|m:-",
+      "DEEP",
+      0
+    ]
+  },
+  "point and click": {
+    "display": "Point and Click",
+    "owner": [
+      "d:9mm pistol|dmg:9mm rounds|u:-|m:-",
+      "MEDIUM",
+      0
+    ]
+  },
+  "pool boys payback": {
+    "display": "Pool Boy's Payback",
+    "owner": [
+      "d:pressure washer|dmg:tub of pool chlorine|u:-|m:-",
+      "SHALLOW",
+      0
+    ]
+  },
+  "popcorn mine": {
+    "display": "Popcorn Mine",
+    "owner": [
+      "d:block of dry ice|dmg:12-gauge shells|u:tin of ball bearings|m:-",
+      "MEDIUM",
+      1
+    ]
+  },
+  "porcupine patch kit": {
+    "display": "Porcupine Patch Kit",
+    "owner": [
+      "d:first-aid kit|dmg:box of nails|u:cinder block|m:-",
+      "MEDIUM",
+      0
+    ]
+  },
+  "powder bloom": {
+    "display": "Powder Bloom",
+    "owner": [
+      "d:leaf blower|dmg:12-gauge shells|u:revolver|m:t-shirt cannon",
+      "DEEP",
+      1
+    ]
+  },
+  "powder kiss": {
+    "display": "Powder Kiss",
+    "owner": [
+      "d:nail gun|dmg:-|u:-|m:.22 rounds",
+      "MEDIUM",
+      0
+    ]
+  },
+  "primer meridian": {
+    "display": "Primer Meridian",
+    "owner": [
+      "d:salvaged laser cutter|dmg:-|u:.357 rounds|m:-",
+      "DEEP",
+      0
+    ]
+  },
+  "primer rattle": {
+    "display": "Primer Rattle",
+    "owner": [
+      "d:salvaged laser cutter|dmg:-|u:.357 rounds|m:-",
+      "MEDIUM",
+      1
+    ]
+  },
+  "quickset sucker": {
+    "display": "Quickset Sucker",
+    "owner": [
+      "d:bucket of wet cement|dmg:tin of ball bearings|u:-|m:-",
+      "MEDIUM",
+      0
+    ]
+  },
+  "rattling persuader": {
+    "display": "Rattling Persuader",
+    "owner": [
+      "d:crowbar|dmg:-|u:12-gauge shells|m:salvaged laser cutter",
+      "SHALLOW",
+      0
+    ]
+  },
+  "recoil set": {
+    "display": "Recoil Set",
+    "owner": [
+      "d:can of hairspray|dmg:-|u:-|m:9mm rounds",
+      "MEDIUM",
+      1
+    ]
+  },
+  "recoil shuffle": {
+    "display": "Recoil Shuffle",
+    "owner": [
+      "d:leaf blower|dmg:12-gauge shells|u:revolver|m:t-shirt cannon",
+      "SHALLOW",
+      0
+    ]
+  },
+  "rusty surprise": {
+    "display": "Rusty Surprise",
+    "owner": [
+      "d:box of nails|dmg:-|u:-|m:.22 pistol",
+      "SHALLOW",
+      0
+    ]
+  },
+  "sanding squall": {
+    "display": "Sanding Squall",
+    "owner": [
+      "d:pressure washer|dmg:-|u:.30-06 hunting rifle|m:.22 rounds",
+      "MEDIUM",
+      1
+    ]
+  },
+  "second knock": {
+    "display": "Second Knock",
+    "owner": [
+      "d:nail gun|dmg:-|u:-|m:.22 rounds",
+      "DEEP",
+      0
+    ]
+  },
+  "second wind": {
+    "display": "Second Wind",
+    "owner": [
+      "d:9mm pistol|dmg:9mm rounds|u:-|m:-",
+      "DEEP",
+      1
+    ]
+  },
+  "shortfuse sprint": {
+    "display": "Short-Fuse Sprint",
+    "owner": [
+      "d:leaf blower|dmg:-|u:jug of ammonia cleaner|m:car battery",
+      "DEEP",
+      0
+    ]
+  },
+  "sinking feeling": {
+    "display": "Sinking Feeling",
+    "owner": [
+      "d:airhorn|dmg:-|u:power drill|m:-",
+      "MEDIUM",
+      1
+    ]
+  },
+  "slip n snap": {
+    "display": "Slip 'n' Snap",
+    "owner": [
+      "d:bear trap|dmg:-|u:jug of motor oil|m:-",
+      "MEDIUM",
+      0
+    ]
+  },
+  "sloppy chuck": {
+    "display": "Sloppy Chuck",
+    "owner": [
+      "d:bucket of wet cement|dmg:tin of ball bearings|u:-|m:-",
+      "SHALLOW",
+      0
+    ]
+  },
+  "slow fuse nail": {
+    "display": "Slow Fuse Nail",
+    "owner": [
+      "d:nail gun|dmg:-|u:-|m:.22 rounds",
+      "DEEP",
+      1
+    ]
+  },
+  "slowcook line": {
+    "display": "Slow-Cook Line",
+    "owner": [
+      "d:salvaged laser cutter|dmg:-|u:.357 rounds|m:-",
+      "MEDIUM",
+      0
+    ]
+  },
+  "sneeze shot": {
+    "display": "Sneeze Shot",
+    "owner": [
+      "d:pressure washer|dmg:tub of pool chlorine|u:-|m:-",
+      "SHALLOW",
+      1
+    ]
+  },
+  "sparkjaw": {
+    "display": "Sparkjaw",
+    "owner": [
+      "d:crowbar|dmg:-|u:12-gauge shells|m:salvaged laser cutter",
+      "MEDIUM",
+      0
+    ]
+  },
+  "splash bomb special": {
+    "display": "Splash Bomb Special",
+    "owner": [
+      "d:t-shirt cannon|dmg:jerrycan of gasoline|u:road flare|m:-",
+      "SHALLOW",
+      0
+    ]
+  },
+  "splinted spite": {
+    "display": "Splinted Spite",
+    "owner": [
+      "d:first-aid kit|dmg:box of nails|u:cinder block|m:-",
+      "MEDIUM",
+      1
+    ]
+  },
+  "sprinkler snub": {
+    "display": "Sprinkler Snub",
+    "owner": [
+      "d:pressure washer|dmg:-|u:.30-06 hunting rifle|m:.22 rounds",
+      "SHALLOW",
+      1
+    ]
+  },
+  "sputtering shove": {
+    "display": "Sputtering Shove",
+    "owner": [
+      "d:leaf blower|dmg:-|u:jug of ammonia cleaner|m:car battery",
+      "SHALLOW",
+      1
+    ]
+  },
+  "sputtering splash": {
+    "display": "Sputtering Splash",
+    "owner": [
+      "d:angle grinder|dmg:garden hose|u:-|m:-",
+      "SHALLOW",
+      1
+    ]
+  },
+  "standing ovation": {
+    "display": "Standing Ovation",
+    "owner": [
+      "d:crate of overripe produce|dmg:-|u:dewar of liquid nitrogen|m:revolver",
+      "DEEP",
+      0
+    ]
+  },
+  "standing room only": {
+    "display": "Standing Room Only",
+    "owner": [
+      "d:airhorn|dmg:-|u:power drill|m:-",
+      "DEEP",
+      0
+    ]
+  },
+  "startled squash": {
+    "display": "Startled Squash",
+    "owner": [
+      "d:crate of overripe produce|dmg:-|u:dewar of liquid nitrogen|m:revolver",
+      "SHALLOW",
+      1
+    ]
+  },
+  "static fringe": {
+    "display": "Static Fringe",
+    "owner": [
+      "d:can of hairspray|dmg:-|u:-|m:9mm rounds",
+      "SHALLOW",
+      1
+    ]
+  },
+  "sticky plaster special": {
+    "display": "Sticky Plaster Special",
+    "owner": [
+      "d:first-aid kit|dmg:box of nails|u:cinder block|m:-",
+      "SHALLOW",
+      0
+    ]
+  },
+  "tailgate torch": {
+    "display": "Tailgate Torch",
+    "owner": [
+      "d:t-shirt cannon|dmg:jerrycan of gasoline|u:road flare|m:-",
+      "MEDIUM",
+      0
+    ]
+  },
+  "tetanus waiting room": {
+    "display": "Tetanus Waiting Room",
+    "owner": [
+      "d:box of nails|dmg:-|u:-|m:.22 pistol",
+      "SHALLOW",
+      1
+    ]
+  },
+  "the anchor and the awl": {
+    "display": "The Anchor and the Awl",
+    "owner": [
+      "d:first-aid kit|dmg:box of nails|u:cinder block|m:-",
+      "DEEP",
+      1
+    ]
+  },
+  "the backfire bottle": {
+    "display": "The Backfire Bottle",
+    "owner": [
+      "d:glass bottle|dmg:can of expanding foam|u:5.56 rounds|m:-",
+      "MEDIUM",
+      1
+    ]
+  },
+  "the big wet flop": {
+    "display": "The Big Wet Flop",
+    "owner": [
+      "d:bucket of wet cement|dmg:tin of ball bearings|u:-|m:-",
+      "SHALLOW",
+      1
+    ]
+  },
+  "the bowling lane": {
+    "display": "The Bowling Lane",
+    "owner": [
+      "d:industrial fan|dmg:bag of marbles|u:can of expanding foam|m:-",
+      "MEDIUM",
+      1
+    ]
+  },
+  "the bullet pi\u00f1ata": {
+    "display": "The Bullet Pi\u00f1ata",
+    "owner": [
+      "d:glass bottle|dmg:can of expanding foam|u:5.56 rounds|m:-",
+      "DEEP",
+      0
+    ]
+  },
+  "the cheap shot": {
+    "display": "The Cheap Shot",
+    "owner": [
+      "d:glass bottle|dmg:can of expanding foam|u:5.56 rounds|m:-",
+      "SHALLOW",
+      1
+    ]
+  },
+  "the deep end bites back": {
+    "display": "The Deep End Bites Back",
+    "owner": [
+      "d:pressure washer|dmg:tub of pool chlorine|u:-|m:-",
+      "DEEP",
+      0
+    ]
+  },
+  "the floor gives first": {
+    "display": "The Floor Gives First",
+    "owner": [
+      "d:airhorn|dmg:-|u:power drill|m:-",
+      "DEEP",
+      1
+    ]
+  },
+  "the good samaritan special": {
+    "display": "The Good Samaritan Special",
+    "owner": [
+      "d:bear trap|dmg:-|u:jug of motor oil|m:-",
+      "DEEP",
+      1
+    ]
+  },
+  "the gravel handshake": {
+    "display": "The Gravel Handshake",
+    "owner": [
+      "d:bag of gravel|dmg:m16 rifle|u:jerrycan of gasoline|m:-",
+      "SHALLOW",
+      0
+    ]
+  },
+  "the grease fire waltz": {
+    "display": "The Grease Fire Waltz",
+    "owner": [
+      "d:bear trap|dmg:-|u:jug of motor oil|m:-",
+      "DEEP",
+      0
+    ]
+  },
+  "the grid bites back": {
+    "display": "The Grid Bites Back",
+    "owner": [
+      "d:weed whacker|dmg:-|u:-|m:jumper cables",
+      "DEEP",
+      0
+    ]
+  },
+  "the grudge in the clamshell": {
+    "display": "The Grudge in the Clamshell",
+    "owner": [
+      "d:first-aid kit|dmg:box of nails|u:cinder block|m:-",
+      "DEEP",
+      0
+    ]
+  },
+  "the halfhearted gale": {
+    "display": "The Halfhearted Gale",
+    "owner": [
+      "d:industrial fan|dmg:bag of marbles|u:can of expanding foam|m:-",
+      "SHALLOW",
+      1
+    ]
+  },
+  "the harvest line": {
+    "display": "The Harvest Line",
+    "owner": [
+      "d:.22 pistol|dmg:weed whacker|u:-|m:-",
+      "DEEP",
+      1
+    ]
+  },
+  "the itch": {
+    "display": "The Itch",
+    "owner": [
+      "d:.22 pistol|dmg:weed whacker|u:-|m:-",
+      "SHALLOW",
+      1
+    ]
+  },
+  "the jammed threshold": {
+    "display": "The Jammed Threshold",
+    "owner": [
+      "d:industrial fan|dmg:bag of marbles|u:can of expanding foam|m:-",
+      "MEDIUM",
+      0
+    ]
+  },
+  "the jump scare": {
+    "display": "The Jump Scare",
+    "owner": [
+      "d:airhorn|dmg:-|u:power drill|m:-",
+      "SHALLOW",
+      1
+    ]
+  },
+  "the last match": {
+    "display": "The Last Match",
+    "owner": [
+      "d:bag of gravel|dmg:m16 rifle|u:jerrycan of gasoline|m:-",
+      "DEEP",
+      1
+    ]
+  },
+  "the late bang": {
+    "display": "The Late Bang",
+    "owner": [
+      "d:crowbar|dmg:-|u:12-gauge shells|m:salvaged laser cutter",
+      "DEEP",
+      0
+    ]
+  },
+  "the late payment": {
+    "display": "The Late Payment",
+    "owner": [
+      "d:glass bottle|dmg:can of expanding foam|u:5.56 rounds|m:-",
+      "DEEP",
+      1
+    ]
+  },
+  "the long bite": {
+    "display": "The Long Bite",
+    "owner": [
+      "d:.22 pistol|dmg:weed whacker|u:-|m:-",
+      "DEEP",
+      0
+    ]
+  },
+  "the long fuse": {
+    "display": "The Long Fuse",
+    "owner": [
+      "d:sledgehammer|dmg:propane tank|u:-|m:cinder block",
+      "DEEP",
+      0
+    ]
+  },
+  "the long fuse toss": {
+    "display": "The Long Fuse Toss",
+    "owner": [
+      "d:crowbar|dmg:-|u:12-gauge shells|m:salvaged laser cutter",
+      "DEEP",
+      1
+    ]
+  },
+  "the long reach": {
+    "display": "The Long Reach",
+    "owner": [
+      "d:bag of gravel|dmg:m16 rifle|u:jerrycan of gasoline|m:-",
+      "MEDIUM",
+      1
+    ]
+  },
+  "the narrowing": {
+    "display": "The Narrowing",
+    "owner": [
+      "d:industrial fan|dmg:bag of marbles|u:can of expanding foam|m:-",
+      "DEEP",
+      0
+    ]
+  },
+  "the old standby": {
+    "display": "The Old Standby",
+    "owner": [
+      "d:9mm pistol|dmg:9mm rounds|u:-|m:-",
+      "SHALLOW",
+      1
+    ]
+  },
+  "the quiet avalanche": {
+    "display": "The Quiet Avalanche",
+    "owner": [
+      "d:block of dry ice|dmg:12-gauge shells|u:tin of ball bearings|m:-",
+      "DEEP",
+      0
+    ]
+  },
+  "the quiet little mess": {
+    "display": "The Quiet Little Mess",
+    "owner": [
+      "d:box of nails|dmg:-|u:-|m:.22 pistol",
+      "DEEP",
+      0
+    ]
+  },
+  "the quiet sendoff": {
+    "display": "The Quiet Send-Off",
+    "owner": [
+      "d:angle grinder|dmg:defibrillator|u:fire axe|m:.22 pistol",
+      "DEEP",
+      0
+    ]
+  },
+  "the recoil line": {
+    "display": "The Recoil Line",
+    "owner": [
+      "d:weed whacker|dmg:-|u:-|m:jumper cables",
+      "DEEP",
+      1
+    ]
+  },
+  "the room remembers": {
+    "display": "The Room Remembers",
+    "owner": [
+      "d:adrenaline shot|dmg:chainsaw|u:-|m:-",
+      "DEEP",
+      1
+    ]
+  },
+  "the rusty bite": {
+    "display": "The Rusty Bite",
+    "owner": [
+      "d:bear trap|dmg:-|u:jug of motor oil|m:-",
+      "SHALLOW",
+      0
+    ]
+  },
+  "the sandbag special": {
+    "display": "The Sandbag Special",
+    "owner": [
+      "d:bag of gravel|dmg:m16 rifle|u:jerrycan of gasoline|m:-",
+      "SHALLOW",
+      1
+    ]
+  },
+  "the settling storm": {
+    "display": "The Settling Storm",
+    "owner": [
+      "d:industrial fan|dmg:bag of marbles|u:can of expanding foam|m:-",
+      "DEEP",
+      1
+    ]
+  },
+  "the shatterfrost cache": {
+    "display": "The Shatterfrost Cache",
+    "owner": [
+      "d:block of dry ice|dmg:12-gauge shells|u:tin of ball bearings|m:-",
+      "DEEP",
+      1
+    ]
+  },
+  "the shrapnel satchel": {
+    "display": "The Shrapnel Satchel",
+    "owner": [
+      "d:bag of gravel|dmg:m16 rifle|u:jerrycan of gasoline|m:-",
+      "MEDIUM",
+      0
+    ]
+  },
+  "the unimpressive ambush": {
+    "display": "The Unimpressive Ambush",
+    "owner": [
+      "d:box of nails|dmg:-|u:-|m:.22 pistol",
+      "DEEP",
+      1
+    ]
+  },
+  "the warmup buzz": {
+    "display": "The Warm-Up Buzz",
+    "owner": [
+      "d:angle grinder|dmg:defibrillator|u:fire axe|m:.22 pistol",
+      "SHALLOW",
+      1
+    ]
+  },
+  "the weighted handshake": {
+    "display": "The Weighted Handshake",
+    "owner": [
+      "d:glass bottle|dmg:can of expanding foam|u:5.56 rounds|m:-",
+      "MEDIUM",
+      0
+    ]
+  },
+  "the welcome mat": {
+    "display": "The Welcome Mat",
+    "owner": [
+      "d:airhorn|dmg:-|u:power drill|m:-",
+      "MEDIUM",
+      0
+    ]
+  },
+  "through and through": {
+    "display": "Through and Through",
+    "owner": [
+      "d:sledgehammer|dmg:propane tank|u:-|m:cinder block",
+      "DEEP",
+      1
+    ]
+  },
+  "torch and shove": {
+    "display": "Torch and Shove",
+    "owner": [
+      "d:angle grinder|dmg:defibrillator|u:fire axe|m:.22 pistol",
+      "MEDIUM",
+      1
+    ]
+  },
+  "twinfang bridge": {
+    "display": "Twin-Fang Bridge",
+    "owner": [
+      "d:jumper cables|dmg:-|u:.30-06 rounds|m:-",
+      "DEEP",
+      0
+    ]
+  },
+  "twitchy stims": {
+    "display": "Twitchy Stims",
+    "owner": [
+      "d:first-aid kit|dmg:box of nails|u:cinder block|m:-",
+      "SHALLOW",
+      1
+    ]
+  },
+  "weary wind": {
+    "display": "Weary Wind",
+    "owner": [
+      "d:leaf blower|dmg:-|u:jug of ammonia cleaner|m:car battery",
+      "SHALLOW",
+      0
+    ]
+  },
+  "wet cement cold feet": {
+    "display": "Wet Cement, Cold Feet",
+    "owner": [
+      "d:bucket of wet cement|dmg:tin of ball bearings|u:-|m:-",
+      "DEEP",
+      1
+    ]
+  },
+  "wet firecracker": {
+    "display": "Wet Firecracker",
+    "owner": [
+      "d:glass bottle|dmg:can of expanding foam|u:5.56 rounds|m:-",
+      "SHALLOW",
+      0
+    ]
+  },
+  "whiplash grease": {
+    "display": "Whiplash Grease",
+    "owner": [
+      "d:bear trap|dmg:-|u:jug of motor oil|m:-",
+      "MEDIUM",
+      1
+    ]
+  },
+  "whiteknuckle special": {
+    "display": "White-Knuckle Special",
+    "owner": [
+      "d:angle grinder|dmg:defibrillator|u:fire axe|m:.22 pistol",
+      "MEDIUM",
+      0
+    ]
+  }
+}

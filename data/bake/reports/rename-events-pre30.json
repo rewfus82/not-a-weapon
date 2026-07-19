@@ -1,0 +1,22 @@
+[
+  {
+    "owner": [
+      "d:leaf blower|dmg:-|u:jug of ammonia cleaner|m:car battery",
+      "MEDIUM",
+      0
+    ],
+    "old": "Clear the Room",
+    "new": "Eau de Get Out",
+    "outcome": "renamed"
+  },
+  {
+    "owner": [
+      "d:glass bottle|dmg:can of expanding foam|u:5.56 rounds|m:-",
+      "SHALLOW",
+      0
+    ],
+    "old": "Damp Squib",
+    "new": "Wet Firecracker",
+    "outcome": "renamed"
+  }
+]

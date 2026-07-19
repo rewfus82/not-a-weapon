@@ -1,0 +1,276 @@
+{
+  "seed": 20260717,
+  "n": 30,
+  "combos": [
+    {
+      "combo_id": "d:t-shirt cannon|dmg:jerrycan of gasoline|u:road flare|m:-",
+      "slots": {
+        "delivery": "t-shirt cannon",
+        "damage": "jerrycan of gasoline",
+        "utility": "road flare",
+        "modifier": null
+      }
+    },
+    {
+      "combo_id": "d:pressure washer|dmg:tub of pool chlorine|u:-|m:-",
+      "slots": {
+        "delivery": "pressure washer",
+        "damage": "tub of pool chlorine",
+        "utility": null,
+        "modifier": null
+      }
+    },
+    {
+      "combo_id": "d:industrial fan|dmg:bag of marbles|u:can of expanding foam|m:-",
+      "slots": {
+        "delivery": "industrial fan",
+        "damage": "bag of marbles",
+        "utility": "can of expanding foam",
+        "modifier": null
+      }
+    },
+    {
+      "combo_id": "d:weed whacker|dmg:-|u:-|m:jumper cables",
+      "slots": {
+        "delivery": "weed whacker",
+        "damage": null,
+        "utility": null,
+        "modifier": "jumper cables"
+      }
+    },
+    {
+      "combo_id": "d:9mm pistol|dmg:9mm rounds|u:-|m:-",
+      "slots": {
+        "delivery": "9mm pistol",
+        "damage": "9mm rounds",
+        "utility": null,
+        "modifier": null
+      }
+    },
+    {
+      "combo_id": "d:bear trap|dmg:-|u:jug of motor oil|m:-",
+      "slots": {
+        "delivery": "bear trap",
+        "damage": null,
+        "utility": "jug of motor oil",
+        "modifier": null
+      }
+    },
+    {
+      "combo_id": "d:fire extinguisher|dmg:sack of fertilizer|u:industrial fan|m:roman candle",
+      "slots": {
+        "delivery": "fire extinguisher",
+        "damage": "sack of fertilizer",
+        "utility": "industrial fan",
+        "modifier": "roman candle"
+      }
+    },
+    {
+      "combo_id": "d:.22 pistol|dmg:weed whacker|u:-|m:-",
+      "slots": {
+        "delivery": ".22 pistol",
+        "damage": "weed whacker",
+        "utility": null,
+        "modifier": null
+      }
+    },
+    {
+      "combo_id": "d:nail gun|dmg:-|u:-|m:.22 rounds",
+      "slots": {
+        "delivery": "nail gun",
+        "damage": null,
+        "utility": null,
+        "modifier": ".22 rounds"
+      }
+    },
+    {
+      "combo_id": "d:pressure washer|dmg:-|u:.30-06 hunting rifle|m:.22 rounds",
+      "slots": {
+        "delivery": "pressure washer",
+        "damage": null,
+        "utility": ".30-06 hunting rifle",
+        "modifier": ".22 rounds"
+      }
+    },
+    {
+      "combo_id": "d:jumper cables|dmg:-|u:.30-06 rounds|m:-",
+      "slots": {
+        "delivery": "jumper cables",
+        "damage": null,
+        "utility": ".30-06 rounds",
+        "modifier": null
+      }
+    },
+    {
+      "combo_id": "d:salvaged laser cutter|dmg:-|u:.357 rounds|m:-",
+      "slots": {
+        "delivery": "salvaged laser cutter",
+        "damage": null,
+        "utility": ".357 rounds",
+        "modifier": null
+      }
+    },
+    {
+      "combo_id": "d:leaf blower|dmg:12-gauge shells|u:revolver|m:t-shirt cannon",
+      "slots": {
+        "delivery": "leaf blower",
+        "damage": "12-gauge shells",
+        "utility": "revolver",
+        "modifier": "t-shirt cannon"
+      }
+    },
+    {
+      "combo_id": "d:fire extinguisher|dmg:-|u:5.56 rounds|m:-",
+      "slots": {
+        "delivery": "fire extinguisher",
+        "damage": null,
+        "utility": "5.56 rounds",
+        "modifier": null
+      }
+    },
+    {
+      "combo_id": "d:adrenaline shot|dmg:chainsaw|u:-|m:-",
+      "slots": {
+        "delivery": "adrenaline shot",
+        "damage": "chainsaw",
+        "utility": null,
+        "modifier": null
+      }
+    },
+    {
+      "combo_id": "d:airhorn|dmg:-|u:power drill|m:-",
+      "slots": {
+        "delivery": "airhorn",
+        "damage": null,
+        "utility": "power drill",
+        "modifier": null
+      }
+    },
+    {
+      "combo_id": "d:angle grinder|dmg:defibrillator|u:fire axe|m:.22 pistol",
+      "slots": {
+        "delivery": "angle grinder",
+        "damage": "defibrillator",
+        "utility": "fire axe",
+        "modifier": ".22 pistol"
+      }
+    },
+    {
+      "combo_id": "d:bag of gravel|dmg:m16 rifle|u:jerrycan of gasoline|m:-",
+      "slots": {
+        "delivery": "bag of gravel",
+        "damage": "m16 rifle",
+        "utility": "jerrycan of gasoline",
+        "modifier": null
+      }
+    },
+    {
+      "combo_id": "d:fire extinguisher|dmg:t-shirt cannon|u:baseball bat|m:adrenaline shot",
+      "slots": {
+        "delivery": "fire extinguisher",
+        "damage": "t-shirt cannon",
+        "utility": "baseball bat",
+        "modifier": "adrenaline shot"
+      }
+    },
+    {
+      "combo_id": "d:block of dry ice|dmg:12-gauge shells|u:tin of ball bearings|m:-",
+      "slots": {
+        "delivery": "block of dry ice",
+        "damage": "12-gauge shells",
+        "utility": "tin of ball bearings",
+        "modifier": null
+      }
+    },
+    {
+      "combo_id": "d:box of nails|dmg:-|u:-|m:.22 pistol",
+      "slots": {
+        "delivery": "box of nails",
+        "damage": null,
+        "utility": null,
+        "modifier": ".22 pistol"
+      }
+    },
+    {
+      "combo_id": "d:bucket of wet cement|dmg:tin of ball bearings|u:-|m:-",
+      "slots": {
+        "delivery": "bucket of wet cement",
+        "damage": "tin of ball bearings",
+        "utility": null,
+        "modifier": null
+      }
+    },
+    {
+      "combo_id": "d:can of hairspray|dmg:-|u:-|m:9mm rounds",
+      "slots": {
+        "delivery": "can of hairspray",
+        "damage": null,
+        "utility": null,
+        "modifier": "9mm rounds"
+      }
+    },
+    {
+      "combo_id": "d:leaf blower|dmg:-|u:jug of ammonia cleaner|m:car battery",
+      "slots": {
+        "delivery": "leaf blower",
+        "damage": null,
+        "utility": "jug of ammonia cleaner",
+        "modifier": "car battery"
+      }
+    },
+    {
+      "combo_id": "d:sledgehammer|dmg:propane tank|u:-|m:cinder block",
+      "slots": {
+        "delivery": "sledgehammer",
+        "damage": "propane tank",
+        "utility": null,
+        "modifier": "cinder block"
+      }
+    },
+    {
+      "combo_id": "d:crate of overripe produce|dmg:-|u:dewar of liquid nitrogen|m:revolver",
+      "slots": {
+        "delivery": "crate of overripe produce",
+        "damage": null,
+        "utility": "dewar of liquid nitrogen",
+        "modifier": "revolver"
+      }
+    },
+    {
+      "combo_id": "d:crowbar|dmg:-|u:12-gauge shells|m:salvaged laser cutter",
+      "slots": {
+        "delivery": "crowbar",
+        "damage": null,
+        "utility": "12-gauge shells",
+        "modifier": "salvaged laser cutter"
+      }
+    },
+    {
+      "combo_id": "d:first-aid kit|dmg:box of nails|u:cinder block|m:-",
+      "slots": {
+        "delivery": "first-aid kit",
+        "damage": "box of nails",
+        "utility": "cinder block",
+        "modifier": null
+      }
+    },
+    {
+      "combo_id": "d:angle grinder|dmg:garden hose|u:-|m:-",
+      "slots": {
+        "delivery": "angle grinder",
+        "damage": "garden hose",
+        "utility": null,
+        "modifier": null
+      }
+    },
+    {
+      "combo_id": "d:glass bottle|dmg:can of expanding foam|u:5.56 rounds|m:-",
+      "slots": {
+        "delivery": "glass bottle",
+        "damage": "can of expanding foam",
+        "utility": "5.56 rounds",
+        "modifier": null
+      }
+    }
+  ]
+}
