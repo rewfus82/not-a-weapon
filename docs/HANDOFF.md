@@ -1,69 +1,50 @@
-# HANDOFF (2026-07-17, evening) — bake-pipeline brainstorm still the assigned job; baseline re-verified
+# HANDOFF (2026-07-19) — bake pipeline DONE & reviewed; pilot HELD; next phase is prototype + item clouds
 
-You are a fresh agent. Your job: **brainstorm the bake pipeline** (superpowers:brainstorming, off `docs/RESOLVER_ECONOMICS_AND_BAKE.md`), carry it through spec → plan per Superpowers, then STOP for the user before executing. This assignment is unchanged from the previous handoff — the 2026-07-17 pickup session verified the baseline (zero drift, 279 green) and did no work. The contract-v1 pass that was blocking bake volume is done and user-approved — do not re-litigate the Target axis, the repair rules, the derivation matrix, or the weighted budget; they are shipped and tested.
+You are a fresh agent. The bake-pipeline plan (`docs/superpowers/plans/2026-07-17-bake-pipeline.md`) is **complete**: Tasks 1–7 implemented and task-reviewed, a 30-combo preliminary wave ran live, the final whole-branch review passed (verdict: ready to merge; sole pre-merge fix applied), and the branch was wrapped via finishing-a-development-branch. **The 300-combo pilot was explicitly HELD by the user** — do not run `python -m resolver.bake run` or `dedup` without a fresh, explicit user approval in your own session. There is no active plan; orient, then ask the user what's next (likely: prototype or item-cloud work).
 
 ## Repo & branch state
 
 - Branch: `main` (only branch; **no remote — do not push, do not add one**).
-- HEAD: this handoff's own commit (subject "docs: handoff — bake brainstorm reconfirmed..."); the last code commit is `2d863b5`.
-- Working tree: only the intentionally-uncommitted files below. **Leave them alone:**
-  - `docs/CAPABILITY_CONTRACT_v0.md` (superseded contract, kept as history)
-  - the ten 2026-07-10 files under `docs/superpowers/plans/` and `docs/superpowers/specs/`
-  - `hello.md`
-- Commits: conventional, small, per plan task, ending `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
+- HEAD closes the bake phase: `042d5ff` (T7 CLI) → `13019bd` (review fix: opus pricing $5/$25) → `abb8775` (pre30 data).
+- Suite: `python -m pytest -q` → **340 passed**.
+- Untracked, intentional — leave alone, never stage wholesale: `data/bake/combos-pilot.json` (the HELD 300-combo pilot selection; committing it is gated on pilot approval), `docs/CAPABILITY_CONTRACT_v0.md` (superseded; v1 in `resolver/contract.py` is the contract of record), `hello.md`, the ten 2026-07-10 files under `docs/superpowers/plans|specs/`.
+- `.superpowers/sdd/progress.md` — git-ignored ledger with the full task history and all review findings. Don't `git clean` it.
 
-## Clean-baseline checks (run before any work)
+## What the $5.44 preliminary wave established (2026-07-18, pre30)
 
-```
-git branch --show-current      # expect: main
-git log --oneline -1           # expect: docs: handoff — bake brainstorm reconfirmed ...
-python -m pytest -q            # expect: 279 passed
-```
+Committed in `data/bake/`: `combos-pre30.json`, `scaffolds-pre30.jsonl`, `names-pre30.json`, `reports/2026-07-18-pre30.md`, `reports/rename-events-pre30.json`.
 
-If any differ, STOP and report the drift — don't fix it silently.
+- **Rates:** 28/30 resolved (one unresolved is the pinned probe expected to be hard), 2 renames, 0 suffixes. 168 gadgets total (28 × 6 drafts).
+- **Cost reality vs. model:** $0.181/combo measured vs. the econ doc's ~$0.05. Anatomy: the adaptive top-up fired 28/28 (TOP_UP_WIDTH=3 is a non-discriminating placeholder → blanket 2× calls) and real output ran ~3× modeled tokens. Path back to ~$0.045/combo: skip/tune top-up + Batch API. Shelved until a bake resumes.
+- **Quality verdict (user-reviewed, positive):** the depth ladder works — shallows properly pathetic, deeps genuinely chain stated item properties ("The Long Fuse", "Permanent Fixture", "Gunfire Echo", "Standing Room Only"). Weak spots: the delayed-cook-off trope is overused (~6 combos — driven by how often mismatched-caliber ammo is drawn); ON_KILL SPEED/SHIELD@SELF riders are filler; name *style* repeats ("The Quiet …", two "Long Fuse"s) which dedup can't catch; category mix is CONTROL-heavy (172 WEAPON / 132 CONTROL / 30 SUPPORT / 2 UTILITY). **Conclusion: the quality ceiling is now the item association clouds, not the generator or prompt.**
 
-## Read first (in order)
+## Final review (fbb36ed..042d5ff): ready to merge
 
-1. `CLAUDE.md` — repo invariants and how we work.
-2. `docs/GAME_IDENTITY.md` — the design north star (§6 economy, §11 invariants).
-3. `docs/RESOLVER_ECONOMICS_AND_BAKE.md` — the doc this brainstorm refines: LLM-scaffold/code-numbers split, wave strategy, cost model sketch.
-4. `docs/CAPABILITY_CONTRACT_v1.md` — the contract of record the bake freezes against.
-5. `.superpowers/sdd/progress.md` — git-ignored ledger, full task history (don't `git clean` it).
+- All invariants verified: enums never widened; code owns every number (`harmless`/`category` re-derived); keyless-loud; AUP-compliant (rates only); engine-agnostic; crash-safe JSONL.
+- **Fixed (`13019bd`):** `report.py` opus pricing (15, 75) → (5, 25); sonnet left at standard list (conservative vs. intro pricing, self-corrects Sept 2026).
+- **Riding (schema change, unauthorized by plan — fix when a bake resumes):** unresolved records price $0 (usage present, `model=None`), and escalated records price sonnet-rung tokens at opus rates. Same root cause: `BakeRecord` lacks per-rung model attribution. Until fixed the report's $ is directional (its caveat says so).
+- Nine minors triaged ride — in the ledger. Notables: `rename-events.json` overwritten per dedup run (needs per-wave `--events-out` when waves stack); report raises bare KeyError on mismatched scaffolds/selection files.
 
-Do NOT read: the 2026-07-10 plan/spec files (historical refusal-era work), `docs/CAPABILITY_CONTRACT_v0.md` (superseded), the 2026-07-16 contract-v1 plan/spec (done; skim only if a contract question arises).
+## Next steps (no active plan — user decides)
 
-## Done and verified (all on `main`)
-
-- **Baseline re-verification (2026-07-17 pickup session):** branch/HEAD/working-tree matched the prior handoff exactly; `python -m pytest -q` → **279 passed**. No code or doc changes besides this handoff rewrite.
-- **Contract-v1 plan** (2026-07-16/17, commits `327df5c..2d863b5`, five TDD tasks, suite 251→279):
-  - `Target` axis (`STRUCK`/`SELF`) required on every `Effect`; `amount` now `ge=0`; `default_target(kind)` for code-authored paths. Lifedrain is a composition (`DAMAGE@STRUCK + HEAL@SELF`), never a token.
-  - `resolver/validate.py` — deterministic legality **repair, never reject** (SELF chassis only): ON_IMPACT/ON_TRIGGER/ON_BLOCK → ON_USE; ON_HIT without a `protective` chassis tag → ON_USE; ON_USE/ON_EXPIRE/ON_KILL stages retarget effects to SELF. Protective rule ships dormant (riot shield, the only `protective` item, locks GUARD). Wired into `clamp.apply` ahead of the magnitude clamp.
-  - Derivation on (kind, target) in `clamp.py`: `harmless` = no lethal@STRUCK; category priority DUD → WEAPON → CONTROL → SUPPORT → UTILITY → TRINKET. Accepted edge: DAMAGE@SELF-only derives SUPPORT (documented, not special-cased).
-  - Weighted budget: `effect_cost = amount*W_AMOUNT[kind] + duration*W_DURATION + radius*W_RADIUS + count*W_COUNT`, weights beside `TIER_BUDGET` in `clamp.py`. Floats share one scale factor; counts floor-scale only when count cost alone exceeds target. Composer fills the weighted budget exactly; solo stays pinned 2.0.
-  - Prompt teaches the target axis + self-kit trigger semantics; `docs/RESOLVER_PROMPT_v0.md` mirrors it; playground and text renderer show `KIND@TARGET`; `docs/CAPABILITY_CONTRACT_v1.md` created.
-- Earlier baselines (live budget + parallel rolls, budget-filling composer, base uses, association clouds 0/72 refusals, playground pass) — see the ledger; all merged and stable.
-
-## Next steps (prioritized)
-
-1. **Bake-pipeline brainstorm** (the assigned job). Must settle: scaffold schema (frozen against contract v1 — composition only, no magnitudes), **global** name-dedup pool + rename pass (collisions are global attractors: "Load-Bearing Argument" ×3 across different builds), **adaptive per-combo N** (variance width is per-combination), wave strategy, cost model (head-of-Zipf + lazy tail + revenue-funded waves).
-2. **Catalog expansion decision — deliberately AFTER the brainstorm** (user asked "when do we add items"; this sequencing was the answer given). The cost model from step 1 prices a marginal item; size the wave-1 catalog against it, then run an item pass (clouds authored → user editorial approval → live refusal validation). First slot in any such pass: **one worn protective item** — it activates the dormant self-kit ON_HIT path with zero code change.
-3. Optional, non-gating: live playground smoke of the target axis (`PYTHONUTF8=1`, needs API key) — see `@STRUCK`/`@SELF` on live cards, ideally a first-aid-kit build to watch repair act on real model output.
+1. **Prototype first** (user's stated direction): the game loop doesn't exist yet; the 168 committed gadgets + deterministic fallback are enough content to build against. Scaffolds are perishable across contract/prompt changes (contract_fingerprint), so baking more now is speculative.
+2. **Item association clouds** — the highest-leverage content work (CLAUDE.md: clouds are half the system). Needs user editorial approval. First slot: one worn protective item (activates the dormant ON_HIT self-kit path, zero code change). Would also feed the starved SUPPORT/UTILITY categories.
+3. **When a bake resumes:** tune/disable top-up on the pre30 width evidence, consider Batch API, fix the per-rung attribution schema, then re-open the pilot spend gate (~$15 at current measured rates, ~$4–7 optimized).
 
 ## Standing constraints & traps
 
-- **The enums are the capability contract — never widen them.** (`Target` was a validation axis, not a widening; the bar stays.)
-- **Code owns every number**; `harmless`/`category` always re-derived in `clamp.py`. Solo stays pathetic (2.0), never budget-filled.
-- **Illegal drafts are repaired deterministically, never rejected** (`resolver/validate.py`).
-- **Never a hard LLM dependency** — deterministic path fully works keyless. The LLM is bake/offline, never the runtime hot path.
-- **Engine-agnostic** — zero engine references in `resolver/`.
-- **Renderer gates tuning, not generation** (settled 2026-07-17): weight *values* (`W_DURATION` etc.), `TIER_BUDGET`, and token-vs-note visuals are renderer-era and play-tuned — not TDD, not now. Bake volume is safe regardless because scaffolds carry no magnitudes; rebalance = re-clamp, never re-bake. The renderer need not be Unreal — anything executing the contract unlocks tuning.
-- **Never have an agent introspect *why* a build was refused.** Asking a model to categorize a refusal has flagged a session for an AUP violation. Log rates; ablate by item swap; never chase the reason.
-- Windows live runs: `PYTHONUTF8=1` or redirect to a UTF-8 file (em-dash mojibake).
-- The harness `routing:` line is observational (what `route()` would pick) — the actual resolver is chosen by CLI flags.
-- Contract-v1 open questions ride in `docs/CAPABILITY_CONTRACT_v1.md` §"v1 open questions" — don't resolve them opportunistically.
+- **The enums are the capability contract — never widen them** (contract v1, `resolver/contract.py`).
+- **Code owns every number**; scaffolds carry no magnitudes; rebalance = re-clamp, never re-bake.
+- **Never a hard LLM dependency:** `select`/`report` keyless; `run`/`dedup` fail loud without `ANTHROPIC_API_KEY`.
+- **NEVER introspect why a call was refused.** Log rates only. No stop reasons, exception text, or failure classification anywhere. (Standing AUP rule.)
+- **No sampling params** on `messages.parse`. Windows live runs: `PYTHONUTF8=1`.
+- Engine-agnostic: zero engine references in `resolver/`.
+- `load_selection`/`load_records` take `pathlib.Path`. Ladder default: `claude-sonnet-5` ×2 → `claude-opus-4-8`.
+- Renderer gates tuning: jitter width, budget band, weights, prices are placeholders — don't tune without evidence.
+- When dispatching subagents, copy plan Global Constraints **verbatim** — paraphrases have introduced false constraints twice.
 
 ## Human TODOs
 
-- Decide when to run the optional live target-axis smoke (needs the API key; rotated 2026-07-14, present in env).
-- The 9/9-refused build (extinguisher + roman candle + fan + a powder item) still rides on deterministic fallback; ablation-by-item-swap remains offered, not requested. User's call whether to pursue.
-- Catalog expansion is a user decision once the bake cost model exists (step 2 above); item clouds need user editorial approval before validation.
+- Decide the next phase: prototype vs. item-cloud editorial pass (or both, clouds are blocked on user approval anyway).
+- Pilot spend stays HELD until re-opened deliberately (post-prototype, post-optimization).
+- Catalog expansion decision rides with the item-cloud pass.
