@@ -7,8 +7,8 @@ other chassis all (kind, target) combinations are intended compositions
 (lifedrain, the healing gun, self-costs). Semantics on a self-kit: ON_HIT =
 "when you get hit" (needs a chassis that can absorb a hit — the `protective`
 tag); ON_KILL = "when you down something while this is active" (the payoff
-lands on you). The protective rule ships defined-but-dormant: the only
-protective catalog item today (riot shield) locks GUARD.
+lands on you). The protective rule is live: the firefighter turnout coat
+(worn, SELF) activates ON_HIT self-kit payloads; the riot shield still locks GUARD.
 """
 from __future__ import annotations
 

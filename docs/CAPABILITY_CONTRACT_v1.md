@@ -51,7 +51,7 @@ Tokens unchanged from v0: `ON_USE`, `ON_HIT`, `ON_IMPACT`, `ON_TRIGGER`, `ON_EXP
 | Effects in a legal reactive `ON_HIT` stage may target either (`STRUCK` = whoever hit you — retaliation) | — |
 | Effects in `ON_KILL` stages target `SELF` (the reward reading; the target is dead) | retarget to `SELF` |
 
-`ON_KILL` on a self-kit = "when you down something while this is active." The protective rule ships defined-but-dormant: the only `protective` item today (riot shield) locks a GUARD chassis; the first worn protective item activates it with zero code change.
+`ON_KILL` on a self-kit = "when you down something while this is active." The protective rule is live: the riot shield locks a GUARD chassis, while the firefighter turnout coat (worn, SELF) activates the ON_HIT self-kit path.
 
 **Non-SELF chassis: every (kind, target) combination is legal.** Lifedrain, the healing gun, and self-costs are intended compositions.
 
