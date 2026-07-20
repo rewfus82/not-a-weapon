@@ -24,6 +24,7 @@ BATCH_CONTACT: tuple[str, ...] = (
     "baseball bat", "power drill", "angle grinder", "chainsaw",
     "weed whacker", "riot shield", "bear trap", "airhorn", "leaf blower",
     "adrenaline shot", "first-aid kit",
+    "firefighter turnout coat", "battery boombox",
 )
 
 
@@ -43,6 +44,7 @@ BATCH_SUBSTANCES: tuple[str, ...] = (
     ".22 rounds", "9mm rounds", ".357 rounds", "5.56 rounds",
     "12-gauge shells", ".30-06 rounds",
     "box of nails", "tin of ball bearings", "bag of marbles", "bag of gravel",
+    "cooler of raw steaks", "case of energy drinks",
 )
 
 

@@ -356,6 +356,16 @@ _ITEMS: list[Item] = [
          roles=frozenset({M}), verb="blare",
          tags=frozenset({"loud"}), delivery=Delivery.PLACED,
          base_use=BaseUse(Delivery.PLACED, EffectKind.LURE)),
+    Item("battery boombox",
+         associations=(
+             "a battered boombox that runs on fat batteries",
+             "cranked to full, it's a wall of sound you can carry",
+             "set playing in an empty room, it makes that room the interesting one",
+             "whatever hunts by ear goes to the music, not to you",
+         ),
+         roles=frozenset({M}), verb="blast",
+         tags=frozenset({"loud"}), delivery=Delivery.PLACED,
+         base_use=BaseUse(Delivery.PLACED, EffectKind.LURE)),
 
     # ---- Layer 1 · Mechanism · Self / mobility ----
     Item("leaf blower",
@@ -388,6 +398,26 @@ _ITEMS: list[Item] = [
          roles=frozenset({MOD}), verb="patch",
          tags=frozenset({"restorative"}), delivery=Delivery.SELF,
          base_use=BaseUse(Delivery.SELF, EffectKind.HEAL)),
+    Item("firefighter turnout coat",
+         associations=(
+             "a firefighter's turnout coat, scorched but intact",
+             "heat that would blister bare skin just warms it through",
+             "heavy canvas and reflective stripes turn a glancing hit into a shove",
+             "wearing it, your own fire is just weather",
+         ),
+         roles=frozenset({M}), verb="shrug-off",
+         tags=frozenset({"protective"}), delivery=Delivery.SELF,
+         base_use=BaseUse(Delivery.SELF, EffectKind.SHIELD)),
+    Item("case of energy drinks",
+         associations=(
+             "a case of neon energy drinks, warm and shaken",
+             "two cans in, your hands move before your thoughts finish",
+             "the shakes show up later and bill you for the speed",
+             "spilled, they leave a sticky sheet that loves a live wire",
+         ),
+         roles=frozenset({M, SUB}), verb="chug",
+         tags=frozenset({"stimulant", "liquid"}), delivery=Delivery.SELF,
+         base_use=BaseUse(Delivery.SELF, EffectKind.SPEED)),
 
     # ---- Layer 2 · Modifier / energizer (overlay + effect transform) ----
     Item("propane tank",
@@ -582,6 +612,16 @@ _ITEMS: list[Item] = [
          roles=frozenset({SUB}), verb="gum-up",
          tags=frozenset({"slippery", "sticky"}),
          base_use=BaseUse(Delivery.THROWN, EffectKind.SLOW)),
+    Item("cooler of raw steaks",
+         associations=(
+             "a cooler of raw steaks, past cold and starting to turn",
+             "the smell carries further than you'd like",
+             "underfoot the fat is slick as soap",
+             "a trail of it leads anything hungry exactly where you want it standing",
+         ),
+         roles=frozenset({SUB}), verb="bait",
+         tags=frozenset({"slippery"}),
+         base_use=BaseUse(Delivery.PLACED, EffectKind.LURE)),
 
     # ---- Feeders · Ammo — real (AMMUNITION · caliber-matched) ----
     Item(".22 rounds",

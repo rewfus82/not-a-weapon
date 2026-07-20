@@ -17,8 +17,9 @@ def _fx(kind=EffectKind.DAMAGE, target=Target.STRUCK, amount=5.0):
 _SELF_KIT = Build(delivery_item=CATALOG["first-aid kit"])  # SELF chassis, not protective
 _BAT = Build(delivery_item=CATALOG["baseball bat"])        # non-SELF chassis
 
-# the dormant gate: no catalog SELF item is protective yet (riot shield locks
-# GUARD), so the reactive rule is exercised with a fabricated worn-vest fixture
+# the reactive rule is exercised with a fabricated worn-vest fixture so these
+# tests stay independent of catalog contents (since the 2026-07-19 editorial
+# pass, the firefighter turnout coat carries SELF + protective in the catalog)
 _VEST = Item("test vest", roles=frozenset({Role.MECHANISM}), verb="wear",
              tags=frozenset({"protective"}), delivery=Delivery.SELF,
              base_use=BaseUse(Delivery.SELF, EffectKind.SHIELD))

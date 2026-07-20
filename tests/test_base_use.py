@@ -81,6 +81,11 @@ EXPECTED: dict[str, tuple[Delivery, EffectKind, bool] | None] = {
     "block of dry ice": (D.PLACED, E.FREEZE, False),
     "road flare": (D.THROWN, E.BURN, False),
     "propane tank": (D.THROWN, E.DAMAGE, False),
+    # 2026-07-19 editorial pass
+    "firefighter turnout coat": (D.SELF, E.SHIELD, False),
+    "battery boombox": (D.PLACED, E.LURE, False),
+    "cooler of raw steaks": (D.PLACED, E.LURE, False),
+    "case of energy drinks": (D.SELF, E.SPEED, False),
 }
 
 # CLOSED allowlist: items whose solo effect is a documented judgment call,
@@ -103,6 +108,7 @@ JUDGMENT_CALLS: dict[str, EffectKind] = {
     "jar of thermite": E.BURN,         # burns through steel; tag pair says EXPLODE
     "sack of fertilizer": E.BURN,      # fast mean burn; tag pair says EXPLODE
     "propane tank": E.DAMAGE,          # refinement 4: steel doesn't burst when thrown
+    "cooler of raw steaks": E.LURE,    # the meat is bait; 'slippery' slick is the byproduct
 }
 
 
