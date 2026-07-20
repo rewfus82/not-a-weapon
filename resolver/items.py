@@ -588,6 +588,7 @@ _ITEMS: list[Item] = [
          associations=(
              "a box of .22 rounds",
              "inert until a matching firearm feeds them",
+             "spilled by the boxful, they're brass gravel — loud and treacherous underfoot",
          ),
          roles=frozenset({SUB}), verb="round",
          tags=frozenset(), caliber=".22", flags=frozenset({AMMO})),
@@ -595,6 +596,7 @@ _ITEMS: list[Item] = [
          associations=(
              "a box of 9mm rounds",
              "inert until a matching firearm feeds them",
+             "one round wedged in a track or hinge stops the whole mechanism cold",
          ),
          roles=frozenset({SUB}), verb="round",
          tags=frozenset(), caliber="9mm", flags=frozenset({AMMO})),
@@ -602,6 +604,7 @@ _ITEMS: list[Item] = [
          associations=(
              "a box of .357 rounds",
              "inert until a matching revolver feeds them",
+             "heavy for their size; a sock-load of them swings like a blackjack",
          ),
          roles=frozenset({SUB}), verb="round",
          tags=frozenset(), caliber=".357", flags=frozenset({AMMO})),
@@ -609,6 +612,7 @@ _ITEMS: list[Item] = [
          associations=(
              "a box of 5.56 rounds",
              "inert until a matching rifle feeds them",
+             "rattled in a steel can, they pass for gunfire from a street away",
          ),
          roles=frozenset({SUB}), verb="round",
          tags=frozenset(), caliber="5.56", flags=frozenset({AMMO})),
@@ -616,6 +620,7 @@ _ITEMS: list[Item] = [
          associations=(
              "a box of 12-gauge shells",
              "inert until a matching shotgun feeds them",
+             "cut open, each shell spills a palmful of shot for anything that needs pellets",
          ),
          roles=frozenset({SUB}), verb="shell",
          tags=frozenset({"scatter"}), caliber="12ga", flags=frozenset({AMMO})),
@@ -623,6 +628,7 @@ _ITEMS: list[Item] = [
          associations=(
              "a box of .30-06 rounds",
              "inert until a matching rifle feeds them",
+             "a full box is a dense brass brick — ballast, doorstop, counterweight",
          ),
          roles=frozenset({SUB}), verb="round",
          tags=frozenset(), caliber=".30-06", flags=frozenset({AMMO})),

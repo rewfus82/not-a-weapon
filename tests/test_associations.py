@@ -50,7 +50,7 @@ def _expected_line_range(item) -> tuple[int, int]:
     if Flag.FIREARM in item.flags:
         return (2, 3)
     if Flag.AMMUNITION in item.flags:
-        return (1, 2)
+        return (2, 3)
     return (3, 5)
 
 
