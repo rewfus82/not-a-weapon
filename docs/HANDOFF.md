@@ -1,50 +1,58 @@
-# HANDOFF (2026-07-19) — bake pipeline DONE & reviewed; pilot HELD; next phase is prototype + item clouds
+# HANDOFF (2026-07-19) — item-cloud editorial pass: spec + plan committed; execute the plan next
 
-You are a fresh agent. The bake-pipeline plan (`docs/superpowers/plans/2026-07-17-bake-pipeline.md`) is **complete**: Tasks 1–7 implemented and task-reviewed, a 30-combo preliminary wave ran live, the final whole-branch review passed (verdict: ready to merge; sole pre-merge fix applied), and the branch was wrapped via finishing-a-development-branch. **The 300-combo pilot was explicitly HELD by the user** — do not run `python -m resolver.bake run` or `dedup` without a fresh, explicit user approval in your own session. There is no active plan; orient, then ask the user what's next (likely: prototype or item-cloud work).
+You are a fresh agent. Your job: **execute `docs/superpowers/plans/2026-07-19-item-cloud-editorial-pass.md`, starting with Task 1's user editorial checkpoint, then STOP** (rewrite this handoff when done). The design is settled and user-approved section-by-section — do not re-litigate scope, item choices, or the ammo-hook reversal. The user has NOT yet chosen an execution mode (they invoked /handoff at the choice prompt); re-offer Subagent-Driven vs Inline when you start, and note Task 1 always runs inline because it is user-interactive.
 
 ## Repo & branch state
 
 - Branch: `main` (only branch; **no remote — do not push, do not add one**).
-- HEAD closes the bake phase: `042d5ff` (T7 CLI) → `13019bd` (review fix: opus pricing $5/$25) → `abb8775` (pre30 data).
-- Suite: `python -m pytest -q` → **340 passed**.
-- Untracked, intentional — leave alone, never stage wholesale: `data/bake/combos-pilot.json` (the HELD 300-combo pilot selection; committing it is gated on pilot approval), `docs/CAPABILITY_CONTRACT_v0.md` (superseded; v1 in `resolver/contract.py` is the contract of record), `hello.md`, the ten 2026-07-10 files under `docs/superpowers/plans|specs/`.
-- `.superpowers/sdd/progress.md` — git-ignored ledger with the full task history and all review findings. Don't `git clean` it.
+- HEAD: `5ce21a5` "docs: implementation plan for the item-cloud editorial pass". Below it: `7b6bbeb` (the approved spec), `ac7e5b8` (bake-phase handoff close-out), `abb8775` (pre30 data).
+- Working tree: clean except long-standing intentional untracked files — `data/bake/combos-pilot.json` (HELD pilot selection; committing it is gated on pilot approval), `docs/CAPABILITY_CONTRACT_v0.md` (superseded; `resolver/contract.py` is the contract of record), `hello.md`, ten 2026-07-10 files under `docs/superpowers/plans|specs/`. Leave all alone; never stage wholesale.
 
-## What the $5.44 preliminary wave established (2026-07-18, pre30)
+## Clean-baseline checks
 
-Committed in `data/bake/`: `combos-pre30.json`, `scaffolds-pre30.jsonl`, `names-pre30.json`, `reports/2026-07-18-pre30.md`, `reports/rename-events-pre30.json`.
+- `git branch --show-current` → `main`; `git log --oneline -1` → `5ce21a5 …`.
+- `python -m pytest -q` → **340 passed**. (Becomes **348 passed** after plan Task 3.)
 
-- **Rates:** 28/30 resolved (one unresolved is the pinned probe expected to be hard), 2 renames, 0 suffixes. 168 gadgets total (28 × 6 drafts).
-- **Cost reality vs. model:** $0.181/combo measured vs. the econ doc's ~$0.05. Anatomy: the adaptive top-up fired 28/28 (TOP_UP_WIDTH=3 is a non-discriminating placeholder → blanket 2× calls) and real output ran ~3× modeled tokens. Path back to ~$0.045/combo: skip/tune top-up + Batch API. Shelved until a bake resumes.
-- **Quality verdict (user-reviewed, positive):** the depth ladder works — shallows properly pathetic, deeps genuinely chain stated item properties ("The Long Fuse", "Permanent Fixture", "Gunfire Echo", "Standing Room Only"). Weak spots: the delayed-cook-off trope is overused (~6 combos — driven by how often mismatched-caliber ammo is drawn); ON_KILL SPEED/SHIELD@SELF riders are filler; name *style* repeats ("The Quiet …", two "Long Fuse"s) which dedup can't catch; category mix is CONTROL-heavy (172 WEAPON / 132 CONTROL / 30 SUPPORT / 2 UTILITY). **Conclusion: the quality ceiling is now the item association clouds, not the generator or prompt.**
+If any differ, STOP and report before doing anything.
 
-## Final review (fbb36ed..042d5ff): ready to merge
+## Read first (in order)
 
-- All invariants verified: enums never widened; code owns every number (`harmless`/`category` re-derived); keyless-loud; AUP-compliant (rates only); engine-agnostic; crash-safe JSONL.
-- **Fixed (`13019bd`):** `report.py` opus pricing (15, 75) → (5, 25); sonnet left at standard list (conservative vs. intro pricing, self-corrects Sept 2026).
-- **Riding (schema change, unauthorized by plan — fix when a bake resumes):** unresolved records price $0 (usage present, `model=None`), and escalated records price sonnet-rung tokens at opus rates. Same root cause: `BakeRecord` lacks per-rung model attribution. Until fixed the report's $ is directional (its caveat says so).
-- Nine minors triaged ride — in the ledger. Notables: `rename-events.json` overwritten per dedup run (needs per-wave `--events-out` when waves stack); report raises bare KeyError on mismatched scaffolds/selection files.
+1. `docs/superpowers/plans/2026-07-19-item-cloud-editorial-pass.md` — the plan you are executing; contains all draft prose, exact test edits, and anchors.
+2. `docs/superpowers/specs/2026-07-19-item-cloud-editorial-pass-design.md` — the approved design (why each item, the ammo-dryness partial reversal, blast radius).
+3. `CLAUDE.md` — invariants (enums are the contract; code owns numbers; no hard LLM dependency).
 
-## Next steps (no active plan — user decides)
+Do NOT re-read the whole bake pipeline (`resolver/bake/*`) or the 2026-07-10 docs — this pass doesn't touch them. `docs/superpowers/specs/2026-07-12-association-clouds-design.md` only if a cloud-convention question comes up.
 
-1. **Prototype first** (user's stated direction): the game loop doesn't exist yet; the 168 committed gadgets + deterministic fallback are enough content to build against. Scaffolds are perishable across contract/prompt changes (contract_fingerprint), so baking more now is speculative.
-2. **Item association clouds** — the highest-leverage content work (CLAUDE.md: clouds are half the system). Needs user editorial approval. First slot: one worn protective item (activates the dormant ON_HIT self-kit path, zero code change). Would also feed the starved SUPPORT/UTILITY categories.
-3. **When a bake resumes:** tune/disable top-up on the pre30 width evidence, consider Batch API, fix the per-rung attribution schema, then re-open the pilot spend gate (~$15 at current measured rates, ~$4–7 optimized).
+## Done and verified
+
+- **Bake phase closed** (through `abb8775`): pre30 wave — 28/30 resolved, 168 gadgets committed in `data/bake/`, $0.181/combo measured. Quality verdict (user-reviewed): generator/prompt good enough; **the quality ceiling is the item association clouds** — that verdict is what this pass answers.
+- **Editorial-pass spec** (`7b6bbeb`): 4 new items (firefighter turnout coat = flagship, wakes the dormant ON_HIT self-kit path via existing `validate.py` protective check; battery boombox + cooler of raw steaks feed starved UTILITY; coat + case of energy drinks feed starved SUPPORT) + one distinct non-fire hook line per real-ammo cloud (anti-cook-off). Approved with all mechanics locked (roles/tags/delivery/base_use/verb); only prose is open, and only at the Task 1 checkpoint.
+- **Implementation plan** (`5ce21a5`): grounded against the actual test suite — it already covers `test_items.py` (61→65), `test_base_use.py` (`EXPECTED` +4, `JUDGMENT_CALLS` +steaks), `test_associations.py` (ammo range (1,2)→(2,3), batch tuples +4), `test_validate.py` (stale dormancy comment). Verified self-adjusting, no edits needed: `test_bake_select.py` (selection has a per-item coverage loop) and `test_solo.py` (all four items carry a base use).
+- Blast radius verified: `contract_fingerprint` hashes enums only → pre30 scaffolds and the HELD pilot selection are unaffected by catalog/prose changes.
+
+## Next steps
+
+1. Re-offer the execution choice (Subagent-Driven recommended vs Inline), then run the plan.
+2. **Task 1 (inline, hard gate):** write the review doc from the plan into your session scratchpad, show the full prose in-conversation, and wait for the user's red-pen. Approved/amended text is authoritative over the plan's drafts. Mechanics are not up for edit.
+3. **Task 2:** six ammo hook lines (add lines → 6 red → widen pin to (2,3) → 340 passed → commit).
+4. **Task 3:** four items (test pins red → three anchored insertions in `resolver/items.py` → 348 passed → commit).
+5. Rewrite this handoff.
 
 ## Standing constraints & traps
 
-- **The enums are the capability contract — never widen them** (contract v1, `resolver/contract.py`).
-- **Code owns every number**; scaffolds carry no magnitudes; rebalance = re-clamp, never re-bake.
-- **Never a hard LLM dependency:** `select`/`report` keyless; `run`/`dedup` fail loud without `ANTHROPIC_API_KEY`.
-- **NEVER introspect why a call was refused.** Log rates only. No stop reasons, exception text, or failure classification anywhere. (Standing AUP rule.)
-- **No sampling params** on `messages.parse`. Windows live runs: `PYTHONUTF8=1`.
-- Engine-agnostic: zero engine references in `resolver/`.
-- `load_selection`/`load_records` take `pathlib.Path`. Ladder default: `claude-sonnet-5` ×2 → `claude-opus-4-8`.
-- Renderer gates tuning: jitter width, budget band, weights, prices are placeholders — don't tune without evidence.
+- **Pilot spend HELD:** never run `python -m resolver.bake run` or `dedup` without fresh explicit user approval in your own session. **No live API calls anywhere in this pass** (per spec §Process).
+- **The enums are the capability contract — never widen them**; never widen the tag taxonomy in `resolver/interactions.py` (all four items use existing tags).
+- **NEVER introspect why a call was refused. Log rates only. No stop reasons, exception text, or failure classification in records or console output.** (Standing AUP rule.)
+- Code owns every number; `harmless`/`category` always re-derived; engine-agnostic `resolver/`.
+- `git add` only explicitly named files; commits end `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
 - When dispatching subagents, copy plan Global Constraints **verbatim** — paraphrases have introduced false constraints twice.
+- Trap: the ammo range change is a widening, so test-first can't go red — the plan deliberately adds lines first (red against the old pin), then widens. Don't "fix" the order.
+- Trap: the steaks have no `delivery=` (substance; base use supplies PLACED) and need the `JUDGMENT_CALLS` entry (`slippery` derives SLOW, base use is LURE) — both are in the plan; don't improvise around the governing-rule test.
+- API key: presence check only, never print. Windows live runs need `PYTHONUTF8=1` (not relevant this pass).
 
 ## Human TODOs
 
-- Decide the next phase: prototype vs. item-cloud editorial pass (or both, clouds are blocked on user approval anyway).
-- Pilot spend stays HELD until re-opened deliberately (post-prototype, post-optimization).
-- Catalog expansion decision rides with the item-cloud pass.
+- **Red-pen the Task 1 review doc** (the pass is blocked on this; it's the whole point of the checkpoint).
+- Choose execution mode when re-offered.
+- Pilot spend stays HELD until deliberately re-opened (post-prototype, post-top-up/Batch-API optimization — see `13019bd`-era notes in the ledger).
+- Prototype direction (game loop against the 168 committed gadgets) remains the stated next phase after this pass.
