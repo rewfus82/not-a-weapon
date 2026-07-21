@@ -1,0 +1,13 @@
+{
+  "FileVersion": 3,
+  "EngineAssociation": "5.8",
+  "Category": "Game",
+  "Description": "This Is Not A Weapon - blockout prototype",
+  "Modules": [
+    {
+      "Name": "NotAWeapon",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ]
+}
