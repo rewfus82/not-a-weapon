@@ -1,69 +1,91 @@
-# HANDOFF (2026-07-21) — game-loop prototype EXECUTING; Tasks 1–4 done, resume at Task 5
+# HANDOFF (2026-07-21) — game-loop prototype EXECUTING; Tasks 1–7 done, Task 8 review clean, awaiting user checklist
 
-You are a fresh agent. The plan `docs/superpowers/plans/2026-07-20-game-loop-prototype.md` is
-mid-execution under **superpowers:subagent-driven-development** (user-chosen mode — fresh
-implementer subagent per task, task reviewer after each, fix subagents for Critical/Important,
-Minors deferred to the ledger, final whole-branch review at the end). Resume at **Task 5** after
-verifying the baseline. Do not re-dispatch Tasks 1–4.
+You are a fresh agent. Your job: finish Task 8's review loop, then execute Tasks 9–10, the final
+whole-branch review, and superpowers:finishing-a-development-branch — then STOP. The plan
+`docs/superpowers/plans/2026-07-20-game-loop-prototype.md` is mid-execution under
+**superpowers:subagent-driven-development** (user-chosen mode — fresh implementer subagent per
+task, task reviewer after each, fix subagents for Critical/Important, Minors deferred to the
+ledger, final whole-branch review at the end). Do not re-litigate the mode or re-dispatch
+completed tasks.
 
 ## Repo & branch state
 
 - Branch: `main` (only branch; **no remote — do not push, do not add one**).
-- HEAD: this handoff's own commit, "docs: handoff - prototype Tasks 1-4 done, resume at Task 5
-  (contract mirror)", directly atop `1c19fa0` "feat(game): Blockout map + editor-normalized
-  configs (Task 4 checklist passed)".
-- Plan base: `80d6ad3`. Task commits since: `bd1b583` (T1), `17ce1cf` (T2), `35cb434` (T3),
-  `b3eafa3` (T4 scaffold), `1c19fa0` (T4 umap + configs).
+- HEAD: `b770a3e` "feat(game): six-slot inventory, junk pickups, slot-select HUD" (Task 8
+  implementation, build green, review clean — user editor checklist still pending).
+- Task commits since plan base `80d6ad3`: `bd1b583` (T1), `17ce1cf` (T2), `35cb434` (T3),
+  `b3eafa3`+`1c19fa0` (T4), `8c443a5` (T5), `177f937` (T6), `1176286`+`ab2ebe0` (T7),
+  `b770a3e` (T8 impl).
 - Working tree: clean except long-standing intentional untracked files (`data/bake/combos-pilot.json`
   = HELD pilot, `docs/CAPABILITY_CONTRACT_v0.md` superseded, `hello.md`, the 2026-07-10 docs).
   Leave alone; never stage wholesale.
-- Ledger: `.superpowers/sdd/progress.md` (git-ignored) — the durable task history, including
-  deferred Minors for the final review. Trust it + `git log` over conversation memory.
+- Ledger: `.superpowers/sdd/progress.md` (git-ignored) — the durable task history including all
+  deferred Minors. Trust it + `git log` over conversation memory.
+- SDD artifacts for Task 8: `.superpowers/sdd/task-8-brief.md`,
+  `.superpowers/sdd/task-8-report.md`, `.superpowers/sdd/review-ab2ebe0..b770a3e.diff`
+  (review done — kept for reference; the brief's Step 5 is the user's checklist).
 
 ## Clean-baseline checks
 
-- `git branch --show-current` → `main`; `git log --oneline -2` → this handoff's commit
-  ("docs: handoff - prototype Tasks 1-4 done…") atop `1c19fa0 feat(game): Blockout map…`.
+- `git branch --show-current` → `main`; `git log --oneline -2` → `b770a3e feat(game): six-slot
+  inventory…` atop `ab2ebe0 fix(game): DebugCraftThrown…`.
 - `$env:PYTHONUTF8 = "1"; python -m pytest -q` → **356 passed**.
 
 If any differ, STOP and report before doing anything.
 
+## Read first (in order)
+
+1. This file.
+2. `CLAUDE.md` — invariants.
+3. `.superpowers/sdd/progress.md` — ledger (Tasks 1–7 entries + deferred Minors; Task 8's
+   entry says "review clean, AWAITING user editor checklist" — that is the resume point).
+4. Do NOT read the whole plan; pull single tasks via
+   `bash "/c/Users/rewfu/.claude/plugins/cache/claude-plugins-official/superpowers/6.1.1/skills/subagent-driven-development/scripts/task-brief" docs/superpowers/plans/2026-07-20-game-loop-prototype.md N`
+   (companion: `.../scripts/review-package BASE HEAD`). The plan's **Global Constraints** section
+   (plan lines ~13–31) is the one part to read directly — you must copy it **verbatim** into
+   every dispatch.
+
 ## Done and verified
 
-- **Tasks 1–3 (Python):** fallback PLACED-chassis fix + pin test (suite 349); `GET /api/contract`
-  fingerprint endpoint (350); `POST /craft` — `build_from_items`, `craft()` with the
-  source-honesty override (`resolver_fn is fallback_resolve` → force `source: "fallback"`) (356).
-- **Task 4 (UE scaffold):** hand-authored project in `game/` — module, `ANAWGameMode`,
-  `ANAWCharacter` (first-person pawn, legacy input bindings), configs, `.gitignore`,
-  `run-sidecar.ps1`. Build green. User ran the editor checklist 2026-07-21: `Blockout.umap`
-  created at `/Game/Maps/Blockout`, editor restarts into it, PIE WASD/mouse/jump verified.
-- **Toolchain (this machine):** UE 5.8 at `D:\UE_5.8` (NOT `C:\Program Files\Epic Games`).
-  NetFxSDK 4.8.1 installed (was a build blocker).
-  Build: `& "D:\UE_5.8\Engine\Build\BatchFiles\Build.bat" NotAWeaponEditor Win64 Development -project="C:\Users\rewfu\repos\not-a-weapon\game\NotAWeapon.uproject" -waitmutex`
-  Editor: `& "D:\UE_5.8\Engine\Binaries\Win64\UnrealEditor.exe" "C:\Users\rewfu\repos\not-a-weapon\game\NotAWeapon.uproject"`
-- **Editor config note:** the editor rewrote `DefaultInput.ini` (expanded defaults;
-  `DefaultPlayerInputClass=EnhancedInput.EnhancedPlayerInput`) and `DefaultEngine.ini`
-  (AndroidFileServer boilerplate). Committed as-is — bindings preserved and PIE-verified under
-  the EnhancedInput classes, so legacy BindAxis/BindAction (Tasks 7–9) works.
+- **Tasks 1–3 (Python):** fallback PLACED-chassis fix, `GET /api/contract`, `POST /craft`.
+  Suite 356 green.
+- **Task 4:** UE 5.8 project scaffold in `game/`, Blockout map, PIE movement. USER CONFIRMED.
+- **Task 5:** C++ contract mirror + fingerprint constant
+  (`a33fabbb515c220926ed774fed2bbe945b243165392b434a34f3093d22ce31cf`). USER CONFIRMED self-test.
+- **Task 6:** `NAWResolverSubsystem` — startup fingerprint probe, async `/craft`, 20s timeout,
+  one-in-flight guard. USER CONFIRMED both fingerprint-OK and sidecar-unreachable paths.
+- **Task 7:** gadget interpreter — health component, effect executor (all 16 effect kinds),
+  weapon actor (all 14 deliveries), projectile, placed trap, target dummy, debug craft commands.
+  USER CONFIRMED full checklist ("everything works": placed SLOW trap, thrown BURN+SNARE, dummy
+  death, weapon tint). Mid-checklist bug found+fixed (`ab2ebe0`): brief hardcoded item
+  `"jerrycan"`; catalog name is `"jerrycan of gasoline"`; sidecar 400 surfaced as "sidecar
+  down?". Adjudicated deviation (reviewer-confirmed): `#include "Engine/OverlapResult.h"` added
+  in `NAWEffectExecutor.cpp` — UE 5.8 only forward-declares `FOverlapResult` transitively.
+- **Task 8 implementation + review:** `NAWInventoryComponent`, `NAWJunkPickup`, NAWCharacter
+  slot bindings + HUD tick (`b770a3e`). Build `Result: Succeeded`, zero deviations. Task review
+  clean: spec ✅ byte-accurate to the brief, quality Approved, zero Critical/Important; three
+  Minors (replication debt) deferred to the ledger. NOT complete — the user's editor checklist
+  has not been run.
 
 ## Next steps (in order)
 
 1. Verify the clean baseline above.
-2. **Task 5** — C++ contract mirror + fingerprint constant (mirror constant
-   `a33fabbb515c220926ed774fed2bbe945b243165392b434a34f3093d22ce31cf`). Then Tasks 6–10 in order:
-   ResolverClient; GadgetInterpreter + gadget weapons; inventory + junk pickups; craft spot;
-   health/death/extract/restart.
-3. Per task: `scripts/task-brief PLAN N` → dispatch implementer (record BASE commit first; sonnet
-   for UE tasks, sonnet reviewers) → build → `scripts/review-package BASE HEAD` → reviewer →
-   resolve ⚠️ items yourself → **user runs the manual editor checklist — task is not complete
-   until they confirm** → ledger line.
-4. After Task 10: final whole-branch review on the most capable model
+2. **User runs the Task 8 editor checklist** (brief Step 5): sidecar up in fallback mode, get
+   real catalog names (`(Invoke-RestMethod http://127.0.0.1:8000/api/catalog).items |
+   Select-Object -ExpandProperty name`), place 4–6 `NAWJunkPickup` actors in Blockout and set
+   each `ItemName` to an exact catalog name; PIE-verify walk-over pickup + HUD line, 1–6 slot
+   toggles, and full-inventory refusal (7th pickup stays). Task is not complete until they
+   confirm; then mark the ledger's Task 8 entry complete.
+3. **Task 9** (craft spot), **Task 10** (health/death/extract/restart) — per task:
+   record BASE → `task-brief` → implementer (sonnet for UE tasks) → build →
+   `review-package BASE HEAD` → reviewer (sonnet) → resolve ⚠️ → user checklist → ledger line.
+   Task 9's checklist optionally includes ONE live craft (user-run only) and exercises the
+   fingerprint-mismatch path via a temporary constant edit (revert it after). Task 9's reviewer
+   must also weigh the ledger's T8 Minor: slot selection is client-local — if craft resolves
+   server-side for non-host clients, selection needs an RPC.
+5. After Task 10: final whole-branch review on the **most capable model**
    (`scripts/review-package 80d6ad3 HEAD`), pointed at the ledger's deferred Minors, then
    superpowers:finishing-a-development-branch.
-
-Script paths (Git Bash):
-`bash "/c/Users/rewfu/.claude/plugins/cache/claude-plugins-official/superpowers/6.1.1/skills/subagent-driven-development/scripts/task-brief" docs/superpowers/plans/2026-07-20-game-loop-prototype.md N`
-and `.../scripts/review-package BASE HEAD`.
 
 ## Standing constraints & traps
 
@@ -81,21 +103,30 @@ and `.../scripts/review-package BASE HEAD`.
   `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
 - Never commit `game/Binaries|Intermediate|DerivedDataCache|Saved` (gitignored; verify status
   before staging).
-- API key: presence check only, never print. Windows runs need `PYTHONUTF8=1`.
+- API key: presence check only, never print. Windows Python runs need `PYTHONUTF8=1`.
 - Trap: the HELD pilot (`data/bake/combos-pilot.json`) is only consumed via `load_selection` on
   the frozen file — re-running `select_combos` no longer reproduces it.
-
-## Read first (in order)
-
-1. This file.
-2. `CLAUDE.md` — invariants.
-3. `.superpowers/sdd/progress.md` — ledger (Task 1–4 details + deferred Minors).
-4. `docs/superpowers/plans/2026-07-20-game-loop-prototype.md` — the plan (large; the Global
-   Constraints section and the current task are what you need, via `scripts/task-brief`).
+- **Trap (recurring): Build.bat fails while the Unreal Editor is open** (Live Coding mutex). Ask
+  the user to close the editor before any build; never kill their editor process.
+- Trap: debug/test item strings must match `resolver/items.py` catalog names exactly — a wrong
+  name yields sidecar 400, which the game deliberately collapses to "sidecar down?". Verify with
+  `curl -s -X POST http://127.0.0.1:8000/craft ...` (from Git Bash; PowerShell mangles the JSON
+  quoting) before blaming the sidecar.
+- Env (user-side): `run-sidecar.ps1` needs
+  `powershell -ExecutionPolicy Bypass -File game\run-sidecar.ps1 --fallback`; Ctrl+C can orphan
+  the python child holding port 8000 — kill via
+  `Stop-Process -Id (Get-NetTCPConnection -LocalPort 8000 -State Listen).OwningProcess`.
+- UE 5.8 at `D:\UE_5.8` (NOT Program Files). Build:
+  `& "D:\UE_5.8\Engine\Build\BatchFiles\Build.bat" NotAWeaponEditor Win64 Development -project="C:\Users\rewfu\repos\not-a-weapon\game\NotAWeapon.uproject" -waitmutex`
+- `Blockout.umap` has NO dummies/pickups committed — the user chose not to save scratch
+  placements; actors are re-placed ad hoc per checklist (Place Actors panel → search class name).
 
 ## Human TODOs
 
-- Per-task editor checklists for Tasks 5–10 (each UE task ends with one; Task 9 optionally
-  includes one live craft, user-run only).
+- Task 8 editor checklist (review already clean — this is the only gate left): place
+  `NAWJunkPickup` actors with real catalog names, verify pickup/slots/HUD/full-inventory refusal.
+- Task 9 checklist: craft-at-spot flow; optional single live craft (user-run only); fingerprint
+  mismatch drill via temporary constant edit.
+- Task 10 checklist: damage/death/extract/restart loop.
 - Pilot spend stays HELD until deliberately re-opened (post-prototype).
-- §10 fun-gate slice (bot threat) is the next effort after this prototype.
+- §10 fun-gate slice (bot threat) is the next effort after this prototype ships.
