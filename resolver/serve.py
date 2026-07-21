@@ -71,6 +71,33 @@ def build_from_request(sel: dict) -> Build:
     )
 
 
+_SLOT_ORDER = ("delivery", "damage", "utility", "modifier")
+
+
+def build_from_items(names: list[str]) -> Build:
+    """Positional craft: names[0] chairs the delivery slot, the rest fill
+    damage/utility/modifier in order. Validation (unknown item, ineligible
+    chassis) is build_from_request's."""
+    if not 1 <= len(names) <= len(_SLOT_ORDER):
+        raise ValueError(f"craft takes 1-{len(_SLOT_ORDER)} items, got {len(names)}")
+    return build_from_request(dict(zip(_SLOT_ORDER, names)))
+
+
+def craft(resolver_fn, payload: dict) -> dict:
+    """One craft = one resolve — never best-of-N in the hot path. `seed` is
+    accepted and unused (reserved; the deterministic path needs none and the
+    live path's variance is the model's)."""
+    names = payload.get("items")
+    if not isinstance(names, list) or not names:
+        raise ValueError("items must be a non-empty list of item names")
+    build = build_from_items([str(n) for n in names])
+    tier = Tier(payload.get("tier_target", "COMMON"))
+    source, resolved = _resolve_once(resolver_fn, build, tier)
+    if resolver_fn is fallback_resolve:
+        source = "fallback"  # keyless/--fallback mode: never claim a live source
+    return gadget_to_dict(resolved, source)
+
+
 def gadget_to_dict(resolved, source: str) -> dict:
     d = resolved.draft
     return {
@@ -157,17 +184,19 @@ class PlayHandler(BaseHTTPRequestHandler):
             self._json({"error": "not found"}, 404)
 
     def do_POST(self):  # noqa: N802
-        if self.path != "/api/roll":
-            self._json({"error": "not found"}, 404)
-            return
         length = int(self.headers.get("Content-Length", 0))
         raw = self.rfile.read(length) if length else b"{}"
         try:
             payload = json.loads(raw or b"{}")
-            build = build_from_request(payload.get("slots", {}))
-            tier = Tier(payload.get("tier", "COMMON"))
-            n = min(4, max(1, int(payload.get("rolls", 1))))
-            self._json({"results": roll(self.server.resolver_fn, build, tier, n)})
+            if self.path == "/api/roll":
+                build = build_from_request(payload.get("slots", {}))
+                tier = Tier(payload.get("tier", "COMMON"))
+                n = min(4, max(1, int(payload.get("rolls", 1))))
+                self._json({"results": roll(self.server.resolver_fn, build, tier, n)})
+            elif self.path == "/craft":
+                self._json(craft(self.server.resolver_fn, payload))
+            else:
+                self._json({"error": "not found"}, 404)
         except ValueError as exc:
             self._json({"error": str(exc)}, 400)
         except Exception as exc:  # noqa: BLE001 - surface any server error as JSON

@@ -1,5 +1,6 @@
 import json
 import threading
+import urllib.error
 import urllib.request
 
 import pytest
@@ -151,6 +152,78 @@ def test_contract_endpoint_serves_the_enum_fingerprint():
         with urllib.request.urlopen(base + "/api/contract") as resp:
             payload = json.loads(resp.read())
         assert payload == {"fingerprint": contract_fingerprint()}
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_build_from_items_maps_positionally():
+    build = serve.build_from_items(["bucket of wet cement", "jerrycan of gasoline"])
+    assert build.delivery_item.name == "bucket of wet cement"
+    assert build.damage_item.name == "jerrycan of gasoline"
+    assert build.utility_item is None and build.modifier_item is None
+
+
+def test_build_from_items_rejects_bad_requests():
+    with pytest.raises(ValueError):
+        serve.build_from_items([])
+    with pytest.raises(ValueError):
+        serve.build_from_items(["a", "b", "c", "d", "e"])
+    with pytest.raises(ValueError):
+        serve.build_from_items(["definitely not junk"])
+
+
+def test_craft_resolves_once_and_reports_an_honest_source():
+    payload = {"items": ["cooler of raw steaks"], "tier_target": "COMMON"}
+    gadget = serve.craft(fallback.resolve, payload)
+    # a keyless server's resolver_fn IS the fallback: never claim a live source
+    assert gadget["source"] == "fallback"
+    assert gadget["tier"] == "COMMON"
+    # the wire contract the C++ mirror parses — pin the exact key sets
+    assert set(gadget) == {"source", "name", "description", "logic", "tier",
+                           "category", "harmless", "delivery", "color", "stages"}
+    for stage in gadget["stages"]:
+        assert set(stage) == {"trigger", "note", "effects"}
+        for effect in stage["effects"]:
+            assert set(effect) == {"kind", "target", "amount", "duration",
+                                   "radius", "count", "note"}
+    # Task 1's fix, observed on the wire: a PLACED chassis fires ON_TRIGGER
+    assert gadget["delivery"] == "PLACED"
+    assert [s["trigger"] for s in gadget["stages"]] == ["ON_TRIGGER"]
+
+
+def test_craft_accepts_and_ignores_a_seed():
+    payload = {"items": ["bucket of wet cement"], "tier_target": "COMMON", "seed": 7}
+    assert serve.craft(fallback.resolve, payload)["source"] == "fallback"
+
+
+def test_craft_endpoint_end_to_end_fallback():
+    server, base = _serve_on_free_port()
+    try:
+        body = json.dumps({"items": ["bucket of wet cement", "jerrycan of gasoline"],
+                           "tier_target": "RARE"}).encode("utf-8")
+        req = urllib.request.Request(base + "/craft", data=body,
+                                     headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req) as resp:
+            gadget = json.loads(resp.read())
+        assert gadget["source"] == "fallback"
+        assert gadget["tier"] == "RARE"
+        assert gadget["stages"] and all(s["effects"] for s in gadget["stages"])
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_craft_endpoint_rejects_unknown_items_with_400():
+    server, base = _serve_on_free_port()
+    try:
+        body = json.dumps({"items": ["not junk"], "tier_target": "COMMON"}).encode("utf-8")
+        req = urllib.request.Request(base + "/craft", data=body,
+                                     headers={"Content-Type": "application/json"})
+        with pytest.raises(urllib.error.HTTPError) as excinfo:
+            urllib.request.urlopen(req)
+        assert excinfo.value.code == 400
+        assert "error" in json.loads(excinfo.value.read())
     finally:
         server.shutdown()
         server.server_close()
