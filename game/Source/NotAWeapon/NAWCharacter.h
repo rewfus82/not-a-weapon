@@ -22,6 +22,11 @@ public:
     UFUNCTION(Exec)
     void DebugCraftThrown();
 
+    UPROPERTY(VisibleAnywhere)
+    class UNAWInventoryComponent* Inventory;
+
+    virtual void Tick(float DeltaSeconds) override;
+
 protected:
     virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
@@ -36,4 +41,5 @@ private:
     void MoveRight(float Value);
     void Fire();
     void DebugCraft(const TArray<FString>& Items, const FString& TierTarget);
+    void ToggleSlot(int32 SlotIndex);
 };

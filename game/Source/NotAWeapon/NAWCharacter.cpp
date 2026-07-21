@@ -2,8 +2,12 @@
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
+#include "Engine/Engine.h"
 #include "NAWGadgetWeapon.h"
+#include "NAWInventoryComponent.h"
 #include "NAWResolverSubsystem.h"
+
+DECLARE_DELEGATE_OneParam(FNAWSlotDelegate, int32);
 
 ANAWCharacter::ANAWCharacter()
 {
@@ -12,6 +16,7 @@ ANAWCharacter::ANAWCharacter()
     Camera->SetupAttachment(GetCapsuleComponent());
     Camera->SetRelativeLocation(FVector(0.f, 0.f, 64.f));
     Camera->bUsePawnControlRotation = true;
+    Inventory = CreateDefaultSubobject<UNAWInventoryComponent>(TEXT("Inventory"));
 }
 
 void ANAWCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -24,6 +29,13 @@ void ANAWCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
     PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
     PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
     PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &ANAWCharacter::Fire);
+
+    for (int32 Slot = 0; Slot < UNAWInventoryComponent::MaxItems; ++Slot)
+    {
+        PlayerInputComponent->BindAction<FNAWSlotDelegate>(
+            *FString::Printf(TEXT("ToggleSlot%d"), Slot + 1), IE_Pressed, this,
+            &ANAWCharacter::ToggleSlot, Slot);
+    }
 }
 
 void ANAWCharacter::MoveForward(float Value)
@@ -99,4 +111,18 @@ void ANAWCharacter::DebugCraftPlaced()
 void ANAWCharacter::DebugCraftThrown()
 {
     DebugCraft({TEXT("bucket of wet cement"), TEXT("jerrycan of gasoline")}, TEXT("RARE"));
+}
+
+void ANAWCharacter::ToggleSlot(int32 SlotIndex)
+{
+    Inventory->ToggleSelect(SlotIndex);
+}
+
+void ANAWCharacter::Tick(float DeltaSeconds)
+{
+    Super::Tick(DeltaSeconds);
+    if (GEngine && IsPlayerControlled())
+    {
+        GEngine->AddOnScreenDebugMessage(1, 0.f, FColor::White, Inventory->DisplayString());
+    }
 }
