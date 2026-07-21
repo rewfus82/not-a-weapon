@@ -14,6 +14,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from resolver.bake.schema import contract_fingerprint
 from resolver.clamp import apply as clamp_apply
 from resolver.contract import Tier
 from resolver.fallback import resolve as fallback_resolve
@@ -150,6 +151,8 @@ class PlayHandler(BaseHTTPRequestHandler):
             self._send(PAGE.encode("utf-8"), "text/html; charset=utf-8")
         elif self.path == "/api/catalog":
             self._json({**catalog_payload(), "mode": self.server.mode_label})
+        elif self.path == "/api/contract":
+            self._json({"fingerprint": contract_fingerprint()})
         else:
             self._json({"error": "not found"}, 404)
 

@@ -1,9 +1,11 @@
 import json
 import threading
+import urllib.request
 
 import pytest
 
 from resolver import fallback, serve
+from resolver.bake.schema import contract_fingerprint
 from resolver.contract import Tier
 from resolver.items import DEFAULT_BUILDS
 
@@ -133,3 +135,22 @@ def test_roll_tags_only_the_failing_slot_as_fallback():
     assert len(results) == 3
     assert sum(1 for r in results if r["source"] == "fallback") == 1
     assert all(r["stages"] for r in results)
+
+
+def _serve_on_free_port():
+    """A real PlayServer on an OS-assigned port, fallback resolver, daemon thread."""
+    server = serve.PlayServer(("127.0.0.1", 0), serve.PlayHandler,
+                              fallback.resolve, "fallback (free)")
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server, f"http://127.0.0.1:{server.server_address[1]}"
+
+
+def test_contract_endpoint_serves_the_enum_fingerprint():
+    server, base = _serve_on_free_port()
+    try:
+        with urllib.request.urlopen(base + "/api/contract") as resp:
+            payload = json.loads(resp.read())
+        assert payload == {"fingerprint": contract_fingerprint()}
+    finally:
+        server.shutdown()
+        server.server_close()
