@@ -98,5 +98,5 @@ void ANAWCharacter::DebugCraftPlaced()
 
 void ANAWCharacter::DebugCraftThrown()
 {
-    DebugCraft({TEXT("bucket of wet cement"), TEXT("jerrycan")}, TEXT("RARE"));
+    DebugCraft({TEXT("bucket of wet cement"), TEXT("jerrycan of gasoline")}, TEXT("RARE"));
 }
