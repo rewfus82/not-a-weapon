@@ -1,65 +1,69 @@
-# HANDOFF (2026-07-20) — item-cloud editorial pass COMPLETE; next: pick the follow-up fix, then prototype direction
+# HANDOFF (2026-07-20) — game-loop prototype plan WRITTEN; next: self-review it, then execution handoff
 
-You are a fresh agent. The item-cloud editorial pass (`docs/superpowers/plans/2026-07-19-item-cloud-editorial-pass.md`) is **done, reviewed, and committed** — do not re-execute any of it. Your job: orient, surface the one **user decision** below (the fallback PLACED-chassis fix), and take direction. No pre-approved work is queued; do not start the prototype or any bake work without the user asking.
+You are a fresh agent. Your job: run the writing-plans self-review on the completed implementation plan, fix findings inline, then present the execution choice to the user — then STOP and take direction. Do not start executing plan tasks without the user picking an execution mode.
+
+**Decided and user-approved (do not re-litigate):**
+- The prototype effort itself: real GAME_IDENTITY §10 vertical slice in UE 5.x blockout, C++ core + Blueprint glue, UE project in `game/`, local HTTP sidecar + generic gadget interpreter. Spec is committed and approved: `docs/superpowers/specs/2026-07-20-game-loop-prototype-design.md`.
+- Craft mode: live LLM with deterministic fallback at craft time — a dev-mode convenience, NOT a change of shipping architecture (GAME_IDENTITY §6 stands). This approves per-craft API spend during the user's play sessions ONLY. No schedules, no batches, no CI. Bake/dedup spend stays HELD.
+- Finish line: loop end-to-end (move, scavenge, craft via resolver, weapon visibly does its JSON, extract→banked to `extracted.jsonl` or die→lost). No bot threat; the §10 fun-gate slice is the NEXT effort.
+- User preference (this session): default testing runs the sidecar with `--fallback` / no key — free and instant; live LLM only for sessions where the user specifically wants real generated weapons. The plan is already written this way (all checklists use `--fallback`; the one live craft in Task 9 is an optional user-run step).
 
 ## Repo & branch state
 
 - Branch: `main` (only branch; **no remote — do not push, do not add one**).
-- HEAD: `990c0d0` "docs: dormancy claims for the protective ON_HIT path are stale - the turnout coat woke it". Below it: `c6f19c9` (4 new catalog items), `678af6f` (6 ammo hook lines), `16cda28` (prior handoff).
-- Working tree: clean except long-standing intentional untracked files — `data/bake/combos-pilot.json` (HELD pilot selection; committing it is gated on pilot approval), `docs/CAPABILITY_CONTRACT_v0.md` (superseded; `resolver/contract.py` + `docs/CAPABILITY_CONTRACT_v1.md` are the record), `hello.md`, ten 2026-07-10 files under `docs/superpowers/plans|specs/`. Leave all alone; never stage wholesale.
+- HEAD: `864035e` "docs: correct sidecar default port to 8000 (serve.py's actual default)". Below it: `fefbf87` (the prototype design spec), `b48c3ed` (prior handoff).
+- Working tree: clean except untracked files. **`docs/superpowers/plans/2026-07-20-game-loop-prototype.md` is the deliverable and is NOT yet committed** — committing it is part of your job (offer at the handoff; prior plan docs in this repo were committed as part of the flow, but never commit without the user's go-ahead). The rest are long-standing intentional untracked files — `data/bake/combos-pilot.json` (HELD pilot; committing gated on pilot approval), `docs/CAPABILITY_CONTRACT_v0.md` (superseded; `resolver/contract.py` + `docs/CAPABILITY_CONTRACT_v1.md` are the record), `hello.md`, ten 2026-07-10 files under `docs/superpowers/plans|specs/`. Leave all alone; never stage wholesale.
 
 ## Clean-baseline checks
 
-- `git branch --show-current` → `main`; `git log --oneline -1` → `990c0d0 …`.
-- `python -m pytest -q` → **348 passed**.
+- `git branch --show-current` → `main`; `git log --oneline -1` → `864035e …`.
+- `$env:PYTHONUTF8 = "1"; python -m pytest -q` → **348 passed** (~13s).
 
 If any differ, STOP and report before doing anything.
 
-## Done and verified (this pass)
+## Done and verified (this session)
 
-- **Editorial pass landed** (3 commits `16cda28..990c0d0`): six ammo hook lines (one non-fire improvisation per real-ammo cloud, anti-cook-off), four new items — **firefighter turnout coat** (worn SELF+`protective`; wakes the ON_HIT self-kit path in `validate.py` with zero code change), **battery boombox** + **cooler of raw steaks** (feed starved UTILITY via pure-LURE), **case of energy drinks** (feeds SUPPORT via SPEED). Catalog 61→65. All prose user-approved as-is at the Task 1 hard gate ("auto engage", zero amendments).
-- **Both task reviews clean** (zero Critical/Important, zero deferred minors from this pass).
-- **Final whole-branch review (Fable): READY TO MERGE, zero Critical.** Reviewer independently re-ran the suite (348) and verified: `contract_fingerprint` hashes enums only (pre30 scaffolds + HELD pilot unaffected), self-adjusting tests (`test_solo.py`, `test_bake_select.py`) genuinely self-adjust, and category/harmless derivations are sound for all four new shapes (coat→SUPPORT, boombox/steaks→UTILITY harmless, drinks→SUPPORT).
-- **Review Important #2 fixed** (`990c0d0`, text-only): stale "protective rule ships dormant" claims in the `resolver/validate.py` docstring and `docs/CAPABILITY_CONTRACT_v1.md` — the turnout coat made them false.
-- **Review Important #1 deliberately NOT fixed** — it needs resolver code the plan scoped out. See the user decision below.
+- **Brainstorm complete → spec committed** (`fefbf87`, port fix `864035e`): `docs/superpowers/specs/2026-07-20-game-loop-prototype-design.md`. User approved every section.
+- **Implementation plan fully written** (uncommitted): `docs/superpowers/plans/2026-07-20-game-loop-prototype.md`. All 10 tasks with complete code, build commands, manual checklists, and per-task commit messages, plus an Execution notes section. Shape: Tasks 1–3 Python (fallback PLACED-chassis fix + pin test; `GET /api/contract` fingerprint endpoint; `POST /craft`), Tasks 4–10 Unreal in `game/` (project scaffold; C++ contract mirror + fingerprint constant; resolver subsystem; effect executor + gadget weapons; inventory + junk pickups; craft spot; health/death/extract/restart).
+- Design-level catches already encoded in the plan (don't re-derive): `craft()` forces `source="fallback"` when the resolver fn IS the fallback (serve.py's `_resolve_once` would misreport `llm`); the C++ contract self-test registers via `FCoreDelegates::OnPostEngineInit.AddStatic`, never called directly in `StartupModule` (UENUM registration timing); Task 1 fixes fallback `_stages_for` so PLACED chassis emit ON_TRIGGER (the Task 7 placed-gadget checklist makes the fix visible in-game).
+- **Nothing executed**: no code written, no `game/` directory, zero API spend this session.
 
-## USER DECISION REQUIRED — fallback PLACED-chassis incoherence (before next bake wave)
+## Next steps (in order)
 
-Found by the final review; the reviewer calls it a **gap in the plan**, not a defect in what was asked:
+1. **Writing-plans self-review** of the plan (inline, fix-and-move-on, no re-review):
+   - Spec coverage: every spec section maps to a task (fallback fix→1, contract endpoint→2, /craft + "no craft-mode config"→3, mirror→5, ResolverClient→6, interpreter→7, pickups→8, craft interaction→9, run state→10, error handling→6+9, testing→per-task checklists + Task 10 finish line).
+   - Placeholder scan: no TBD / "add appropriate…" / "similar to Task N".
+   - Type consistency across tasks: `Inventory` public member (Task 8) vs users; `EquippedWeapon` protected (Task 7) vs `GetEquippedWeapon()` accessor added in Task 10; `FNAWCraftComplete` signature identical in Tasks 6/7/9; `RestartRun` (Task 4) used in Task 10; `LogNAW` everywhere. Optional minor: extend Task 3's import note to mention pytest.
+2. **Execution handoff** via AskUserQuestion: plan path + two options — Subagent-Driven (recommended) vs Inline Execution — and in the SAME message flag the one deliberate spec deviation for sign-off: the plan hand-authors a minimal UE project + legacy input (`DefaultInput.ini`) instead of the spec's "first-person template base", because the template wizard is interactive and drags in binary assets. Also offer to commit the plan doc.
+3. Then follow the chosen execution skill (superpowers:subagent-driven-development or superpowers:executing-plans).
 
-- `chassis_eligible` (`resolver/bake/select.py`) accepts any item with a base use, so the **steaks can chair the delivery slot** in a future selection or keyless runtime craft. A delivery-less chassis inherits its base-use delivery — for the steaks, **PLACED**.
-- But `fallback._stages_for` treats *every* delivery-less chassis as a thrown container and emits **ON_IMPACT** — and per the contract, a PLACED gadget fires ON_TRIGGER; an ON_IMPACT-only PLACED gadget **can never fire**. All DUD/COMMON tiers route through this path.
-- **Latent today**: no current selection contains the steaks. **Required before the next bake wave or any selection regeneration.**
-- Fix shape (reviewer's recommendation): key delivery-less chassis stages off `base_use.delivery` — THROWN → the existing burst shape, PLACED → ON_TRIGGER — mirroring the discrimination `resolver/solo.py` already does; plus a pin test for the steaks-as-chassis case. Small, well-understood, precedented (the 2026-07-14 `b90fd84..41f94dc` follow-up was the same kind of solo/fallback stage-shape alignment).
+## Standing constraints & traps
 
-Present this and ask: fix it now as a small user-approved follow-up (recommended — it's a bug on the deterministic path, and the deterministic path must always be fully functional), or fold it into the next bake-wave plan. Do not fix it unprompted.
-
-## Next phase (after the decision): prototype direction
-
-The stated next phase is the **game-loop prototype against the 168 committed gadgets** in `data/bake/` (see GAME_IDENTITY; this is a brainstorm-first effort — use superpowers:brainstorming, not a jump to code). Live validation of the four new items rides with the next bake wave, which must bake new-item combos anyway and will surface refusal rates at no extra cost — nothing to do about that now.
+- **Pilot spend HELD:** never run `python -m resolver.bake run` or `dedup` without fresh explicit user approval in your own session. **No live API calls without explicit approval** (the spec's craft-mode approval covers ONLY per-craft calls during the user's own play sessions; agents never start the sidecar in live mode).
+- **NEVER introspect why a call was refused. Log rates only. No stop reasons, exception text, or failure classification in records or console output.** (Standing AUP rule. In-game the only trace of a failed live call is `source: fallback`; the UE client logs HTTP status codes only — this is encoded in Task 6.)
+- **The enums are the capability contract — never widen them**; never widen the tag taxonomy in `resolver/interactions.py`. Contract fingerprint hashes ONLY the four enum vocabularies.
+- Code owns every number; `harmless`/`category` always re-derived; engine-agnostic `resolver/` (zero Unreal references in Python).
+- `git add` only explicitly named files; commits end `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
+- When dispatching subagents, copy plan Global Constraints **verbatim** — paraphrases have introduced false constraints twice.
+- Unreal tasks have **manual checklist steps that require the user** (editor work, PIE tests); a task is not complete until the user confirms its checklist passed.
+- Trap: the HELD pilot (`data/bake/combos-pilot.json`) must only be consumed via `load_selection` on the frozen file — the catalog grew, so re-running `select_combos` with the pinned seed no longer reproduces it.
+- API key: presence check only, never print. Windows runs need `PYTHONUTF8=1`.
+- User preference: auto-compact stays ON; durable state lives in this file, the plan doc, and `.superpowers/sdd/progress.md` — trust those + `git log` over conversation memory after compaction.
 
 ## Read first (in order)
 
 1. This file.
-2. `CLAUDE.md` — invariants (enums are the contract; code owns numbers; no hard LLM dependency).
-3. `.superpowers/sdd/progress.md` — the ledger; the "2026-07-19-item-cloud-editorial-pass" section has the full review findings (including the deferred minor and the pilot-seed note).
-4. Only if the user takes the fallback fix: `resolver/fallback.py` (`_stages_for`, `substance_stages`), `resolver/solo.py` (the discrimination to mirror), `resolver/bake/select.py` (`chassis_eligible`).
+2. `CLAUDE.md` — invariants.
+3. `docs/superpowers/specs/2026-07-20-game-loop-prototype-design.md` — the approved spec (the self-review checks the plan against it).
+4. `docs/superpowers/plans/2026-07-20-game-loop-prototype.md` — the plan under review (large; read fully for the self-review).
+5. Only if executing begins: `.superpowers/sdd/progress.md` (ledger) and the execution skill's templates.
 
-Do NOT re-read the bake pipeline docs or the 2026-07-10 docs unless the user opens bake work.
-
-## Standing constraints & traps
-
-- **Pilot spend HELD:** never run `python -m resolver.bake run` or `dedup` without fresh explicit user approval in your own session. **No live API calls without explicit approval.**
-- **The enums are the capability contract — never widen them**; never widen the tag taxonomy in `resolver/interactions.py`.
-- **NEVER introspect why a call was refused. Log rates only. No stop reasons, exception text, or failure classification in records or console output.** (Standing AUP rule.)
-- Code owns every number; `harmless`/`category` always re-derived; engine-agnostic `resolver/`.
-- `git add` only explicitly named files; commits end `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
-- When dispatching subagents, copy plan Global Constraints **verbatim** — paraphrases have introduced false constraints twice.
-- Trap: the HELD pilot (`data/bake/combos-pilot.json`) must only be consumed via `load_selection` on the frozen file — the catalog grew, so re-running `select_combos` with the pinned seed no longer reproduces it.
-- API key: presence check only, never print. Windows live runs need `PYTHONUTF8=1`.
+Do NOT read the bake pipeline docs, the 2026-07-10 docs, or the item-cloud editorial plan — that work is closed.
 
 ## Human TODOs
 
-- **Decide on the fallback PLACED-chassis fix** (the user-decision section above).
-- Pilot spend stays HELD until deliberately re-opened (post-prototype, post-top-up/Batch-API optimization).
-- Prototype direction (game loop against the 168 committed gadgets) is the next phase — brainstorm first.
+- Pick the execution mode (subagent-driven vs inline) and sign off on the hand-authored-UE-project substitution when presented.
+- Approve committing the plan doc.
+- During execution: run the per-task manual checklists in the editor (Tasks 4–10); optionally the one live craft in Task 9.
+- Pilot spend stays HELD until deliberately re-opened (post-prototype).
+- §10 fun-gate slice (bot threat) is the next effort after this prototype.
