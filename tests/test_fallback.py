@@ -127,3 +127,11 @@ def test_deterministic_path_never_trips_the_clamp_cap():
             before = sum(e.amount for s in draft.stages for e in s.effects)
             after = sum(e.amount for s in resolved.draft.stages for e in s.effects)
             assert after == pytest.approx(before)
+
+
+def test_placed_chassis_composes_an_on_trigger_stage():
+    # a PLACED base-use chassis (bait on the ground) fires ON_TRIGGER per the
+    # contract — ON_IMPACT would compose a gadget that can never fire
+    draft = fallback.resolve(Build(delivery_item=CATALOG["cooler of raw steaks"]), Tier.COMMON)
+    assert [s.trigger for s in draft.stages] == [Trigger.ON_TRIGGER]
+    assert all(s.effects for s in draft.stages)

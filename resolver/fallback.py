@@ -49,16 +49,19 @@ def substance_stages(effects: list[Effect], armed: bool) -> list[Stage]:
 
 
 def _stages_for(build: Build, effects: list[Effect]) -> list[Stage]:
-    """Mechanism chassis hit (ON_HIT); a substance chassis is a thrown
-    container that bursts (ON_IMPACT) — armed payloads burst inert and
-    fire on ignition (ON_TRIGGER); a self-kit chassis is used on yourself
-    (ON_USE, everything lands on the wielder)."""
+    """Mechanism chassis hit (ON_HIT); a substance chassis follows its base
+    use — thrown containers burst (ON_IMPACT; armed payloads burst inert and
+    fire on ignition, ON_TRIGGER), placed baits fire on proximity
+    (ON_TRIGGER); a self-kit chassis is used on yourself (ON_USE, everything
+    lands on the wielder)."""
     chassis = build.delivery_item
     if chassis.delivery is Delivery.SELF:
         for e in effects:
             e.target = Target.SELF
         return [Stage(trigger=Trigger.ON_USE, effects=effects, note="self-kit")]
     if chassis.delivery is None and chassis.base_use is not None:
+        if chassis.base_use.delivery is Delivery.PLACED:
+            return [Stage(trigger=Trigger.ON_TRIGGER, effects=effects, note="placed")]
         return substance_stages(effects, chassis.base_use.armed)
     return [Stage(trigger=Trigger.ON_HIT, effects=effects, note="composed")]
 
