@@ -106,7 +106,7 @@ cluster) per component:
   the startup fingerprint check catches it when it doesn't.
 - **ResolverClient** — async wrapper over `FHttpModule`:
   `Craft(items, tierTarget) → delegate(parsed gadget | error)`. Server-only.
-  Sidecar URL configurable, default `127.0.0.1:8765`; `game/run-sidecar.ps1`
+  Sidecar URL configurable, default `127.0.0.1:8000` (serve.py's default); `game/run-sidecar.ps1`
   starts the Python server for dev.
 - **GadgetInterpreter** — the heart: takes a parsed gadget and spawns a weapon
   actor whose behavior is data-driven. Delivery form decides the fire action
