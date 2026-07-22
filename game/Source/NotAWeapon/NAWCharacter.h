@@ -42,4 +42,5 @@ private:
     void Fire();
     void DebugCraft(const TArray<FString>& Items, const FString& TierTarget);
     void ToggleSlot(int32 SlotIndex);
+    void Interact();
 };

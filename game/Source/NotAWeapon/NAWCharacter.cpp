@@ -3,6 +3,7 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
 #include "Engine/Engine.h"
+#include "NAWCraftSpot.h"
 #include "NAWGadgetWeapon.h"
 #include "NAWInventoryComponent.h"
 #include "NAWResolverSubsystem.h"
@@ -29,6 +30,7 @@ void ANAWCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
     PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
     PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
     PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &ANAWCharacter::Fire);
+    PlayerInputComponent->BindAction("Interact", IE_Pressed, this, &ANAWCharacter::Interact);
 
     for (int32 Slot = 0; Slot < UNAWInventoryComponent::MaxItems; ++Slot)
     {
@@ -124,5 +126,15 @@ void ANAWCharacter::Tick(float DeltaSeconds)
     if (GEngine && IsPlayerControlled())
     {
         GEngine->AddOnScreenDebugMessage(1, 0.f, FColor::White, Inventory->DisplayString());
+    }
+}
+
+void ANAWCharacter::Interact()
+{
+    TArray<AActor*> Overlapping;
+    GetOverlappingActors(Overlapping, ANAWCraftSpot::StaticClass());
+    if (Overlapping.Num() > 0)
+    {
+        Cast<ANAWCraftSpot>(Overlapping[0])->TryCraft(this);
     }
 }
