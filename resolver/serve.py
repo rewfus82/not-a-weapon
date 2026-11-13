@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import socketserver
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -160,6 +161,12 @@ class PlayServer(ThreadingHTTPServer):
         super().__init__(addr, handler)
         self.resolver_fn = resolver_fn
         self.mode_label = mode_label
+
+    def server_bind(self):
+        # HTTPServer.server_bind reverse-resolves the host (socket.getfqdn), which
+        # can stall ~30 s on macOS before the port opens. We never use the FQDN.
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
 
 
 class PlayHandler(BaseHTTPRequestHandler):

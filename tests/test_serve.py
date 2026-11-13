@@ -227,3 +227,15 @@ def test_craft_endpoint_rejects_unknown_items_with_400():
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_play_server_does_not_reverse_resolve_its_host(monkeypatch):
+    # http.server's default server_bind calls socket.getfqdn, which can stall ~30 s on macOS
+    import socket
+
+    def boom(*args):
+        raise AssertionError("getfqdn called")
+
+    monkeypatch.setattr(socket, "getfqdn", boom)
+    server = serve.PlayServer(("127.0.0.1", 0), serve.PlayHandler, fallback.resolve, "fallback (free)")
+    server.server_close()
