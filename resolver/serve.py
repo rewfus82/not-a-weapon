@@ -1,7 +1,9 @@
 """A tiny local web UI for playing with the resolver: assemble a junk build,
 pick a target tier, and roll resolved weapons in the browser. Zero-dependency
 (stdlib http.server). Live by default (uses your API key, with retries +
-Opus escalation); pass --fallback for the free deterministic resolver.
+Opus escalation); pass --fallback for the free deterministic resolver, or
+--forge for the local trained model (optional extra: pip install -e ".[forge]",
+then python -m forge.fetch; see docs/FORGE.md).
 
 This is a consumer of the resolver brain, like the CLI harness — not part of
 the engine-agnostic core.
@@ -11,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import socketserver
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -131,7 +134,7 @@ def _resolve_once(resolver_fn, build: Build, tier: Tier):
     deterministic fallback — the same shock absorber the harness uses."""
     try:
         draft = resolver_fn(build, tier)
-        source = "llm"
+        source = getattr(resolver_fn, "source", "llm")  # a resolver may name itself (forge)
     except Exception:  # noqa: BLE001 - any resolver failure -> deterministic fallback
         draft = fallback_resolve(build, tier)
         source = "fallback"
@@ -160,6 +163,12 @@ class PlayServer(ThreadingHTTPServer):
         super().__init__(addr, handler)
         self.resolver_fn = resolver_fn
         self.mode_label = mode_label
+
+    def server_bind(self):
+        # HTTPServer.server_bind reverse-resolves the host (socket.getfqdn), which
+        # can stall ~30 s on macOS before the port opens. We never use the FQDN.
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
 
 
 class PlayHandler(BaseHTTPRequestHandler):
@@ -206,7 +215,12 @@ class PlayHandler(BaseHTTPRequestHandler):
         pass
 
 
-def _make_resolver(use_fallback: bool, model: str, attempts: int, escalate):
+def _make_resolver(use_fallback: bool, model: str, attempts: int, escalate, forge=None):
+    if forge and not use_fallback:
+        from forge.resolver import ForgeResolver  # lazy: torch etc. only when asked for
+
+        resolver = ForgeResolver(None if forge is True else forge)
+        return resolver, resolver.label
     if use_fallback or not os.environ.get("ANTHROPIC_API_KEY"):
         return fallback_resolve, "fallback (free)"
     import anthropic  # lazy: the fallback path needs no SDK auth
@@ -228,10 +242,12 @@ def main(argv: list[str] | None = None) -> int:
                         help="model for the final attempt; 'none' disables escalation")
     parser.add_argument("--fallback", action="store_true",
                         help="use the free deterministic resolver instead of the live LLM")
+    parser.add_argument("--forge", nargs="?", const=True, default=None, metavar="MODEL_DIR",
+                        help="use the local Forge model (default models/forge; see docs/FORGE.md)")
     args = parser.parse_args(argv)
 
     escalate = None if args.escalate_model.lower() == "none" else args.escalate_model
-    resolver_fn, label = _make_resolver(args.fallback, args.model, args.attempts, escalate)
+    resolver_fn, label = _make_resolver(args.fallback, args.model, args.attempts, escalate, args.forge)
     server = PlayServer((args.host, args.port), PlayHandler, resolver_fn, label)
     url = f"http://{args.host}:{args.port}"
     print(f"resolver: {label}")
@@ -331,7 +347,9 @@ async function load() {
   CATALOG = data;
   const modeEl = $('mode');
   const live = /^LIVE/.test(data.mode);
+  const forge = /^FORGE/.test(data.mode);
   modeEl.textContent = live ? 'LIVE — each roll uses your API key (up to 3 calls incl. an Opus rescue)'
+                     : forge ? 'FORGE (free) — local trained model, CPU only, no API calls'
                             : 'fallback (free) — deterministic, boring, no API calls';
   modeEl.className = live ? 'live' : 'free';
 
@@ -399,6 +417,7 @@ function card(g) {
   if (g.color) badges.push('<span class="badge">' + g.color + '</span>');
   if (g.source === 'fallback') badges.push('<span class="badge fb">fallback</span>');
   if (g.source === 'solo') badges.push('<span class="badge sb">solo</span>');
+  if (g.source === 'forge') badges.push('<span class="badge sb">forge</span>');
   const stages = g.stages.map(s =>
     '<div class="stage"><div class="trig">' + s.trigger + '</div>' +
     s.effects.map(fx).join('') + '</div>').join('');

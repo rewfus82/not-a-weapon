@@ -4,3 +4,7 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
+
+# Forge: downloaded weights (python -m forge.fetch) and local training runs
+models/
+runs/

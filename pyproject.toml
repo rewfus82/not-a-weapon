@@ -10,13 +10,26 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+# Local Forge resolver (python -m forge.fetch for the weights). transformers>=5.20: the writer checkpoint keeps
+# separate input/output embeddings under tie_word_embeddings=true, which 4.x would silently re-tie.
+forge = [
+    "torch>=2.6",
+    "transformers>=5.20",
+    "tokenizers>=0.21",
+    "safetensors>=0.4",
+    "numpy>=1.26",
+    "model2vec>=0.4",
+]
 
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["resolver", "resolver.bake"]
+packages = ["resolver", "resolver.bake", "forge"]
+
+[tool.setuptools.package-data]
+forge = ["aliases.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
