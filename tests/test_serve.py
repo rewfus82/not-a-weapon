@@ -229,6 +229,51 @@ def test_craft_endpoint_rejects_unknown_items_with_400():
         server.server_close()
 
 
+# ---------------------------------------------------------------- local Forge resolver (optional extra)
+
+
+class _LabelledResolver:
+    """Stands in for forge.resolver.ForgeResolver: a resolver_fn that names its own source."""
+    source = "forge"
+    label = "FORGE (local model, epoch test)"
+
+    def __init__(self, *args, **kwargs):
+        self.calls = 0
+
+    def __call__(self, build, tier):
+        self.calls += 1
+        return fallback.resolve(build, tier)
+
+
+def test_craft_and_roll_report_the_resolvers_own_source():
+    resolver = _LabelledResolver()
+    gadget = serve.craft(resolver, {"items": ["baseball bat", "car battery"], "tier_target": "RARE"})
+    assert gadget["source"] == "forge"
+    results = serve.roll(resolver, DEFAULT_BUILDS["broom_bat"], Tier.EPIC, 2)
+    assert [r["source"] for r in results] == ["forge", "forge"]
+
+
+def test_a_failing_labelled_resolver_still_degrades_to_fallback():
+    class Broken(_LabelledResolver):
+        def __call__(self, build, tier):
+            raise RuntimeError("model missing")
+
+    gadget = serve.craft(Broken(), {"items": ["baseball bat"], "tier_target": "COMMON"})
+    assert gadget["source"] == "fallback"
+
+
+def test_make_resolver_forge_needs_no_key_and_loads_lazily(monkeypatch):
+    import sys
+    import types
+    fake = types.ModuleType("forge.resolver")
+    fake.ForgeResolver = _LabelledResolver
+    monkeypatch.setitem(sys.modules, "forge.resolver", fake)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    resolver_fn, label = serve._make_resolver(False, "unused", 3, None, forge="models/forge")
+    assert isinstance(resolver_fn, _LabelledResolver)
+    assert label.startswith("FORGE")
+
+
 def test_play_server_does_not_reverse_resolve_its_host(monkeypatch):
     # http.server's default server_bind calls socket.getfqdn, which can stall ~30 s on macOS
     import socket
@@ -239,3 +284,8 @@ def test_play_server_does_not_reverse_resolve_its_host(monkeypatch):
     monkeypatch.setattr(socket, "getfqdn", boom)
     server = serve.PlayServer(("127.0.0.1", 0), serve.PlayHandler, fallback.resolve, "fallback (free)")
     server.server_close()
+
+
+def test_playground_page_knows_forge_mode_and_badge():
+    assert "/^FORGE/" in serve.PAGE
+    assert "g.source === 'forge'" in serve.PAGE
